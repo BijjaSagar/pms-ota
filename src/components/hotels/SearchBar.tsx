@@ -211,10 +211,14 @@ export function SearchBar({ initial, onSearch, variant = 'hero', className }: Se
               />
             </div>
             <div className="relative min-w-0 border-l border-[#dce3ea] pl-3">
-              <label htmlFor={`${variant}-check-out`} className={labelClass}>
+              <CalendarDays
+                className={cn(tealIconClass, 'pointer-events-none absolute left-3 top-1/2 -translate-y-1/2')}
+                aria-hidden="true"
+              />
+              <label htmlFor={`${variant}-check-out`} className={cn(labelClass, 'pl-7')}>
                 Check-out
               </label>
-              <span className="pointer-events-none absolute inset-x-0 bottom-0 text-sm font-medium text-[#172b4d]">
+              <span className="pointer-events-none absolute bottom-0 left-10 right-0 text-sm font-medium text-[#172b4d]">
                 {formatNumericDate(search.checkOut)}
               </span>
               <input
@@ -224,7 +228,7 @@ export function SearchBar({ initial, onSearch, variant = 'hero', className }: Se
                 value={search.checkOut}
                 onChange={(event) => setField('checkOut', event.target.value)}
                 aria-label="Check-out date"
-                className={cn(valueClass, 'relative cursor-pointer text-transparent caret-transparent')}
+                className={cn(valueClass, 'relative cursor-pointer pl-7 text-transparent caret-transparent')}
               />
             </div>
           </div>

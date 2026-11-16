@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, Expand, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '../../utils/cn'
 
 interface GalleryProps {
@@ -41,7 +42,7 @@ export function Gallery({ images, name }: GalleryProps) {
   const gridImages = images.slice(0, 5)
   return (
     <>
-      <div className="grid gap-2 sm:grid-cols-4 sm:grid-rows-2">
+      <div className="grid gap-2 sm:h-[20rem] sm:grid-cols-4 sm:grid-rows-2 lg:h-[24rem]">
         <button
           type="button"
           onClick={() => setActiveIndex(0)}
@@ -77,62 +78,89 @@ export function Gallery({ images, name }: GalleryProps) {
         ))}
       </div>
 
-      {isOpen ? (
-        <div
-          className="fixed inset-0 z-[100] flex animate-fade-in items-center justify-center bg-brand/95 p-4 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${name} photo gallery`}
-          onClick={close}
-        >
-          <button
-            type="button"
-            onClick={close}
-            className="absolute right-5 top-5 flex size-11 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
-            aria-label="Close gallery"
-          >
-            <X className="size-5" />
-          </button>
+      {isOpen
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[100] flex animate-fade-in items-center justify-center bg-brand/95 p-3 pt-16 backdrop-blur-sm sm:p-6 sm:pt-16"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${name} photo gallery`}
+              onClick={close}
+            >
+              <button
+                type="button"
+                onClick={close}
+                className="absolute right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-10 flex size-11 items-center justify-center rounded-full border border-white/40 bg-black/55 text-white shadow-lg backdrop-blur-sm transition hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent sm:right-5 sm:top-5"
+                aria-label="Close gallery"
+              >
+                <X className="size-5" aria-hidden="true" />
+              </button>
 
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              previous()
-            }}
-            className="absolute left-3 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:left-6"
-            aria-label="Previous photo"
-          >
-            <ChevronLeft className="size-5" />
-          </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  previous()
+                }}
+                className="absolute left-3 top-1/2 z-10 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:left-5 sm:flex"
+                aria-label="Previous photo"
+              >
+                <ChevronLeft className="size-5" />
+              </button>
 
-          <figure
-            className="max-h-[85vh] max-w-6xl animate-scale-in"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <img
-              src={images[activeIndex ?? 0]}
-              alt={`${name} — photo ${(activeIndex ?? 0) + 1}`}
-              className="max-h-[78vh] w-auto rounded-xl object-contain"
-            />
-            <figcaption className="mt-4 text-center text-xs font-medium tracking-[0.16em] text-white/70">
-              {(activeIndex ?? 0) + 1} / {images.length}
-            </figcaption>
-          </figure>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  next()
+                }}
+                className="absolute right-3 top-1/2 z-10 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:right-5 sm:flex"
+                aria-label="Next photo"
+              >
+                <ChevronRight className="size-5" />
+              </button>
 
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              next()
-            }}
-            className="absolute right-3 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:right-6"
-            aria-label="Next photo"
-          >
-            <ChevronRight className="size-5" />
-          </button>
-        </div>
-      ) : null}
+              <div
+                className="flex w-full max-w-5xl animate-scale-in flex-col items-center"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <figure className="flex w-full flex-col items-center">
+                  <img
+                    src={images[activeIndex ?? 0]}
+                    alt={`${name} — photo ${(activeIndex ?? 0) + 1}`}
+                    className="max-h-[60dvh] w-auto max-w-full rounded-xl object-contain sm:max-h-[78vh]"
+                  />
+                  <figcaption className="mt-3 hidden text-center text-xs font-medium tracking-[0.16em] text-white/70 sm:block">
+                    {(activeIndex ?? 0) + 1} / {images.length}
+                  </figcaption>
+                </figure>
+
+                <div className="mt-3 flex w-full max-w-sm items-center justify-between gap-4 sm:hidden">
+                  <button
+                    type="button"
+                    onClick={previous}
+                    className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+                    aria-label="Previous photo"
+                  >
+                    <ChevronLeft className="size-5" />
+                  </button>
+                  <p className="text-xs font-medium tracking-[0.16em] text-white/70">
+                    {(activeIndex ?? 0) + 1} / {images.length}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={next}
+                    className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+                    aria-label="Next photo"
+                  >
+                    <ChevronRight className="size-5" />
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   )
 }

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
+import { AuthModalProvider } from './context/AuthModalProvider'
 import { BookingProvider } from './context/BookingProvider'
 import { TripsProvider } from './context/TripsProvider'
 import { WishlistProvider } from './context/WishlistProvider'
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')!).render(
       <BookingProvider>
         <WishlistProvider>
           <TripsProvider>
-            <App />
+            <AuthModalProvider>
+              <App />
+            </AuthModalProvider>
           </TripsProvider>
         </WishlistProvider>
       </BookingProvider>

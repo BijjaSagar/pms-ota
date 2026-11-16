@@ -8,6 +8,7 @@ import type { ProfileSection } from '../components/profile/ProfileNav'
 import { ResetPasswordSection } from '../components/profile/ResetPasswordSection'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
+import { useAuthModal } from '../context/useAuthModal'
 import { initialCoTravellers, initialDevices, sampleProfile } from '../data/profile'
 import type { CoTraveller, ProfileDocument, UserProfile } from '../types'
 
@@ -17,6 +18,7 @@ function initials(profile: UserProfile) {
 
 export function ProfilePage() {
   const navigate = useNavigate()
+  const { signOut, openAuth } = useAuthModal()
   const [activeSection, setActiveSection] = useState<ProfileSection>('profile')
   const [profile, setProfile] = useState<UserProfile>(() => ({
     ...sampleProfile,
@@ -66,7 +68,9 @@ export function ProfilePage() {
 
   const confirmLogout = () => {
     setLogoutOpen(false)
+    signOut()
     navigate('/')
+    window.setTimeout(() => openAuth(), 0)
   }
 
   return (

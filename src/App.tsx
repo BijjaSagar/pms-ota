@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router-dom'
+import { RequireAuth } from './components/auth/RequireAuth'
 import { Layout } from './components/layout/Layout'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { ConfirmationPage } from './pages/ConfirmationPage'
@@ -18,17 +19,19 @@ function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<HomePage />} />
-        <Route path="hotels" element={<HotelsPage />} />
-        <Route path="wishlist" element={<WishlistPage />} />
-        <Route path="hotels/:slug/photos" element={<HotelGalleryPage />} />
-        <Route path="hotels/:slug" element={<HotelDetailsPage />} />
-        <Route path="checkout" element={<CheckoutPage />} />
-        <Route path="trips" element={<MyTripsPage />} />
-        <Route path="profile" element={<ProfilePage />} />
-        <Route path="make-a-payment" element={<MakeAPaymentPage />} />
-        <Route path="payment" element={<PaymentPage />} />
-        <Route path="confirmation/:bookingId" element={<ConfirmationPage />} />
-        <Route path="*" element={<NotFoundPage />} />
+        <Route element={<RequireAuth />}>
+          <Route path="hotels" element={<HotelsPage />} />
+          <Route path="wishlist" element={<WishlistPage />} />
+          <Route path="hotels/:slug/photos" element={<HotelGalleryPage />} />
+          <Route path="hotels/:slug" element={<HotelDetailsPage />} />
+          <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="trips" element={<MyTripsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="make-a-payment" element={<MakeAPaymentPage />} />
+          <Route path="payment" element={<PaymentPage />} />
+          <Route path="confirmation/:bookingId" element={<ConfirmationPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
       </Route>
     </Routes>
   )

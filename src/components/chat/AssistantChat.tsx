@@ -1,5 +1,6 @@
 import { Send, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useBooking } from '../../context/useBooking'
 import { cn } from '../../utils/cn'
 import {
@@ -39,6 +40,8 @@ function TypingIndicator() {
 }
 
 export function AssistantChat() {
+  const { pathname } = useLocation()
+  const isHotelDetailsPage = /^\/hotels\/[^/]+$/.test(pathname)
   const { search, selectedHotel, selectedRoom, confirmation } = useBooking()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatEntry[]>([])
@@ -129,7 +132,10 @@ export function AssistantChat() {
         aria-expanded={open}
         aria-controls="assistant-panel"
         className={cn(
-          'no-print fixed bottom-5 right-4 z-[80] flex items-center rounded-full bg-brand p-1.5 text-white shadow-[0_18px_40px_-16px_rgba(14,43,59,0.7)] transition-all duration-300 hover:bg-[#0a2331] hover:shadow-[0_22px_50px_-18px_rgba(14,43,59,0.8)] sm:bottom-6 sm:right-6',
+          'no-print fixed right-4 z-[80] flex items-center rounded-full bg-brand p-1.5 text-white shadow-[0_18px_40px_-16px_rgba(14,43,59,0.7)] transition-all duration-300 hover:bg-[#0a2331] hover:shadow-[0_22px_50px_-18px_rgba(14,43,59,0.8)] sm:right-6',
+          isHotelDetailsPage
+            ? 'bottom-[5.75rem] sm:bottom-[5.75rem] lg:bottom-6'
+            : 'bottom-5 sm:bottom-6',
           open && 'pointer-events-none translate-y-3 opacity-0',
         )}
       >
