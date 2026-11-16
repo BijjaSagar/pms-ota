@@ -12,6 +12,7 @@ import { SearchBar } from '../components/hotels/SearchBar'
 import { HotelCard } from '../components/hotels/HotelCard'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { buttonStyles } from '../components/ui/buttonStyles'
+import { useAuthModal } from '../context/useAuthModal'
 import { useBooking } from '../context/useBooking'
 import { destinations, hotels } from '../data/hotels'
 import { coupons } from '../data/offers'
@@ -81,8 +82,13 @@ const faqs = [
 export function HomePage() {
   const navigate = useNavigate()
   const { search, updateSearch } = useBooking()
+  const { isSignedIn, openAuth } = useAuthModal()
 
   const handleSearch = (params: SearchParams) => {
+    if (!isSignedIn) {
+      openAuth()
+      return
+    }
     updateSearch(params)
     const query = new URLSearchParams({
       destination: params.destination,
@@ -126,10 +132,17 @@ export function HomePage() {
               </p>
 
               <div className="mt-8">
-                <Link to="/hotels" className={buttonStyles('primary', 'lg')}>
-                  Explore stays
-                  <ArrowRight className="size-4" aria-hidden="true" />
-                </Link>
+                {isSignedIn ? (
+                  <Link to="/hotels" className={buttonStyles('primary', 'lg')}>
+                    Explore stays
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Link>
+                ) : (
+                  <button type="button" onClick={openAuth} className={buttonStyles('primary', 'lg')}>
+                    Explore stays
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </button>
+                )}
                 <div className="mt-7 w-full">
                   <SearchBar initial={search} onSearch={handleSearch} />
                 </div>
@@ -196,13 +209,24 @@ export function HomePage() {
                     ? `${coupon.value}% off selected stays up to ${coupon.maxDiscount ? `₹${coupon.maxDiscount}` : 'the listed cap'}`
                     : `₹${coupon.value} off stays over ₹${coupon.minSpend}`}
                 </p>
-                <Link
-                  to="/hotels"
-                  className="mt-6 inline-flex items-center gap-[7px] text-[13px] font-bold text-[#0d9f91] transition-colors hover:text-[#0b887d]"
-                >
-                  Book this offer
-                  <ArrowRight className="size-4" aria-hidden="true" />
-                </Link>
+                {isSignedIn ? (
+                  <Link
+                    to="/hotels"
+                    className="mt-6 inline-flex items-center gap-[7px] text-[13px] font-bold text-[#0d9f91] transition-colors hover:text-[#0b887d]"
+                  >
+                    Book this offer
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openAuth}
+                    className="mt-6 inline-flex items-center gap-[7px] text-[13px] font-bold text-[#0d9f91] transition-colors hover:text-[#0b887d]"
+                  >
+                    Book this offer
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -215,47 +239,90 @@ export function HomePage() {
           title="Destinations with a sense of place"
           description="From caldera cliffs to quiet temple gardens — a short list of the places our travellers return to, season after season."
           action={
-            <Link
-              to="/hotels"
-              className="inline-flex items-center gap-[7px] text-[13px] font-bold text-[#0d9f91] transition-colors hover:text-[#0b887d]"
-            >
-              Explore all destinations
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Link>
+            isSignedIn ? (
+              <Link
+                to="/hotels"
+                className="inline-flex items-center gap-[7px] text-[13px] font-bold text-[#0d9f91] transition-colors hover:text-[#0b887d]"
+              >
+                Explore all destinations
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={openAuth}
+                className="inline-flex items-center gap-[7px] text-[13px] font-bold text-[#0d9f91] transition-colors hover:text-[#0b887d]"
+              >
+                Explore all destinations
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </button>
+            )
           }
         />
 
         <div className="mx-auto mt-10 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {destinations.map((destination, index) => (
-            <Link
-              key={destination.slug}
-              to={`/hotels?destination=${encodeURIComponent(destination.city)}`}
-              className="group relative overflow-hidden rounded-2xl animate-fade-up"
-              style={{ animationDelay: `${index * 60}ms` }}
-            >
-              <img
-                src={destination.image}
-                alt={`${destination.city}, ${destination.country}`}
-                loading="lazy"
-                className="aspect-square w-full object-cover transition-transform duration-[900ms] group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-brand/85 via-brand/20 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-5">
-                <p className="text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-white/65">
-                  {destination.country}
-                </p>
-                <h3 className="mt-1 font-display text-2xl text-white">{destination.city}</h3>
-                <div className="mt-2 flex items-center justify-between">
-                  <p className="text-xs text-white/75">
-                    {destination.tagline} · {destination.hotels} stays
+          {destinations.map((destination, index) =>
+            isSignedIn ? (
+              <Link
+                key={destination.slug}
+                to={`/hotels?destination=${encodeURIComponent(destination.city)}`}
+                className="group relative overflow-hidden rounded-2xl animate-fade-up"
+                style={{ animationDelay: `${index * 60}ms` }}
+              >
+                <img
+                  src={destination.image}
+                  alt={`${destination.city}, ${destination.country}`}
+                  loading="lazy"
+                  className="aspect-square w-full object-cover transition-transform duration-[900ms] group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-brand/85 via-brand/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-5">
+                  <p className="text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-white/65">
+                    {destination.country}
                   </p>
-                  <span className="flex size-8 items-center justify-center rounded-full bg-white/15 text-white opacity-0 transition-all duration-300 group-hover:opacity-100">
-                    <ArrowRight className="size-4" aria-hidden="true" />
-                  </span>
+                  <h3 className="mt-1 font-display text-2xl text-white">{destination.city}</h3>
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-white/75">
+                      {destination.tagline} · {destination.hotels} stays
+                    </p>
+                    <span className="flex size-8 items-center justify-center rounded-full bg-white/15 text-white opacity-0 transition-all duration-300 group-hover:opacity-100">
+                      <ArrowRight className="size-4" aria-hidden="true" />
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ) : (
+              <button
+                key={destination.slug}
+                type="button"
+                onClick={openAuth}
+                className="group relative w-full overflow-hidden rounded-2xl text-left animate-fade-up"
+                style={{ animationDelay: `${index * 60}ms` }}
+              >
+                <img
+                  src={destination.image}
+                  alt={`${destination.city}, ${destination.country}`}
+                  loading="lazy"
+                  className="aspect-square w-full object-cover transition-transform duration-[900ms] group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-brand/85 via-brand/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-5">
+                  <p className="text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-white/65">
+                    {destination.country}
+                  </p>
+                  <h3 className="mt-1 font-display text-2xl text-white">{destination.city}</h3>
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-white/75">
+                      {destination.tagline} · {destination.hotels} stays
+                    </p>
+                    <span className="flex size-8 items-center justify-center rounded-full bg-white/15 text-white opacity-0 transition-all duration-300 group-hover:opacity-100">
+                      <ArrowRight className="size-4" aria-hidden="true" />
+                    </span>
+                  </div>
+                </div>
+              </button>
+            ),
+          )}
         </div>
       </section>
 
@@ -266,10 +333,21 @@ export function HomePage() {
             title="Stays our travellers love"
             description="A handful of properties that define what we look for: character, craft and a genuine sense of welcome."
             action={
-              <Link to="/hotels" className={`${buttonStyles('secondary', 'md')} text-accent`}>
-                View all stays
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Link>
+              isSignedIn ? (
+                <Link to="/hotels" className={`${buttonStyles('secondary', 'md')} text-accent`}>
+                  View all stays
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openAuth}
+                  className={`${buttonStyles('secondary', 'md')} text-accent`}
+                >
+                  View all stays
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </button>
+              )
             }
           />
           <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -360,9 +438,19 @@ export function HomePage() {
                   Speak to a specialist
                   <ArrowRight className="size-4" aria-hidden="true" />
                 </a>
-                <Link to="/hotels" className={buttonStyles('outline-inverse', 'md')}>
-                  Browse the collection
-                </Link>
+                {isSignedIn ? (
+                  <Link to="/hotels" className={buttonStyles('outline-inverse', 'md')}>
+                    Browse the collection
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openAuth}
+                    className={buttonStyles('outline-inverse', 'md')}
+                  >
+                    Browse the collection
+                  </button>
+                )}
               </div>
             </div>
             <div className="grid gap-3">

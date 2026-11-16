@@ -58,6 +58,7 @@ export function ImportantInfoCard({ hotel }: { hotel: Hotel }) {
         onClose={() => setOpen(false)}
         title={`${hotel.name} — good to know`}
         description="Policies, house rules and the practical details for your stay."
+        centered
       >
         <div className="space-y-5 text-sm">
           <div className="grid gap-3 sm:grid-cols-2">

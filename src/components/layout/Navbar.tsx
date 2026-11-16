@@ -1,6 +1,7 @@
 import { ChevronDown, CreditCard, Heart, Menu, UserRound, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
+import { useAuthModal } from '../../context/useAuthModal'
 import { useWishlist } from '../../context/useWishlist'
 import { cn } from '../../utils/cn'
 import { buttonStyles } from '../ui/buttonStyles'
@@ -71,6 +72,7 @@ export function Navbar() {
   const [currency, setCurrency] = useState('INR')
   const [language, setLanguage] = useState('en')
   const { count: wishlistCount } = useWishlist()
+  const { isSignedIn, openAuth } = useAuthModal()
 
   const accountLinks = [
     { label: 'My profile', to: '/profile', icon: UserRound },
@@ -84,76 +86,123 @@ export function Navbar() {
       <div className="container-page flex h-[4.75rem] items-center justify-between gap-6">
         <Logo />
 
-        <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
-          {links.map((link) =>
-            link.to.includes('#') ? (
-              <Link
-                key={link.label}
-                to={link.to}
-                className="rounded-full px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-brand-soft hover:text-ink"
-              >
-                {link.label}
-              </Link>
-            ) : (
-              <NavLink
-                key={link.label}
-                to={link.to}
-                className={({ isActive }) =>
-                  cn(
-                    'rounded-full px-4 py-2 text-sm font-medium transition-colors hover:bg-brand-soft hover:text-ink',
-                    isActive ? 'text-ink' : 'text-muted',
-                  )
-                }
-              >
-                {link.label}
-              </NavLink>
-            ),
-          )}
-        </nav>
+          <nav className="hidden items-center gap-1 lg:flex" aria-label="Main navigation">
+            {links.map((link) => {
+              if (link.to.includes('#')) {
+                return (
+                  <Link
+                    key={link.label}
+                    to={link.to}
+                    className="rounded-full px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-brand-soft hover:text-ink"
+                  >
+                    {link.label}
+                  </Link>
+                )
+              }
+              if (!isSignedIn && link.to === '/hotels') {
+                return (
+                  <button
+                    key={link.label}
+                    type="button"
+                    onClick={openAuth}
+                    className="rounded-full px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-brand-soft hover:text-ink"
+                  >
+                    {link.label}
+                  </button>
+                )
+              }
+              return (
+                <NavLink
+                  key={link.label}
+                  to={link.to}
+                  className={({ isActive }) =>
+                    cn(
+                      'rounded-full px-4 py-2 text-sm font-medium transition-colors hover:bg-brand-soft hover:text-ink',
+                      isActive ? 'text-ink' : 'text-muted',
+                    )
+                  }
+                >
+                  {link.label}
+                </NavLink>
+              )
+            })}
+          </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Link
-            to="/wishlist"
-            aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} saved` : ''}`}
-            className="relative inline-flex size-10 items-center justify-center rounded-full border border-line text-muted transition hover:border-[#0d9f91] hover:text-[#0d9f91]"
-          >
-            <Heart className="size-4" aria-hidden="true" />
-            {wishlistCount > 0 ? (
-              <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[0.6rem] font-semibold leading-4 text-white">
-                {wishlistCount}
-              </span>
-            ) : null}
-          </Link>
-          <Link
-            to="/hotels"
-            className={buttonStyles('primary', 'sm', false)}
-          >
-            Book a stay
-          </Link>
-          <div className="relative">
+          {isSignedIn ? (
+            <Link
+              to="/wishlist"
+              aria-label={`Wishlist${wishlistCount > 0 ? `, ${wishlistCount} saved` : ''}`}
+              className="relative inline-flex size-10 items-center justify-center rounded-full border border-line text-muted transition hover:border-[#0d9f91] hover:text-[#0d9f91]"
+            >
+              <Heart className="size-4" aria-hidden="true" />
+              {wishlistCount > 0 ? (
+                <span className="absolute -right-1 -top-1 flex min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[0.6rem] font-semibold leading-4 text-white">
+                  {wishlistCount}
+                </span>
+              ) : null}
+            </Link>
+          ) : (
             <button
               type="button"
-              onClick={() => setAccountOpen((current) => !current)}
-              aria-expanded={accountOpen}
-              className="rounded-full px-3 py-2 text-sm font-medium text-muted transition-colors hover:text-ink"
+              onClick={openAuth}
+              aria-label="Sign in to view wishlist"
+              className="relative inline-flex size-10 items-center justify-center rounded-full border border-line text-muted transition hover:border-[#0d9f91] hover:text-[#0d9f91]"
             >
-              Sign in
+              <Heart className="size-4" aria-hidden="true" />
             </button>
-            {accountOpen ? (
-              <div className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-line bg-white p-2 shadow-[0_20px_45px_-25px_rgba(14,43,59,0.45)]">
-                {accountLinks.map(({ label, to, icon: Icon }) => (
-                  <Link
-                    key={label}
-                    to={to}
-                    onClick={() => setAccountOpen(false)}
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-muted transition hover:bg-canvas hover:text-ink"
+          )}
+          {isSignedIn ? (
+            <Link to="/hotels" className={buttonStyles('primary', 'sm', false)}>
+              Book a stay
+            </Link>
+          ) : (
+            <button type="button" onClick={openAuth} className={buttonStyles('primary', 'sm', false)}>
+              Book a stay
+            </button>
+          )}
+          <div>
+            {isSignedIn ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setAccountOpen((current) => !current)}
+                  aria-expanded={accountOpen}
+                  aria-haspopup="menu"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted transition-colors hover:text-ink"
+                >
+                  My account
+                  <ChevronDown className="size-3.5" aria-hidden="true" />
+                </button>
+                {accountOpen ? (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-line bg-white p-2 shadow-[0_20px_45px_-25px_rgba(14,43,59,0.45)]"
                   >
-                    <Icon className="size-4" aria-hidden="true" />
-                    {label}
-                  </Link>
-                ))}
+                    {accountLinks.map(({ label, to, icon: Icon }) => (
+                      <Link
+                        key={label}
+                        role="menuitem"
+                        to={to}
+                        onClick={() => setAccountOpen(false)}
+                        className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-muted transition hover:bg-canvas hover:text-ink"
+                      >
+                        <Icon className="size-4" aria-hidden="true" />
+                        {label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
+            ) : (
+              <button
+                type="button"
+                onClick={openAuth}
+                className="rounded-full px-3 py-2 text-sm font-medium text-muted transition-colors hover:text-ink"
+              >
+                Sign in
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -182,56 +231,128 @@ export function Navbar() {
       {open ? (
         <div id="mobile-menu" className="border-t border-line bg-canvas px-5 pb-6 pt-4 md:hidden">
           <nav className="flex flex-col" aria-label="Mobile navigation">
-            {links.map((link) => (
-              <Link
-                key={link.label}
-                to={link.to}
-                onClick={() => setOpen(false)}
-                className="border-b border-line/70 py-3.5 text-sm font-medium text-ink"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {links.map((link) => {
+              if (link.to.includes('#')) {
+                return (
+                  <Link
+                    key={link.label}
+                    to={link.to}
+                    onClick={() => setOpen(false)}
+                    className="border-b border-line/70 py-3.5 text-sm font-medium text-ink"
+                  >
+                    {link.label}
+                  </Link>
+                )
+              }
+              if (!isSignedIn && link.to === '/hotels') {
+                return (
+                  <button
+                    key={link.label}
+                    type="button"
+                    onClick={() => {
+                      setOpen(false)
+                      openAuth()
+                    }}
+                    className="border-b border-line/70 py-3.5 text-left text-sm font-medium text-ink"
+                  >
+                    {link.label}
+                  </button>
+                )
+              }
+              return (
+                <Link
+                  key={link.label}
+                  to={link.to}
+                  onClick={() => setOpen(false)}
+                  className="border-b border-line/70 py-3.5 text-sm font-medium text-ink"
+                >
+                  {link.label}
+                </Link>
+              )
+            })}
           </nav>
           <div className="mt-5 flex items-center gap-3">
-            <Link
-              to="/hotels"
-              onClick={() => setOpen(false)}
-              className={buttonStyles('primary', 'md', true)}
-            >
-              Book a stay
-            </Link>
+            {isSignedIn ? (
+              <Link
+                to="/hotels"
+                onClick={() => setOpen(false)}
+                className={buttonStyles('primary', 'md', true)}
+              >
+                Book a stay
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  openAuth()
+                }}
+                className={buttonStyles('primary', 'md', true)}
+              >
+                Book a stay
+              </button>
+            )}
           </div>
-          <Link
-            to="/wishlist"
-            onClick={() => setOpen(false)}
-            className="mt-3 flex items-center justify-between rounded-full border border-line px-4 py-2.5 text-sm font-medium text-ink"
-          >
-            <span className="inline-flex items-center gap-2">
-              <Heart className="size-4 text-accent" aria-hidden="true" />
-              Wishlist
-            </span>
-            {wishlistCount > 0 ? (
-              <span className="flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[0.65rem] font-semibold leading-5 text-white">
-                {wishlistCount}
+          {isSignedIn ? (
+            <Link
+              to="/wishlist"
+              onClick={() => setOpen(false)}
+              className="mt-3 flex items-center justify-between rounded-full border border-line px-4 py-2.5 text-sm font-medium text-ink"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Heart className="size-4 text-accent" aria-hidden="true" />
+                Wishlist
               </span>
-            ) : null}
-          </Link>
+              {wishlistCount > 0 ? (
+                <span className="flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-[0.65rem] font-semibold leading-5 text-white">
+                  {wishlistCount}
+                </span>
+              ) : null}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                openAuth()
+              }}
+              className="mt-3 flex w-full items-center justify-between rounded-full border border-line px-4 py-2.5 text-sm font-medium text-ink"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Heart className="size-4 text-accent" aria-hidden="true" />
+                Wishlist
+              </span>
+            </button>
+          )}
           <div className="mt-3 flex items-center justify-between text-sm text-muted">
             <button type="button" onClick={() => setLocaleOpen(true)} className="inline-flex items-center gap-1.5">
               <span aria-hidden="true">{country}</span>
               {currency}
             </button>
-            <button
-              type="button"
-              onClick={() => setAccountOpen((current) => !current)}
-              aria-expanded={accountOpen}
-              className="font-medium text-ink"
-            >
-              Sign in
-            </button>
+            {isSignedIn ? (
+              <button
+                type="button"
+                onClick={() => setAccountOpen((current) => !current)}
+                aria-expanded={accountOpen}
+                className="inline-flex items-center gap-1 font-medium text-ink"
+              >
+                My account
+                <ChevronDown className="size-3.5" aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false)
+                  openAuth()
+                }}
+                className="font-medium text-ink"
+              >
+                Sign in
+              </button>
+            )}
           </div>
-          {accountOpen ? (
+          {isSignedIn && accountOpen ? (
             <nav className="mt-3 border-t border-line pt-2" aria-label="Account navigation">
               {accountLinks.map(({ label, to, icon: Icon }) => (
                 <Link

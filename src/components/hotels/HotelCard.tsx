@@ -1,6 +1,7 @@
 import { CircleDollarSign, Clock3, Clock9, Heart, Image, MapPin, Video } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuthModal } from '../../context/useAuthModal'
 import { useWishlist } from '../../context/useWishlist'
 import type { Hotel } from '../../types'
 import { cn } from '../../utils/cn'
@@ -40,7 +41,14 @@ export function HotelCard({
   style?: CSSProperties
 }) {
   const { isSaved, toggleWishlist } = useWishlist()
+  const { isSignedIn, openAuth } = useAuthModal()
   const saved = isSaved(hotel.id)
+
+  const guardTo = (_path: string) => (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isSignedIn) return
+    event.preventDefault()
+    openAuth()
+  }
 
   return (
     <article
@@ -51,7 +59,7 @@ export function HotelCard({
       )}
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-brand-soft">
-        <Link to={`/hotels/${hotel.slug}`} aria-label={`View ${hotel.name}`}>
+        <Link to={`/hotels/${hotel.slug}`} onClick={guardTo(`/hotels/${hotel.slug}`)} aria-label={`View ${hotel.name}`}>
           <img
             src={hotel.images[0]}
             alt={`${hotel.name} in ${hotel.location.city}`}
@@ -63,7 +71,7 @@ export function HotelCard({
           <Badge tone="image">{hotel.propertyType}</Badge>
           <button
             type="button"
-            onClick={() => toggleWishlist(hotel.id)}
+            onClick={() => (isSignedIn ? toggleWishlist(hotel.id) : openAuth())}
             aria-pressed={saved}
             aria-label={saved ? `Remove ${hotel.name} from saved stays` : `Save ${hotel.name}`}
             className="pointer-events-auto flex size-9 items-center justify-center rounded-full bg-white/90 text-ink shadow-sm backdrop-blur transition hover:bg-white"
@@ -74,7 +82,13 @@ export function HotelCard({
         <div className="absolute inset-x-0 bottom-0 flex justify-end p-3">
           <Link
             to={`/hotels/${hotel.slug}/photos`}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation()
+              if (!isSignedIn) {
+                event.preventDefault()
+                openAuth()
+              }
+            }}
             className="inline-flex items-center gap-1.5 rounded-full bg-black/65 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-black/80"
             aria-label={`View photos and videos for ${hotel.name}`}
           >
@@ -98,7 +112,7 @@ export function HotelCard({
           <Stars count={hotel.stars} />
         </div>
 
-        <Link to={`/hotels/${hotel.slug}`} className="mt-2">
+        <Link to={`/hotels/${hotel.slug}`} onClick={guardTo(`/hotels/${hotel.slug}`)} className="mt-2">
           <h3 className="font-display text-[1.65rem] leading-tight tracking-tight text-ink transition-colors group-hover:text-brand">
             {hotel.name}
           </h3>
