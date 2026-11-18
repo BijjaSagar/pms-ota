@@ -103,7 +103,7 @@ export function Header({ children, overlay = false }) {
               {accountOpen && (
                 <div className="account-menu glass-pop" role="menu">
                   <div className="account-user">
-                    <strong>{user.name}</strong>
+                    <strong>{user.name || 'My account'}</strong>
                     <span>{user.email || `+91 ${user.phone}`}</span>
                   </div>
                   {ACCOUNT_LINKS.map(({ label, to, Icon }) => (

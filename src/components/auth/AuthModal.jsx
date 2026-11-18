@@ -1,5 +1,5 @@
 // Sign in or sign up with email or mobile + one-time code.
-// One flow for everyone: enter email/mobile -> verify OTP -> (new users only) add your name.
+// One flow for everyone: enter email/mobile -> verify OTP -> signed in (new accounts are created automatically).
 // Rendered into document.body so page transforms can't trap it (same reason as PortalModal).
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -28,10 +28,9 @@ function GoogleMark() {
 export function AuthModal({ message = '', onClose }) {
   const { findUser, register, login } = useAuth();
   const [method, setMethod] = useState('email'); // 'email' | 'phone'
-  const [step, setStep] = useState('identify'); // 'identify' | 'otp' | 'name'
+  const [step, setStep] = useState('identify'); // 'identify' | 'otp'
   const [value, setValue] = useState('');
   const [otp, setOtp] = useState(emptyOtp);
-  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const [resendIn, setResendIn] = useState(0);
@@ -108,16 +107,10 @@ export function AuthModal({ message = '', onClose }) {
     const code = otp.join('');
     if (code.length !== OTP_LENGTH) { setError(`Enter the ${OTP_LENGTH}-digit code.`); return; }
     if (!verifyOtp(code)) { setError('That code is not correct. Please try again.'); return; }
+    // Existing user -> sign in; new user -> account created straight away (no name step).
     const existing = findUser(method, value);
-    if (existing) { login(existing); onClose(); return; }
-    setError('');
-    setStep('name');
-  };
-
-  const finishSignup = (e) => {
-    e.preventDefault();
-    if (name.trim().length < 2) { setError('Please enter your full name.'); return; }
-    register({ name, method, value });
+    if (existing) login(existing);
+    else register({ name: '', method, value });
     onClose();
   };
 
@@ -128,7 +121,7 @@ export function AuthModal({ message = '', onClose }) {
     focusBox(0);
   };
 
-  const title = step === 'identify' ? 'Sign in or sign up' : step === 'otp' ? 'Verify OTP' : 'Almost there';
+  const title = step === 'identify' ? 'Sign in or sign up' : 'Verify OTP';
 
   return createPortal(
     <Modal title={title} onClose={onClose}>
@@ -202,19 +195,6 @@ export function AuthModal({ message = '', onClose }) {
                 <ArrowLeft size={15} />Change {isEmail ? 'email' : 'number'}
               </button>
             </div>
-          </form>
-        )}
-
-        {step === 'name' && (
-          <form className="auth-form" onSubmit={finishSignup} noValidate>
-            <p className="auth-sub">Looks like you&apos;re new here. What should we call you?</p>
-            <label className={`form-field ${error ? 'has-error' : ''}`}>
-              <span className="auth-label">Full name</span>
-              <input type="text" autoComplete="name" placeholder="e.g. Ananya Sharma" value={name} autoFocus
-                aria-invalid={Boolean(error)} onChange={(e) => { setName(e.target.value); setError(''); }} />
-              {error && <span className="field-error" role="alert">{error}</span>}
-            </label>
-            <button type="submit" className="btn btn-dark btn-block auth-cta">Create account</button>
           </form>
         )}
       </div>
