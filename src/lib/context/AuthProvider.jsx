@@ -75,6 +75,11 @@ function AuthProvider({ children }) {
     setModal((m) => ({ ...m, open: false }));
   }, []);
 
+  // First visit: signed-out users see the sign-in popup as soon as the site opens.
+  useEffect(() => {
+    if (!readJSON(SESSION_KEY, null)) setModal((m) => (m.open ? m : { open: true, mode: 'register', message: '' }));
+  }, []);
+
   const value = useMemo(
     () => ({
       user,

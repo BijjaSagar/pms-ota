@@ -10,16 +10,35 @@ import { ResetPasswordSection } from '../components/profile/ResetPasswordSection
 import { PortalModal as Modal } from '../components/profile/PortalModal.jsx';
 import { Badge } from '../components/ui/Badge.jsx';
 import { initialCoTravellers, initialDevices, sampleProfile } from '../lib/data/profile.js';
+import { useAuth } from '../lib/context/useAuth.js';
 import '../styles/account.css';
 
 function initials(profile) {
-  return `${profile.firstName.charAt(0)}${profile.lastName.charAt(0)}`.toUpperCase() || 'TX';
+  return `${profile.firstName.charAt(0)}${(profile.lastName || profile.firstName.slice(1)).charAt(0)}`.toUpperCase() || 'TX';
+}
+
+// Start the profile from the signed-in user's own details instead of the sample person.
+function profileFromUser(user) {
+  const parts = (user?.name ?? '').trim().split(/\s+/).filter(Boolean);
+  return {
+    ...sampleProfile,
+    firstName: parts[0] ?? '',
+    middleName: parts.length > 2 ? parts.slice(1, -1).join(' ') : '',
+    lastName: parts.length > 1 ? parts[parts.length - 1] : '',
+    dob: '',
+    cityOfResidence: '',
+    state: '',
+    mobile: user?.phone ?? '',
+    email: user?.email ?? '',
+    document: { ...sampleProfile.document, number: '', expiry: '' },
+  };
 }
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [activeSection, setActiveSection] = useState('profile');
-  const [profile, setProfile] = useState(() => ({ ...sampleProfile, document: { ...sampleProfile.document } }));
+  const [profile, setProfile] = useState(() => profileFromUser(user));
   const [travellers, setTravellers] = useState(initialCoTravellers);
   const [devices] = useState(initialDevices);
   const [logoutOpen, setLogoutOpen] = useState(false);
@@ -40,7 +59,7 @@ export default function ProfilePage() {
   };
   const removeTraveller = (id) => setTravellers((c) => c.filter((i) => i.id !== id));
   const closeLogout = useCallback(() => setLogoutOpen(false), []);
-  const confirmLogout = () => { setLogoutOpen(false); navigate('/'); };
+  const confirmLogout = () => { setLogoutOpen(false); navigate('/'); logout(); };
 
   return (
     <div className="container acct-page">
