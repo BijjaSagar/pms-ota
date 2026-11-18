@@ -5,7 +5,7 @@
    swipeable rows on phones.
    ========================================================== */
 
-.acct-page { padding: 36px 0 96px; }
+.acct-page { padding: 52px 0 96px; }
 .acct-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 26px; }
 .acct-head .section-sub { max-width: 560px; }
 .acct-kicker { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 6px 12px; border-radius: 999px; background: rgba(231, 238, 233, 0.8); color: var(--accent-dark); font-size: 12px; font-weight: 800; letter-spacing: 0.04em; }
@@ -191,7 +191,7 @@ a.app-row:hover { background: rgba(255, 255, 255, 0.8); color: var(--ink); }
   .prof-grid .span-2 { grid-column: auto; }
 }
 @media (max-width: 720px) {
-  .acct-page { padding-top: 22px; }
+  .acct-page { padding-top: 30px; }
   .acct-head { align-items: stretch; }
   .acct-head .seg-tabs { width: 100%; }
   .acct-head .seg-tab { flex: 1 0 auto; justify-content: center; }
@@ -205,7 +205,8 @@ a.app-row:hover { background: rgba(255, 255, 255, 0.8); color: var(--ink); }
   .rail-grid > * { flex: 0 0 86%; scroll-snap-align: start; }
   .form-grid-2 { grid-template-columns: minmax(0, 1fr); }
   .sec-card { padding: 18px; }
-  .prof-top { padding: 16px; }
+  .prof-top { padding: 16px; gap: 14px; }
+  .prof-top .prof-who { flex: 1 1 calc(100% - 90px); }
   .save-bar { bottom: 96px; border-radius: 22px; }
   .found { grid-template-columns: minmax(0, 1fr); }
   .found-photo { min-height: 170px; }

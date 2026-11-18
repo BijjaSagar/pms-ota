@@ -143,6 +143,14 @@ button { cursor: pointer; }
 .site-header > * { pointer-events: auto; }
 /* Home: navbar floats over the full-screen slider instead of pushing it down */
 .site-header.is-overlay { position: fixed; left: 0; right: 0; }
+/* Inner pages: navbar stays pinned; a soft fade behind it keeps scrolled content from showing around the bar */
+.site-header:not(.is-overlay)::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; bottom: -22px; z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(246, 245, 241, 0.96) 0%, rgba(246, 245, 241, 0.85) 60%, rgba(246, 245, 241, 0) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  opacity: 0; transition: opacity .3s ease;
+}
+.site-header.is-scrolled:not(.is-overlay)::before { opacity: 1; }
 /* Floating, fully rounded glass bar (Apple-style) */
 .glass-nav {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
@@ -485,6 +493,8 @@ body {
 
 /* Footer as a floating glass panel */
 .site-footer { border-top: 0; padding: 0 0 28px; }
+/* Inner pages: breathing room between the page content and the footer card */
+.page-main + .site-footer { margin-top: clamp(48px, 7vw, 88px); }
 .site-footer > .container { border-radius: 30px; width: calc(100% - 64px); max-width: 1216px; } /* edges line up with the navbar & sections */
 
 /* Membership band: dark glass */

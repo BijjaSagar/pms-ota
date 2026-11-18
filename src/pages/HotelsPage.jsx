@@ -3,13 +3,13 @@
 import { CheckCircle2, Clock3, Clock9, CircleDollarSign, Heart, Images, SearchX, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { FilterPanel, PRICE_MAX } from '../components/hotels/FilterPanel.jsx';
+import { FilterPanel } from '../components/hotels/FilterPanel.jsx';
 import { SearchBar } from '../components/hotels/SearchBar.jsx';
 import { Photo } from '../components/Layout.jsx';
 import { Stars } from '../components/ui/Badge.jsx';
 import { useBooking } from '../lib/context/useBooking.js';
 import { useWishlist } from '../lib/context/useWishlist.js';
-import { hotels } from '../lib/data/hotels.js';
+import { destinations, hotels } from '../lib/data/hotels.js';
 import { formatDate, nightsBetween } from '../lib/utils/date.js';
 import { formatCurrency } from '../lib/utils/pricing.js';
 import '../styles/hotels.css';
@@ -54,7 +54,10 @@ export default function HotelsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { search, updateSearch } = useBooking();
   const { isSaved, toggleWishlist } = useWishlist();
-  const [filters, setFilters] = useState(defaultFilters);
+  const [filters, setFilters] = useState(() => {
+    const type = searchParams.get('type');
+    return type ? { ...defaultFilters, propertyTypes: [type] } : defaultFilters;
+  });
   const [sort, setSort] = useState('recommended');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [compare, setCompare] = useState([]);
@@ -126,7 +129,7 @@ export default function HotelsPage() {
   const activeFilterCount =
     filters.propertyTypes.length + filters.amenities.length + filters.preferences.length + filters.starCategories.length +
     filters.flexibleCheckInOut.length + filters.houseRules.length + filters.businessEssentials.length +
-    (filters.minRating > 0 ? 1 : 0) + (filters.maxPrice < PRICE_MAX ? 1 : 0);
+    (filters.minRating > 0 ? 1 : 0) + (filters.maxPrice !== defaultFilters.maxPrice ? 1 : 0);
 
   const paramsFrom = (p) => ({
     destination: p.destination, checkIn: p.checkIn, checkOut: p.checkOut,
@@ -199,8 +202,22 @@ export default function HotelsPage() {
             {results.length === 0 && (
               <div className="card empty-state">
                 <span className="empty-icon"><SearchX size={22} /></span>
-                <p className="h-card">No stays match those filters</p>
-                <p className="muted-sm mb-16">Try widening your budget, removing an amenity or exploring a different destination.</p>
+                {place && !hotels.some((h) => [h.name, h.location.city, h.location.region, h.location.country].join(' ').toLowerCase().includes(place.toLowerCase())) ? (
+                  <>
+                    <p className="h-card">No TriponX stays in {place} yet</p>
+                    <p className="muted-sm mb-16">We're adding new places soon. Until then, try one of our destinations:</p>
+                    <div className="row-gap-10 wrap justify-center mb-16">
+                      {destinations.map((d) => (
+                        <button key={d.city} type="button" className="btn btn-outline btn-sm" onClick={() => handleDestinationChange(d.city)}>{d.city}</button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="h-card">No stays match those filters</p>
+                    <p className="muted-sm mb-16">Try widening your budget, removing an amenity or exploring a different destination.</p>
+                  </>
+                )}
                 <div className="row-gap-10 wrap justify-center">
                   <button type="button" className="btn btn-primary btn-sm" onClick={resetFilters}>Clear filters</button>
                   <Link to="/hotels" className="btn btn-outline btn-sm">Browse all stays</Link>
