@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { ArrowRight, Briefcase, Check, ChevronDown, CreditCard, Heart, Info, Lock, Menu, UserRound, X } from 'lucide-react';
+import { ArrowRight, Briefcase, Check, ChevronDown, CreditCard, Heart, Info, Globe, Lock, Menu, UserRound, X } from 'lucide-react';
 import { Logo } from './Icons.jsx';
 import { useWishlist } from '../lib/context/useWishlist.js';
 
@@ -83,7 +83,7 @@ export function Header({ children, overlay = false }) {
             </nav>
           )}
           <div className="header-actions">
-            <button type="button" className="btn glass-chip btn-sm hide-sm" onClick={() => setLocaleOpen(true)} aria-label="Currency and language settings">
+            <button type="button" className="btn glass-chip btn-sm hide-md" onClick={() => setLocaleOpen(true)} aria-label="Currency and language settings">
               {flagOf(locale.country)} {locale.currency} · {locale.language.toUpperCase()}
             </button>
             <Link to="/wishlist" className="icon-btn glass-chip nav-heart" aria-label={`Wishlist${wishlistCount ? `, ${wishlistCount} saved` : ''}`}>
@@ -99,6 +99,9 @@ export function Header({ children, overlay = false }) {
                   {ACCOUNT_LINKS.map(({ label, to, Icon }) => (
                     <Link key={label} to={to} role="menuitem" className="account-item"><Icon size={16} />{label}</Link>
                   ))}
+                  <button type="button" role="menuitem" className="account-item account-locale" onClick={() => { setAccountOpen(false); setLocaleOpen(true); }}>
+                    <Globe size={16} />Region &amp; currency<span className="account-locale-val">{locale.currency} · {locale.language.toUpperCase()}</span>
+                  </button>
                 </div>
               )}
             </div>

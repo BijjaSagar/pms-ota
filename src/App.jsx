@@ -17,14 +17,18 @@ import NotFoundPage from './pages/NotFoundPage.jsx';
 
 // Scroll to a #section when the link has one, otherwise to the top (from pms-ota).
 function ScrollToTop() {
-  const { pathname, hash } = useLocation();
+  const { pathname, hash, key } = useLocation();
+  // New page: start at the top (unless the link points at a section).
   useEffect(() => {
-    if (hash) {
-      const target = document.querySelector(hash);
-      if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
-    }
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    if (!hash) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [pathname, hash]);
+  // Section links (/#offers): scroll every time they are clicked, even if the hash is unchanged.
+  useEffect(() => {
+    if (!hash) return;
+    const target = document.querySelector(hash);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [hash, key]);
   return null;
 }
 

@@ -4,7 +4,7 @@
    Builds on .checkout-layout / .booking-card / .pay-option / .breakdown etc. from styles.css.
    ========================================================== */
 
-.co-checkout { padding-top: 28px; }
+.co-checkout, .container-narrow.co-checkout { padding-top: 28px; }
 .co-intro .stepper-nav { margin-bottom: 18px; }
 .co-intro .section-sub { margin-top: 6px; }
 
@@ -105,7 +105,7 @@
 }
 
 @media (max-width: 720px) {
-  .co-checkout { padding-top: 12px; }
+  .co-checkout, .container-narrow.co-checkout { padding-top: 12px; }
   .co-guest-main { grid-template-columns: 96px minmax(0, 1fr); }
   .co-guest-main > :last-child { grid-column: 1 / -1; }
   /* number + remove on top, then title, then first/last names */

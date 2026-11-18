@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { UserRound } from 'lucide-react';
-import { SearchIcon, HeartIcon, CalendarIcon } from './Icons.jsx';
+import { BedDouble, House, UserRound } from 'lucide-react';
+import { HeartIcon, CalendarIcon } from './Icons.jsx';
 
 // Floating bottom tab bar, shown only on small screens (see .mobile-nav in styles.css).
 export default function MobileNav() {
   const items = [
-    { to: '/', label: 'Explore', Icon: SearchIcon, end: true },
+    { to: '/', label: 'Home', Icon: House, end: true },
+    { to: '/hotels', label: 'Hotels', Icon: BedDouble },
     { to: '/wishlist', label: 'Saved', Icon: HeartIcon },
     { to: '/trips', label: 'Trips', Icon: CalendarIcon },
     { to: '/profile', label: 'Profile', Icon: UserRound },
