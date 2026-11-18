@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
-import { ArrowRight, Briefcase, Check, ChevronDown, CreditCard, Heart, Info, Globe, Lock, Menu, UserRound, X } from 'lucide-react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight, Briefcase, Check, ChevronDown, CreditCard, Heart, Info, Globe, Lock, LogIn, LogOut, Menu, UserRound, X } from 'lucide-react';
 import { Logo } from './Icons.jsx';
 import { useWishlist } from '../lib/context/useWishlist.js';
+import { useAuth } from '../lib/context/useAuth.js';
 
 export function Brand() {
   return (
@@ -62,6 +63,10 @@ export function Header({ children, overlay = false }) {
   const scrolled = useScrolled();
   const { pathname } = useLocation();
   const { count: wishlistCount } = useWishlist();
+  const { user, openAuth, logout } = useAuth();
+  const navigate = useNavigate();
+  const firstName = user?.name?.split(' ')[0] || 'Account';
+  const handleLogout = () => { setAccountOpen(false); setMenuOpen(false); navigate('/'); logout(); };
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
@@ -83,28 +88,40 @@ export function Header({ children, overlay = false }) {
             </nav>
           )}
           <div className="header-actions">
-            <button type="button" className="btn glass-chip btn-sm hide-md" onClick={() => setLocaleOpen(true)} aria-label="Currency and language settings">
-              {flagOf(locale.country)} {locale.currency} · {locale.language.toUpperCase()}
-            </button>
             <Link to="/wishlist" className="icon-btn glass-chip nav-heart" aria-label={`Wishlist${wishlistCount ? `, ${wishlistCount} saved` : ''}`}>
               <Heart size={18} />
               {wishlistCount > 0 && <span className="nav-count">{wishlistCount}</span>}
             </Link>
+            <Link to="/hotels" className="btn btn-dark btn-sm book-stay hide-sm">Book a stay</Link>
+            {!user ? (
+              <button type="button" className="nav-signin" onClick={() => openAuth('login')}>Sign in</button>
+            ) : (
             <div className="account" ref={accountRef}>
               <button type="button" className="btn btn-dark btn-sm account-btn" aria-haspopup="menu" aria-expanded={accountOpen} onClick={() => setAccountOpen((v) => !v)}>
-                <UserRound size={16} /><span className="hide-xs">Account</span><ChevronDown size={14} />
+                <UserRound size={16} /><span className="hide-xs">{firstName}</span><ChevronDown size={14} />
               </button>
               {accountOpen && (
                 <div className="account-menu glass-pop" role="menu">
+                  <div className="account-user">
+                    <strong>{user.name}</strong>
+                    <span>{user.email || `+91 ${user.phone}`}</span>
+                  </div>
                   {ACCOUNT_LINKS.map(({ label, to, Icon }) => (
                     <Link key={label} to={to} role="menuitem" className="account-item"><Icon size={16} />{label}</Link>
                   ))}
                   <button type="button" role="menuitem" className="account-item account-locale" onClick={() => { setAccountOpen(false); setLocaleOpen(true); }}>
                     <Globe size={16} />Region &amp; currency<span className="account-locale-val">{locale.currency} · {locale.language.toUpperCase()}</span>
                   </button>
+                  <button type="button" role="menuitem" className="account-item account-logout" onClick={handleLogout}>
+                    <LogOut size={16} />Log out
+                  </button>
                 </div>
               )}
             </div>
+            )}
+            <button type="button" className="btn glass-chip btn-sm locale-chip hide-md" onClick={() => setLocaleOpen(true)} aria-label="Currency and language settings">
+              {locale.country} {locale.currency}
+            </button>
             <button type="button" className="icon-btn glass-chip menu-btn" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
               {menuOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
@@ -119,9 +136,15 @@ export function Header({ children, overlay = false }) {
             <nav aria-label="Account navigation" className="mobile-menu-account">
               {ACCOUNT_LINKS.map(({ label, to, Icon }) => <Link key={label} to={to} className="mobile-menu-link"><Icon size={16} />{label}</Link>)}
             </nav>
+            <Link to="/hotels" className="btn btn-dark btn-sm">Book a stay</Link>
             <button type="button" className="btn glass-chip btn-sm" onClick={() => { setMenuOpen(false); setLocaleOpen(true); }}>
               {flagOf(locale.country)} {locale.currency} · {locale.language.toUpperCase()}
             </button>
+            {user ? (
+              <button type="button" className="btn btn-outline btn-sm" onClick={handleLogout}><LogOut size={16} />Log out</button>
+            ) : (
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => { setMenuOpen(false); openAuth('register'); }}><LogIn size={16} />Sign in or sign up</button>
+            )}
           </div>
         )}
       </div>

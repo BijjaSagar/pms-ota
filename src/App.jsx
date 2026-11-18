@@ -14,6 +14,16 @@ import WishlistPage from './pages/WishlistPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import MakeAPaymentPage from './pages/MakeAPaymentPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
+import { RequireAuth } from './components/auth/RequireAuth.jsx';
+
+// Every page except Home needs an account; signed-out visitors get the register/login modal.
+function Protected() {
+  return (
+    <RequireAuth>
+      <Outlet />
+    </RequireAuth>
+  );
+}
 
 // Scroll to a #section when the link has one, otherwise to the top (from pms-ota).
 function ScrollToTop() {
@@ -66,16 +76,18 @@ export default function App() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route index element={<Home />} />
-        <Route path="hotels" element={<HotelsPage />} />
-        <Route path="hotels/:slug" element={<HotelDetailsPage />} />
-        <Route path="hotels/:slug/photos" element={<HotelGalleryPage />} />
-        <Route path="checkout" element={<CheckoutPage />} />
-        <Route path="payment" element={<PaymentPage />} />
-        <Route path="confirmation/:bookingId" element={<ConfirmationPage />} />
-        <Route path="trips" element={<MyTripsPage />} />
-        <Route path="wishlist" element={<WishlistPage />} />
-        <Route path="profile" element={<ProfilePage />} />
-        <Route path="make-a-payment" element={<MakeAPaymentPage />} />
+        <Route element={<Protected />}>
+          <Route path="hotels" element={<HotelsPage />} />
+          <Route path="hotels/:slug" element={<HotelDetailsPage />} />
+          <Route path="hotels/:slug/photos" element={<HotelGalleryPage />} />
+          <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="payment" element={<PaymentPage />} />
+          <Route path="confirmation/:bookingId" element={<ConfirmationPage />} />
+          <Route path="trips" element={<MyTripsPage />} />
+          <Route path="wishlist" element={<WishlistPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="make-a-payment" element={<MakeAPaymentPage />} />
+        </Route>
         <Route path="search" element={<LegacySearch />} />
         <Route path="stay/:id" element={<LegacyStay />} />
         <Route path="*" element={<NotFoundPage />} />

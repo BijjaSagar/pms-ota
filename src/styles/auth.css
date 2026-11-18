@@ -1,0 +1,109 @@
+/* ==========================================================
+   Auth: "Sign in or sign up" modal (email or mobile + OTP),
+   the locked-page card for signed-out visitors, and the
+   navbar sign-in / account bits.
+   ========================================================== */
+
+.modal:has(.auth) { max-width: 440px; padding: 26px; }
+.modal:has(.auth) .modal-head { margin-bottom: 4px; align-items: flex-start; }
+.modal:has(.auth) .modal-head .h3 { font-size: 24px; line-height: 1.25; }
+
+.auth { display: flex; flex-direction: column; gap: 16px; }
+.auth-form { display: flex; flex-direction: column; gap: 16px; }
+.auth-sub { color: var(--muted); font-size: 15px; line-height: 1.5; margin-top: -2px; }
+.auth-sub strong { color: var(--ink); font-weight: 700; word-break: break-all; }
+
+.auth-message {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 10px 14px; border-radius: 14px;
+  background: var(--sage); color: var(--accent-dark);
+  font-size: 14px; font-weight: 600; line-height: 1.45;
+}
+.auth-message svg { flex: 0 0 auto; margin-top: 2px; }
+
+.auth-label { font-size: 12px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
+
+/* +91 prefix inside the mobile field */
+.auth-phone { position: relative; display: flex; }
+.form-field .auth-phone input { width: 100%; padding-left: 64px; }
+.auth-phone-code {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 52px; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  border-right: 1px solid var(--line-input);
+  color: var(--ink-2); font-weight: 700; font-size: 15px; pointer-events: none;
+}
+
+.auth-cta { height: 52px; font-size: 16px; }
+
+/* ---- or ---- */
+.auth-or { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; }
+.auth-or::before, .auth-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+.auth-google { height: 52px; gap: 10px; background: var(--surface); font-size: 15px; }
+.auth-note { text-align: center; margin-top: -6px; }
+
+.auth-link {
+  padding: 0; border: 0; background: none;
+  color: var(--accent); font-size: 14px; font-weight: 700; text-decoration: none;
+}
+.auth-link:hover { color: var(--accent-dark); text-decoration: underline; }
+.auth-center { align-self: center; text-align: center; }
+
+/* OTP: six boxes */
+.auth-otp { display: grid; grid-template-columns: repeat(6, minmax(0, 52px)); justify-content: center; gap: 10px; }
+.auth-otp input {
+  width: 100%; aspect-ratio: 1 / 1.08; min-height: 0; padding: 0;
+  border: 1px solid var(--line-input); border-radius: 14px; background: var(--surface);
+  text-align: center; font-size: 22px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.auth-otp input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgba(63, 107, 92, 0.18); }
+.auth-otp.has-error input { border-color: #B3412F; }
+.auth-otp-links { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.auth-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0; border: 0; background: none; color: var(--muted); font-size: 14px; font-weight: 600;
+}
+.auth-back:hover { color: var(--ink); }
+
+/* Locked-page card for signed-out visitors */
+.auth-gate { padding: clamp(32px, 8vw, 88px) 0; display: flex; justify-content: center; }
+.auth-gate-card {
+  width: 100%; max-width: 480px; display: flex; flex-direction: column; align-items: center;
+  gap: 12px; text-align: center; padding: clamp(24px, 5vw, 40px);
+}
+.auth-gate-card .auth-link { margin-top: 4px; }
+.auth-gate-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 6px; width: 100%; }
+.auth-gate-actions .btn { min-width: 180px; }
+
+/* Navbar: plain "Sign in" text button + "IN INR" chip */
+.nav-signin {
+  height: 40px; padding: 0 10px; border: 0; background: none; border-radius: 999px;
+  color: var(--ink-2); font-size: 15px; font-weight: 600; white-space: nowrap;
+}
+.nav-signin:hover { color: var(--ink); background: rgba(255, 255, 255, 0.5); }
+.locale-chip { letter-spacing: 0.04em; font-weight: 700; }
+.book-stay { white-space: nowrap; }
+
+/* Signed-in header in the account menu */
+.account-user { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.account-user strong { font-size: 15px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-user span { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-item.account-logout { color: #B3412F; }
+
+/* Phones: modal hugs the screen edges, inputs stay at 16px+ so iOS doesn't zoom */
+@media (max-width: 560px) {
+  .modal-backdrop:has(.auth) { padding: 16px 12px; }
+  .modal:has(.auth) { padding: 20px 18px; border-radius: 24px; }
+  .modal:has(.auth) .modal-head .h3 { font-size: 21px; }
+  .auth, .auth-form { gap: 14px; }
+  .auth .form-field input { font-size: 16px; }
+  .auth-otp { gap: 8px; }
+  .auth-otp input { font-size: 20px; border-radius: 12px; }
+  .auth-gate-actions .btn { flex: 1 1 0; min-width: 0; }
+}
+
+@media (max-width: 360px) {
+  .auth-otp { gap: 6px; }
+  .auth-otp input { font-size: 18px; }
+}
