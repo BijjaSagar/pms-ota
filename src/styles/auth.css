@@ -4,7 +4,15 @@
    navbar sign-in / account bits.
    ========================================================== */
 
-.modal:has(.auth) { max-width: 440px; padding: 26px; }
+/* Centered on every screen: margin:auto centers inside the flex backdrop and still scrolls if taller than the screen */
+.modal-backdrop:has(.auth) {
+  padding: 24px 16px;
+  /* Dark see-through overlay instead of blur */
+  background: rgba(16, 28, 30, 0.75);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+
+.modal:has(.auth) { max-width: 440px; padding: 26px; margin: auto; }
 .modal:has(.auth) .modal-head { margin-bottom: 4px; align-items: flex-start; }
 .modal:has(.auth) .modal-head .h3 { font-size: 24px; line-height: 1.25; }
 
@@ -66,9 +74,9 @@
 }
 .auth-back:hover { color: var(--ink); }
 
-/* Protected pages for signed-out visitors: real content, blurred and locked behind the popup */
+/* Protected pages for signed-out visitors: real content, dimmed by the overlay and locked behind the popup */
 .auth-locked {
-  filter: blur(6px); pointer-events: none; user-select: none;
+  pointer-events: none; user-select: none;
   min-height: 60vh; max-height: 100vh; overflow: hidden;
 }
 
@@ -87,18 +95,27 @@
 .account-user span { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-item.account-logout { color: #B3412F; }
 
-/* Phones: modal hugs the screen edges, inputs stay at 16px+ so iOS doesn't zoom */
+/* Phones: more space around the card and a more compact inside; inputs stay at 16px so iOS doesn't zoom */
 @media (max-width: 560px) {
-  .modal-backdrop:has(.auth) { padding: 16px 12px; }
-  .modal:has(.auth) { padding: 20px 18px; border-radius: 24px; }
-  .modal:has(.auth) .modal-head .h3 { font-size: 21px; }
-  .auth, .auth-form { gap: 14px; }
-  .auth .form-field input { font-size: 16px; }
-  .auth-otp { gap: 8px; }
-  .auth-otp input { font-size: 20px; border-radius: 12px; }
+  .modal-backdrop:has(.auth) { padding: 24px 22px; min-height: 100dvh; }
+  .modal:has(.auth) { padding: 20px 18px 22px; border-radius: 22px; }
+  .modal:has(.auth) .modal-head { margin-bottom: 0; }
+  .modal:has(.auth) .modal-head .h3 { font-size: 20px; }
+  .modal:has(.auth) .modal-head .icon-btn { width: 34px; height: 34px; }
+  .auth, .auth-form { gap: 12px; }
+  .auth-sub { font-size: 14px; }
+  .auth-label { font-size: 11px; }
+  .auth .form-field input { font-size: 16px; height: 46px; }
+  .auth-cta, .auth-google { height: 46px; font-size: 15px; }
+  .auth-or { font-size: 11px; }
+  .auth-link, .auth-back { font-size: 13px; }
+  .auth-otp { grid-template-columns: repeat(6, minmax(0, 44px)); gap: 7px; }
+  .auth-otp input { font-size: 19px; border-radius: 11px; }
 }
 
 @media (max-width: 360px) {
-  .auth-otp { gap: 6px; }
-  .auth-otp input { font-size: 18px; }
+  .modal-backdrop:has(.auth) { padding: 20px 16px; }
+  .modal:has(.auth) { padding: 18px 14px 20px; }
+  .auth-otp { gap: 5px; }
+  .auth-otp input { font-size: 17px; }
 }
