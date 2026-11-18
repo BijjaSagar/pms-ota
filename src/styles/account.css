@@ -5,7 +5,7 @@
    swipeable rows on phones.
    ========================================================== */
 
-.acct-page { padding: 52px 0 96px; }
+.acct-page, .container.acct-page { padding-top: 40px; padding-bottom: 96px; }
 .acct-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 26px; }
 .acct-head .section-sub { max-width: 560px; }
 .acct-kicker { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 6px 12px; border-radius: 999px; background: rgba(231, 238, 233, 0.8); color: var(--accent-dark); font-size: 12px; font-weight: 800; letter-spacing: 0.04em; }
@@ -121,7 +121,7 @@ a.app-row:hover { background: rgba(255, 255, 255, 0.8); color: var(--ink); }
 .photo-stack .avatar-wrap { position: relative; }
 .photo-stack .cam { position: absolute; right: -6px; bottom: -6px; width: 34px; height: 34px; border-radius: 999px; background: #fff; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--accent-dark); }
 .doc-drop { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border-radius: 18px; border: 1px dashed var(--line-input); background: rgba(255, 255, 255, 0.4); }
-.save-bar { position: sticky; bottom: 16px; z-index: 5; margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 10px 10px 20px; border-radius: 999px; background: var(--glass-bg-strong); border: 1px solid var(--glass-border); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); box-shadow: var(--g-shine), 0 18px 40px -20px rgba(28, 43, 45, 0.4); }
+.save-bar { position: static; margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 10px 10px 20px; border-radius: 999px; background: var(--glass-bg-strong); border: 1px solid var(--glass-border); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); box-shadow: var(--g-shine), 0 18px 40px -20px rgba(28, 43, 45, 0.4); }
 .ok-text { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--accent-dark); }
 .ok-box { display: flex; align-items: flex-start; gap: 8px; padding: 12px 16px; border-radius: 16px; background: rgba(231, 238, 233, 0.9); border: 1px solid #CFE0D5; font-size: 14px; color: var(--accent-dark); }
 .form-split { border-top: 1px solid var(--line); padding-top: 16px; }
@@ -191,7 +191,7 @@ a.app-row:hover { background: rgba(255, 255, 255, 0.8); color: var(--ink); }
   .prof-grid .span-2 { grid-column: auto; }
 }
 @media (max-width: 720px) {
-  .acct-page { padding-top: 30px; }
+  .acct-page, .container.acct-page { padding-top: 18px; }
   .acct-head { align-items: stretch; }
   .acct-head .seg-tabs { width: 100%; }
   .acct-head .seg-tab { flex: 1 0 auto; justify-content: center; }
@@ -207,7 +207,8 @@ a.app-row:hover { background: rgba(255, 255, 255, 0.8); color: var(--ink); }
   .sec-card { padding: 18px; }
   .prof-top { padding: 16px; gap: 14px; }
   .prof-top .prof-who { flex: 1 1 calc(100% - 90px); }
-  .save-bar { bottom: 96px; border-radius: 22px; }
+  .save-bar { border-radius: 22px; padding: 14px 16px; }
+  .save-bar .btn { width: 100%; }
   .found { grid-template-columns: minmax(0, 1fr); }
   .found-photo { min-height: 170px; }
   .found-due { border-radius: 20px; }
@@ -217,4 +218,9 @@ a.app-row:hover { background: rgba(255, 255, 255, 0.8); color: var(--ink); }
   .modal-actions .btn, .form-foot .btn { flex: 1 1 auto; }
   .dark-band { padding: 22px; }
   .nf-code { font-size: 80px; }
+}
+
+/* Phones: page title block takes the full row, its actions sit underneath (not squeezed beside the kicker) */
+@media (max-width: 720px) {
+  .acct-head > div:first-child { flex: 1 1 100%; min-width: 0; }
 }
