@@ -1,0 +1,150 @@
+/* Home sections built from pms-ota DATA in TriponX's own layouts:
+   Offers (passes), Why TriponX (stats bar + numbered reasons), Concierge (collage + contact desk),
+   Guest stories (featured quote), Help & Support (question list + answer panel).
+   Glass for UI surfaces, solid on photos, one section per screen. */
+
+/* Featured stays: heart is a real wishlist toggle */
+.heart-toggle { border: 0; padding: 0; cursor: pointer; z-index: 2; }
+.heart-toggle.is-saved { color: #C2410C; }
+.heart-toggle.is-saved svg { fill: currentColor; }
+
+.why-icon { flex: 0 0 42px; width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: var(--sage); color: var(--accent-dark); box-shadow: var(--g-shine); }
+.story-quote { color: var(--accent); }
+.story-stars { display: inline-flex; gap: 2px; color: var(--accent); }
+.story-stars svg { fill: currentColor; }
+
+/* ---------- Offers: passes ---------- */
+.tx-offers { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: 56px; align-items: center; }
+.tx-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.tx-steps li { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 700; color: var(--ink-2); }
+.tx-steps span { width: 30px; height: 30px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 800; }
+.tx-passes { display: flex; flex-direction: column; gap: 14px; }
+.tx-pass {
+  position: relative; display: grid; grid-template-columns: 116px minmax(0, 1fr) auto; align-items: center; gap: 0;
+  border-radius: 24px; overflow: hidden;
+  background: var(--g-fill); border: 1px solid var(--g-edge);
+  -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); box-shadow: var(--g-shine), var(--g-shadow);
+}
+.tx-pass-value { align-self: stretch; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px 10px; background: var(--ink); color: var(--bg); position: relative; }
+/* ticket perforation */
+.tx-pass-value::after { content: ""; position: absolute; right: -1px; top: 10px; bottom: 10px; border-right: 2px dashed rgba(246, 245, 241, 0.35); }
+.tx-pass-big { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.tx-pass-off { margin-top: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.75; }
+.tx-pass-body { padding: 16px 18px; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tx-pass-label { font-size: 16px; font-weight: 800; }
+.tx-pass-code { margin-top: 6px; align-self: flex-start; padding: 4px 10px; border-radius: 8px; border: 1px dashed var(--accent); color: var(--accent-dark); font-size: 12px; font-weight: 800; letter-spacing: 0.1em; }
+.tx-pass-actions { display: flex; align-items: center; gap: 8px; padding: 0 18px 0 6px; }
+
+/* ---------- Why TriponX ---------- */
+.tx-why-head { max-width: 760px; margin-bottom: 28px; }
+.tx-why-title { font-size: clamp(32px, 4.2vw, 54px); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; margin-bottom: 14px; }
+.tx-stats {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 28px; border-radius: 26px; overflow: hidden;
+  background: var(--g-fill); border: 1px solid var(--g-edge); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); box-shadow: var(--g-shine), var(--g-shadow);
+}
+.tx-stat { padding: 20px 24px; }
+.tx-stat + .tx-stat { border-left: 1px solid var(--line); }
+.tx-stat-v { font-size: clamp(26px, 2.8vw, 36px); font-weight: 800; letter-spacing: -0.03em; color: var(--accent-dark); }
+.tx-reasons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.tx-reason { border-top: 2px solid var(--ink); padding-top: 16px; }
+.tx-reason-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; color: var(--accent-dark); }
+.tx-reason-num { font-size: 13px; font-weight: 800; letter-spacing: 0.1em; color: var(--ink); }
+.tx-reason .h-card { margin-bottom: 6px; }
+
+/* ---------- Concierge: collage + contact desk ---------- */
+.tx-desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: center; }
+.tx-collage { position: relative; height: min(500px, calc(100svh / var(--z, 1) - 220px)); min-height: 360px; }
+.tx-collage img { position: absolute; object-fit: cover; border-radius: 28px; box-shadow: 0 24px 50px -24px rgba(28, 43, 45, 0.5); background: #DDE5E0; }
+.tx-collage-a { left: 0; top: 0; width: 72%; height: 78%; }
+.tx-collage-b { right: 0; bottom: 0; width: 52%; height: 56%; border: 6px solid var(--bg); }
+.tx-desk-list.card { padding: 6px; display: flex; flex-direction: column; }
+.tx-desk-row { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px; color: var(--ink); }
+a.tx-desk-row:hover { background: rgba(255, 255, 255, 0.85); color: var(--ink); }
+.tx-desk-row + .tx-desk-row { border-top: 1px solid var(--line); }
+.tx-desk-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.tx-desk-text strong { font-size: 15px; overflow-wrap: anywhere; }
+.tx-desk-browse { display: inline-block; margin-top: 16px; }
+
+/* ---------- Guest stories ---------- */
+.tx-stories { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr); gap: 48px; align-items: center; }
+.card.tx-quote { margin: 0; padding: 36px; display: flex; flex-direction: column; gap: 18px; }
+.tx-quote-text { margin: 0; font-size: clamp(19px, 1.9vw, 25px); font-weight: 600; line-height: 1.45; letter-spacing: -0.01em; color: var(--ink); }
+.tx-quote-by { display: flex; flex-direction: column; gap: 4px; }
+.tx-story-list { display: flex; flex-direction: column; gap: 8px; }
+.tx-story-pick { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 18px; text-align: left; background: transparent; border: 1px solid transparent; color: var(--ink); }
+.tx-story-pick:hover { background: rgba(255, 255, 255, 0.55); }
+.tx-story-pick.is-active { background: var(--g-fill-hi); border-color: var(--g-edge); box-shadow: var(--g-shine); }
+.tx-initials { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: var(--sage); color: var(--accent-dark); font-size: 13px; font-weight: 800; }
+.tx-story-pick.is-active .tx-initials { background: var(--ink); color: var(--bg); }
+.tx-story-pick-text { min-width: 0; display: flex; flex-direction: column; }
+
+/* ---------- Help & Support ---------- */
+.tx-help { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 28px; align-items: start; }
+.tx-help-list { display: flex; flex-direction: column; gap: 6px; }
+.tx-help-q { width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 18px; text-align: left; font-size: 15px; font-weight: 700; color: var(--ink-2); background: transparent; border: 1px solid transparent; }
+.tx-help-q:hover { background: rgba(255, 255, 255, 0.55); color: var(--ink); }
+.tx-help-q.is-active { color: var(--ink); background: var(--g-fill-hi); border-color: var(--g-edge); box-shadow: var(--g-shine); }
+.tx-help-n { flex: 0 0 28px; width: 28px; height: 28px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; background: var(--sage); color: var(--accent-dark); }
+.tx-help-q.is-active .tx-help-n { background: var(--ink); color: var(--bg); }
+.tx-help-inline { display: none; }
+.card.tx-help-panel { padding: 30px; }
+.tx-help-panel-q { font-size: 20px; font-weight: 800; letter-spacing: -0.015em; margin-bottom: 10px; }
+.tx-help-panel-a { font-size: 16px; line-height: 1.65; color: var(--ink-2); }
+.tx-help-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+
+/* ---------- Tablet ---------- */
+@media (max-width: 1100px) {
+  .tx-offers, .tx-desk, .tx-stories { grid-template-columns: 1fr; gap: 28px; }
+  .tx-collage { height: 280px; min-height: 0; }
+  .tx-reasons { gap: 20px; }
+  .tx-help { grid-template-columns: 1fr; }
+  .tx-help-panel { display: none; }
+  .tx-help-inline { display: block; padding: 4px 16px 12px 58px; line-height: 1.6; }
+}
+
+/* ---------- Phones: keep each section about one screen ---------- */
+@media (max-width: 720px) {
+  .tx-offers { gap: 18px; }
+  .tx-offers-intro .section-sub { display: none; }
+  .tx-steps { flex-direction: row; flex-wrap: wrap; gap: 8px 14px; }
+  .tx-steps li { font-size: 13px; gap: 8px; }
+  .tx-steps span { width: 24px; height: 24px; font-size: 11px; }
+  .tx-pass { grid-template-columns: 84px minmax(0, 1fr); border-radius: 20px; }
+  .tx-pass-big { font-size: 24px; }
+  .tx-pass-body { padding: 12px 14px; }
+  .tx-pass-label { font-size: 14px; }
+  .tx-pass-actions { grid-column: 2; padding: 0 14px 12px; }
+  .tx-why-head { margin-bottom: 18px; }
+  .tx-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 18px; }
+  .tx-stat { padding: 14px 16px; }
+  .tx-stat:nth-child(3) { border-left: 0; }
+  .tx-stat:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .tx-reasons { grid-template-columns: 1fr; gap: 14px; }
+  .tx-reason { padding-top: 10px; }
+  .tx-reason .muted-sm { font-size: 13px; }
+  .tx-collage { display: none; }
+  .card.tx-quote { padding: 22px; gap: 12px; }
+  .tx-stories { gap: 18px; }
+  .tx-story-side { order: -1; }
+  .tx-story-side .section-sub { display: none; }
+  .tx-story-list { flex-direction: row; overflow-x: auto; scrollbar-width: none; }
+  .tx-story-list::-webkit-scrollbar { display: none; }
+  .tx-story-pick { flex: 0 0 auto; }
+  .tx-story-pick-text .muted-xs { display: none; }
+  .tx-help-q { padding: 12px; font-size: 14px; }
+  .tx-help-inline { padding: 2px 12px 10px 54px; font-size: 13px; }
+}
+
+@media (max-height: 560px) and (max-width: 1100px) {
+  .tx-collage { display: none; }
+}
+
+/* Short laptop screens: membership + footer still fit one screen */
+@media (min-width: 1024px) and (max-height: 840px) {
+  .screen.screen-last { padding-top: 100px; }
+  .screen-last .member-band { padding: 30px 44px; }
+  .screen-last .site-footer { padding-top: 14px; }
+  .screen-last .footer-grid { padding-top: 26px; padding-bottom: 22px; gap: 22px 32px; }
+  .tx-why-head { margin-bottom: 20px; }
+  .tx-stats { margin-bottom: 22px; }
+}
