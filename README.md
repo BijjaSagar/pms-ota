@@ -1,32 +1,50 @@
-# React + TypeScript + Vite
+# TriponX — OTA front end (React + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A calm, premium hotel-booking UI: Home & search → Results → Property → Checkout.
 
-Currently, two official plugins are available:
+## Run it
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm run build      # production build in dist/
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Deploying on Vercel: framework preset **Vite**, output `dist`. `vercel.json` is included so deep links like `/stay/kanan-tea-house` work.
+
+## Structure
+
+```
+src/
+  main.jsx            router setup
+  App.jsx             routes: /  /search  /stay/:id  /checkout
+  data.js             sample content (swap for your PMS / API data)
+  styles.css          design tokens + all styles, responsive
+  components/
+    Icons.jsx         thin-stroke SVG icon set + logo
+    Layout.jsx        Header, Footer, Photo placeholder, Chip
+    MobileNav.jsx     floating bottom tab bar (phones only)
+  pages/
+    Home.jsx          hero search, intent chips, collections, flexible-date strip
+    Results.jsx       filters, sortable list, map pins, compare tray
+    Stay.jsx          gallery, good-to-know, room picker, live price breakdown
+    Checkout.jsx      one-page form with validation, 3 payment options, confirmation
+```
+
+## Design tokens (in `styles.css` `:root`)
+
+| Token | Value | Use |
+|---|---|---|
+| `--bg` | `#F6F5F1` | pearl background |
+| `--ink` | `#1C2B2D` | primary text |
+| `--muted` | `#5B6B6D` | secondary text |
+| `--accent` | `#3F6B5C` | eucalyptus, buttons & highlights |
+| `--sage` / `--mist` / `--sand` | soft tints | badges, cards |
+
+Font: Manrope (Google Fonts, loaded in `index.html`).
+
+## Hooking up real data
+
+- Replace the arrays in `src/data.js` with API calls (e.g. `useEffect` + `fetch`, or React Query).
+- `Photo` renders a tinted placeholder; swap it for `<img src=... />` once you have property images.
+- Search params are passed through the URL (`/search?where=...&checkIn=...`), so results can be fetched from them.

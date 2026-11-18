@@ -1,0 +1,123 @@
+/* ==========================================================
+   Hotels list: SearchBar, FilterPanel, HotelCard, HotelsPage
+   (pms-ota features, TriponX glass styling)
+   ========================================================== */
+
+/* ---------- SearchBar ---------- */
+.sb {
+  width: 100%; padding: 10px; border-radius: var(--r-xl);
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(22px) saturate(1.8); backdrop-filter: blur(22px) saturate(1.8);
+  box-shadow: var(--g-shine), 0 18px 44px -26px rgba(28, 43, 45, 0.35);
+}
+.sb-grid { display: grid; gap: 8px; grid-template-columns: 1.1fr 2.1fr 1.1fr auto; align-items: stretch; }
+.sb-field {
+  position: relative; display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 64px;
+  padding: 10px 16px; border-radius: 20px;
+  background: rgba(255, 255, 255, 0.45); border: 1px solid rgba(255, 255, 255, 0.7);
+}
+.sb-field:focus-within { background: rgba(255, 255, 255, 0.85); border-color: var(--accent); }
+.sb-icon { flex: 0 0 auto; color: var(--accent); }
+.sb-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.sb-label { display: block; margin-bottom: 3px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.sb-input, .sb-value { width: 100%; min-width: 0; border: 0; padding: 0; background: transparent; font-size: 15px; font-weight: 600; color: var(--ink); outline: none; }
+.sb-input::placeholder { color: var(--muted); font-weight: 500; }
+.sb-value { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.sb-dates { display: grid; grid-template-columns: 1fr 1fr; flex: 1; min-width: 0; }
+.sb-date { position: relative; min-width: 0; padding-right: 12px; }
+.sb-date-out { padding: 0 0 0 12px; border-left: 1px solid var(--line); }
+.sb-date-text { position: absolute; left: 0; right: 0; bottom: 0; font-size: 15px; font-weight: 600; color: var(--ink); pointer-events: none; }
+.sb-date-out .sb-date-text { left: 12px; }
+.sb-date-input { position: relative; color: transparent; caret-color: transparent; cursor: pointer; height: 22px; }
+.sb-date-input::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.55; }
+
+.sb-guests { padding: 0; }
+.sb-guests-btn { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 16px; border: 0; background: transparent; text-align: left; border-radius: 20px; }
+.sb-caret { flex: 0 0 auto; color: var(--ink); transition: transform .2s var(--ease); }
+.sb-caret.is-open { transform: rotate(180deg); }
+.sb-guest-pop { position: absolute; left: 0; right: 0; top: calc(100% + 8px); z-index: 30; min-width: 270px; padding: 14px 16px; border-radius: 22px; animation: pop-in .18s var(--ease) both; }
+.sb-counter { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; font-size: 15px; font-weight: 600; }
+.sb-counter-ctrl { display: flex; align-items: center; gap: 12px; }
+.sb-counter-ctrl button { width: 32px; height: 32px; border-radius: 999px; border: 1px solid var(--line-input); background: rgba(255, 255, 255, 0.8); color: var(--ink); display: flex; align-items: center; justify-content: center; }
+.sb-counter-ctrl button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.sb-counter-ctrl button:disabled { opacity: 0.4; cursor: not-allowed; }
+.sb-counter-val { width: 20px; text-align: center; font-weight: 800; }
+.sb-child-age { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 2px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.sb-child-age select { padding: 4px 8px; border: 1px solid var(--line-input); border-radius: 10px; background: #fff; font-size: 14px; color: var(--ink); }
+
+.sb-submit-wrap { display: flex; }
+.sb-submit { min-height: 64px; height: auto; width: 100%; padding: 0 26px; border-radius: 20px; font-size: 16px; }
+.sb-error { padding: 8px 8px 0; }
+
+@media (max-width: 1100px) {
+  .sb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sb-grid > .sb-field:first-child, .sb-submit-wrap { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .sb-grid { grid-template-columns: 1fr; }
+  .sb-guest-pop { min-width: 0; }
+}
+
+/* ---------- FilterPanel: TriponX glass filter cards ---------- */
+.fp-cards { display: contents; }                 /* cards sit directly in the .filters column / grid */
+.fp-search { position: relative; display: block; }
+.fp-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--accent); pointer-events: none; }
+.fp-search input { width: 100%; height: 44px; padding: 0 14px 0 38px; border-radius: 999px; border: 1px solid var(--line-input); background: rgba(255, 255, 255, 0.6); font-size: 14px; color: var(--ink); outline: none; }
+.fp-search input:focus { border-color: var(--accent); background: #fff; }
+.fp-more { margin-top: 4px; padding: 0; border: 0; background: transparent; font-size: 13px; font-weight: 700; color: var(--accent-dark); }
+.fp-more:hover { color: var(--ink); }
+.fp-range { --fill: 50%; display: block; width: 100%; height: 22px; margin: 12px 0 14px; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; }
+.fp-range::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--accent) var(--fill), var(--line) var(--fill)); }
+.fp-range::-moz-range-track { height: 4px; border-radius: 4px; background: linear-gradient(90deg, var(--accent) var(--fill), var(--line) var(--fill)); }
+.fp-range::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; margin-top: -8px; border-radius: 999px; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(63, 107, 92, 0.25); }
+.fp-range::-moz-range-thumb { width: 14px; height: 14px; border-radius: 999px; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 2px rgba(63, 107, 92, 0.25); }
+.mini-field strong { display: block; font-size: 15px; font-weight: 800; }
+
+/* ---------- HotelCard ---------- */
+.hcard {
+  position: relative; display: flex; flex-direction: column; overflow: hidden; border-radius: var(--r-lg);
+  background: var(--g-fill); border: 1px solid var(--g-edge);
+  -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
+  box-shadow: var(--g-shine), var(--g-shadow);
+  transition: transform .4s var(--ease), box-shadow .4s var(--ease);
+}
+.hcard:hover { transform: translateY(-4px); box-shadow: var(--g-shine), 0 28px 60px -32px rgba(28, 43, 45, 0.45); }
+.hcard-in { animation: hcard-up .6s var(--ease) both; }
+@keyframes hcard-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.hcard-media { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: #DDE5E0; }
+.hcard-img-link { display: block; height: 100%; }
+.hcard-img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .9s ease-out; }
+.hcard:hover .hcard-img { transform: scale(1.05); }
+.hcard-top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; pointer-events: none; }
+/* on photos: solid, no glass */
+.hcard-heart { pointer-events: auto; width: 36px; height: 36px; border-radius: 999px; border: 0; background: #fff; color: var(--ink); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.3); }
+.hcard-heart.is-saved { color: var(--accent); }
+.hcard-heart.is-saved svg { fill: var(--accent); }
+.hcard-media-link { position: absolute; right: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: rgba(16, 28, 30, 0.78); color: #fff; font-size: 12px; font-weight: 700; }
+.hcard-media-link:hover { color: #fff; background: rgba(16, 28, 30, 0.92); }
+.hcard-dot { opacity: 0.6; }
+.hcard-body { display: flex; flex-direction: column; flex: 1; padding: 18px; }
+.hcard-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.hcard-place { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; color: var(--muted); }
+.hcard-place span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hcard-name-link { margin-top: 8px; color: var(--ink); }
+.hcard-name-link:hover { color: var(--accent-dark); }
+.hcard-name { font-size: 22px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; }
+.hcard-highlights { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; font-size: 13px; font-weight: 600; color: var(--accent-dark); }
+.hcard-highlights p { display: flex; align-items: center; gap: 6px; }
+.hcard-foot { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.hcard-highlights + .hcard-foot { margin-top: 16px; }
+.hcard-rating { display: flex; align-items: center; gap: 8px; }
+.hcard-price { text-align: right; }
+.hcard-was { font-size: 12px; color: var(--muted); text-decoration: line-through; }
+.hcard-now { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+
+/* ---------- HotelsPage: TriponX results layout ---------- */
+.hotels-search { margin-bottom: 24px; position: relative; z-index: 5; }
+.result-photo-link { position: absolute; inset: 0; }
+.result-photos-link { display: inline-flex; align-items: center; gap: 5px; }
+.result-photos-link:hover { color: var(--ink); }
+.result-type { display: flex; align-items: center; gap: 6px; }
+.result-was { font-size: 12px; color: var(--muted); text-decoration: line-through; }
+.results-layout .listings > .hcard-in { animation-name: hcard-up; }

@@ -1,0 +1,141 @@
+/* ==========================================================
+   Checkout · Payment · Confirmation — TriponX's own layout
+   (one-page "Almost there" form + sticky stay card; calm confirmation).
+   Builds on .checkout-layout / .booking-card / .pay-option / .breakdown etc. from styles.css.
+   ========================================================== */
+
+.co-checkout { padding-top: 28px; }
+.co-intro .stepper-nav { margin-bottom: 18px; }
+.co-intro .section-sub { margin-top: 6px; }
+
+/* Shared bits */
+.co-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.co-title { margin-bottom: 0; }
+.co-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.co-inline { display: flex; align-items: center; gap: 8px; }
+.co-ok { color: var(--accent-dark); }
+.co-fine { font-size: 12px; line-height: 1.55; color: var(--muted); }
+.co-mt { margin-top: 20px; }
+.co-mt-sm { margin-top: 12px; }
+.co-min { min-width: 0; }
+.co-divider { height: 1px; background: var(--line); margin: 20px 0; }
+.co-back { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--muted); }
+.co-back:hover { color: var(--ink); }
+.co-back-center { display: flex; justify-content: center; margin-top: 12px; }
+.co-spin { animation: co-spin 1s linear infinite; }
+@keyframes co-spin { to { transform: rotate(360deg); } }
+.co-processing { align-items: center; }
+.form-field input[aria-invalid="true"], .form-field textarea[aria-invalid="true"] { border-color: #B3412F; }
+
+/* Who's checking in */
+.co-seg { display: inline-flex; gap: 6px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, 0.45); border: 1px solid var(--g-edge); }
+.co-seg .seg-btn { height: 36px; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; background: transparent; }
+.co-seg .seg-btn.is-active { background: var(--ink); color: var(--bg); }
+.co-guest-main { display: grid; grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+.co-guests { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.co-guest-row { display: grid; grid-template-columns: 70px 100px minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 10px; align-items: end; padding: 12px; border-radius: 18px; background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(255, 255, 255, 0.7); }
+.co-guest-num { align-self: center; font-size: 12px; font-weight: 800; color: var(--muted); }
+.co-guest-remove { align-self: end; margin-bottom: 4px; }
+.co-guest-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 16px; }
+.co-mini { margin-left: 0; display: inline-flex; align-items: center; gap: 6px; }
+.co-mini:disabled { opacity: 0.45; cursor: default; }
+
+/* Anything to make it easier? */
+.co-chip { display: inline-flex; align-items: center; gap: 8px; }
+.co-chip-price { font-size: 12px; font-weight: 800; color: var(--accent-dark); }
+.co-chip.is-active .co-chip-price { color: var(--accent-dark); }
+.co-extras-grid { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 14px; align-items: start; }
+
+/* Policy modal */
+.co-policy-dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; margin: 0; }
+.co-policy-dl dd { margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+
+/* Sticky stay card */
+.co-side .sum-thumb { width: 84px; height: 84px; }
+.co-room-line { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--ink-2); }
+.co-room-line span { display: inline-flex; align-items: center; gap: 5px; }
+.co-room-line svg { color: var(--accent); }
+.co-cancel { display: flex; align-items: center; gap: 6px; margin: 10px 0 18px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.co-cancel.is-free { color: var(--accent-dark); }
+.co-breakdown { margin-bottom: 16px; }
+.co-breakdown .breakdown-total { align-items: center; }
+.co-promo-wrap { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.co-promo-wrap .promo input[aria-invalid="true"] { border-color: #B3412F; }
+.co-coupon-applied { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 12px; background: rgba(231, 238, 233, 0.9); font-size: 13px; color: var(--accent-dark); }
+.co-coupon-label { font-weight: 500; }
+.co-remove { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; border: 0; background: none; font-size: 12px; font-weight: 700; color: var(--muted); }
+.co-remove:hover { color: #A13A2A; }
+.co-saving { font-size: 12px; font-weight: 700; color: var(--accent-dark); }
+
+/* Payment */
+.co-demo { padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.6); border: 1px solid var(--g-edge); font-size: 12px; font-weight: 700; color: var(--muted); }
+.co-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.co-paypal { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.co-paypal .empty-icon { margin: 0 0 4px; }
+.co-paypal .muted-sm { max-width: 420px; }
+.co-terms-card { padding: 18px 20px; }
+.co-terms { align-items: flex-start; font-size: 14px; font-weight: 500; line-height: 1.55; color: var(--ink-2); }
+.co-terms input { margin-top: 2px; flex: 0 0 auto; }
+.co-terms-error { margin: 6px 0 0 32px; }
+
+/* Confirmation (calm, centred) */
+.co-confirm { max-width: 780px; padding-top: 56px; padding-bottom: 64px; }
+.co-confirm .lead { max-width: 600px; margin-left: auto; margin-right: auto; }
+.co-ref { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding: 6px 8px 6px 18px; border-radius: 999px; border: 1px dashed var(--line-input); background: rgba(255, 255, 255, 0.55); }
+.co-ref-code { font-size: 16px; font-weight: 800; letter-spacing: 0.08em; }
+.co-ref-copy { width: 34px; height: 34px; flex: 0 0 34px; }
+.co-confirm-card { margin-top: 32px; padding: 0; overflow: hidden; text-align: left; }
+.co-confirm-photo { height: 180px; background: #DDE5E0; }
+.co-confirm-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.co-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px; margin: 0; padding: 24px 28px 0; }
+.co-details dd { margin: 4px 0 0; font-size: 15px; font-weight: 600; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
+.co-confirm-card .co-divider { margin: 22px 28px; }
+.co-confirm-card .co-breakdown { margin: 0 28px 18px; }
+.co-directions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 16px 28px; border-top: 1px solid var(--line); font-size: 14px; color: var(--ink-2); }
+.co-directions svg { color: var(--accent); }
+.co-directions .link-strong { margin-left: auto; }
+.co-next { list-style: none; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; text-align: left; }
+.co-next li { padding: 18px; }
+.co-next-icon { width: 36px; height: 36px; margin-bottom: 10px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--sage); color: var(--accent-dark); }
+.co-empty { padding-top: 72px; }
+
+/* Tablet & below: stay card drops under the form (styles.css), keep it readable */
+@media (max-width: 1100px) {
+  .co-checkout .booking-col { max-width: none; }
+}
+
+@media (max-width: 720px) {
+  .co-checkout { padding-top: 12px; }
+  .co-guest-main { grid-template-columns: 96px minmax(0, 1fr); }
+  .co-guest-main > :last-child { grid-column: 1 / -1; }
+  /* number + remove on top, then title, then first/last names */
+  .co-guest-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .co-guest-row > :nth-child(1) { grid-column: 1; grid-row: 1; }
+  .co-guest-row > :nth-child(5) { grid-column: 2; grid-row: 1; justify-self: end; margin: 0; }
+  .co-guest-row > :nth-child(2) { grid-column: 1 / -1; }
+  .co-extras-grid, .co-policy-dl, .co-details, .co-next { grid-template-columns: 1fr; }
+  .co-card-head > .co-seg { width: 100%; }
+  .co-seg .seg-btn { flex: 1; }
+  .co-confirm { padding: 32px 18px 48px; }
+  .co-confirm .row-gap-10 .btn { flex: 1 1 100%; }
+  .co-details { padding: 20px 20px 0; }
+  .co-confirm-card .co-divider { margin: 20px; }
+  .co-confirm-card .co-breakdown { margin: 0 20px 16px; }
+  .co-directions { padding: 14px 20px; }
+  .co-directions .link-strong { margin-left: 0; }
+}
+
+@media (max-width: 420px) {
+  .co-intro .stepper-nav li:not(.current) { font-size: 0; gap: 0; }
+  .co-intro .stepper-nav li:not(.current) > span { font-size: 12px; }
+  .co-guest-main { grid-template-columns: 1fr; }
+  .co-guest-main > :last-child { grid-column: auto; }
+  .co-two { grid-template-columns: 1fr 1fr; }
+}
+
+/* Print: just the confirmation */
+@media print {
+  .no-print, .site-header, .site-footer, .mobile-nav, .skip-link { display: none !important; }
+  body { background: #fff !important; }
+  .card { box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background: #fff !important; border: 1px solid #ddd !important; }
+}
