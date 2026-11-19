@@ -56,6 +56,8 @@
 }
 .auth-link:hover { color: var(--accent-dark); text-decoration: underline; }
 .auth-center { align-self: center; text-align: center; }
+/* "Don't have an account? Sign up" line under the Google button */
+.auth-switch { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin: 2px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
 
 /* OTP: six boxes */
 .auth-otp { display: grid; grid-template-columns: repeat(6, minmax(0, 52px)); justify-content: center; gap: 10px; }

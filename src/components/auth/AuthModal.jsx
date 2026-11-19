@@ -1,5 +1,6 @@
-// Sign in or sign up with email or mobile + one-time code.
-// One flow for everyone: enter email/mobile -> verify OTP -> signed in (new accounts are created automatically).
+// Sign in / Sign up with a one-time code.
+//   Sign in:  email OR mobile -> OTP -> signed in  (must already be registered)
+//   Sign up:  email -> OTP -> mobile number -> account created   (email must be new)
 // Rendered into document.body so page transforms can't trap it (same reason as PortalModal).
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -11,6 +12,7 @@ import { OTP_LENGTH, verifyOtp } from '../../lib/utils/otp.js';
 import '../../styles/auth.css';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const MOBILE_RE = /^[6-9]\d{9}$/; // Indian mobile numbers
 const RESEND_SECONDS = 30;
 const emptyOtp = () => Array(OTP_LENGTH).fill('');
 
@@ -25,17 +27,23 @@ function GoogleMark() {
   );
 }
 
-// The sign-in flow itself, usable inline on a page or inside the modal below.
-export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true, cta = 'Continue' }) {
+// The flow itself, usable inline on a page or inside the modal below.
+// mode 'signin' | 'signup'; onModeChange lets the user switch. Steps: 'email' -> 'otp' -> 'phone' (sign up only).
+export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true, mode = 'signin', onModeChange }) {
   const { findUser, register, login } = useAuth();
+  const isSignUp = mode === 'signup';
+  const [step, setStep] = useState('email');
+  // How the user identifies on the first step. Sign up always starts with email; sign in can use either.
   const [method, setMethod] = useState('email'); // 'email' | 'phone'
-  const [step, setStep] = useState('identify'); // 'identify' | 'otp'
-  const [value, setValue] = useState('');
+  const usePhone = !isSignUp && method === 'phone';
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(emptyOtp);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const [resendIn, setResendIn] = useState(0);
   const otpRefs = useRef([]);
+  const phoneRef = useRef(null);
 
   useEffect(() => {
     if (resendIn <= 0) return undefined;
@@ -46,30 +54,45 @@ export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true,
   useEffect(() => {
     onStepChange?.(step);
     if (step === 'otp') otpRefs.current[0]?.focus();
+    if (step === 'phone') phoneRef.current?.focus();
   }, [step, onStepChange]);
 
-  const isEmail = method === 'email';
-  const display = isEmail ? normalizeIdentifier('email', value) : `+91 ${normalizeIdentifier('phone', value)}`;
+  const normalisedEmail = normalizeIdentifier('email', email);
+  const normalisedPhone = normalizeIdentifier('phone', phone);
+  // Where the code was "sent", shown on the OTP step.
+  const sentTo = usePhone ? `+91 ${normalisedPhone}` : normalisedEmail;
 
   const toggleMethod = () => {
-    setMethod(isEmail ? 'phone' : 'email');
-    setValue('');
+    setMethod(usePhone ? 'email' : 'phone');
     setError('');
     setNote('');
   };
 
+  // ----- Step 1: email (or mobile, when signing in) -----
   const sendCode = (e) => {
     e.preventDefault();
     setNote('');
-    if (isEmail && !EMAIL_RE.test(value.trim())) { setError('Enter a valid email address.'); return; }
-    if (!isEmail && !/^[6-9]\d{9}$/.test(normalizeIdentifier('phone', value))) { setError('Enter a valid 10-digit mobile number.'); return; }
+    if (usePhone) {
+      if (!MOBILE_RE.test(normalisedPhone)) { setError('Enter a valid 10-digit mobile number.'); return; }
+      if (!findUser('phone', phone)) { setError('No account found with this mobile number. Sign up below to create one.'); return; }
+      setError('');
+      setOtp(emptyOtp());
+      setStep('otp');
+      setResendIn(RESEND_SECONDS);
+      return;
+    }
+    if (!EMAIL_RE.test(email.trim())) { setError('Enter a valid email address.'); return; }
+    // Check the account before sending a code, so people are pointed to the right option.
+    const existing = findUser('email', email);
+    if (!isSignUp && !existing) { setError('No account found with this email. Sign up below to create one.'); return; }
+    if (isSignUp && existing) { setError('An account with this email already exists. Sign in below instead.'); return; }
     setError('');
     setOtp(emptyOtp());
     setStep('otp');
     setResendIn(RESEND_SECONDS);
   };
 
-  // ----- OTP boxes: type, backspace, arrows and paste -----
+  // ----- Step 2: OTP boxes (type, backspace, arrows and paste) -----
   const focusBox = (i) => otpRefs.current[Math.max(0, Math.min(OTP_LENGTH - 1, i))]?.focus();
 
   const fillFrom = (start, digits) => {
@@ -109,10 +132,11 @@ export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true,
     const code = otp.join('');
     if (code.length !== OTP_LENGTH) { setError(`Enter the ${OTP_LENGTH}-digit code.`); return; }
     if (!verifyOtp(code)) { setError('That code is not correct. Please try again.'); return; }
-    // Existing user -> sign in; new user -> account created straight away (no name step).
-    const existing = findUser(method, value);
-    if (existing) login(existing);
-    else register({ name: '', method, value });
+    setError('');
+    if (isSignUp) { setStep('phone'); return; } // email verified -> collect mobile number
+    const existing = usePhone ? findUser('phone', phone) : findUser('email', email);
+    if (!existing) { setError('No account found. Sign up instead.'); return; }
+    login(existing);
     onDone?.();
   };
 
@@ -123,89 +147,154 @@ export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true,
     focusBox(0);
   };
 
+  // ----- Step 3 (sign up): mobile number -----
+  const createAccount = (e) => {
+    e.preventDefault();
+    const digits = normalizeIdentifier('phone', phone);
+    if (!MOBILE_RE.test(digits)) { setError('Enter a valid 10-digit mobile number.'); return; }
+    if (findUser('phone', digits)) { setError('This mobile number is already linked to another account.'); return; }
+    // Re-check the email too: another tab may have registered it meanwhile.
+    const existing = findUser('email', email);
+    if (existing) login(existing);
+    else register({ email, phone: digits });
+    onDone?.();
+  };
+
+  const switchMode = () => {
+    setError('');
+    setNote('');
+    setMethod('email'); // sign up starts with email; sign in reopens on email too
+    onModeChange?.(isSignUp ? 'signin' : 'signup');
+  };
+
+  const startOver = () => { setStep('email'); setOtp(emptyOtp()); setPhone(''); setError(''); };
+
   return (
-      <div className="auth">
-        {step === 'identify' && (
-          <>
-            <p className="auth-sub">Enter your {isEmail ? 'email' : 'mobile number'} to continue with a one-time code.</p>
-            {message && <p className="auth-message"><Info size={16} />{message}</p>}
+    <div className="auth">
+      {step === 'email' && (
+        <>
+          <p className="auth-sub">
+            {isSignUp
+              ? 'Create your account with your email and a one-time code.'
+              : `Enter your ${usePhone ? 'mobile number' : 'email'} to sign in with a one-time code.`}
+          </p>
+          {message && <p className="auth-message"><Info size={16} />{message}</p>}
 
-            <form className="auth-form" onSubmit={sendCode} noValidate>
-              {isEmail ? (
-                <label className={`form-field ${error ? 'has-error' : ''}`}>
-                  <span className="auth-label">Email address</span>
-                  <input type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" value={value}
-                    autoFocus={autoFocus} aria-invalid={Boolean(error)} onChange={(e) => { setValue(e.target.value); setError(''); }} />
-                  {error && <span className="field-error" role="alert">{error}</span>}
-                </label>
-              ) : (
-                <label className={`form-field ${error ? 'has-error' : ''}`}>
-                  <span className="auth-label">Mobile number</span>
-                  <span className="auth-phone">
-                    <span className="auth-phone-code" aria-hidden="true">+91</span>
-                    <input type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" maxLength={14} value={value}
-                      autoFocus={autoFocus} aria-invalid={Boolean(error)} onChange={(e) => { setValue(e.target.value.replace(/[^\d\s]/g, '')); setError(''); }} />
-                  </span>
-                  {error && <span className="field-error" role="alert">{error}</span>}
-                </label>
-              )}
-              <button type="submit" className="btn btn-dark btn-block auth-cta">{cta}</button>
-            </form>
-
-            <div className="auth-or" role="separator"><span>or</span></div>
-
-            <button type="button" className="btn btn-outline btn-block auth-google" onClick={() => setNote('Google sign-in is coming soon. Please continue with email or mobile for now.')}>
-              <GoogleMark />Continue with Google
-            </button>
-            {note && <p className="muted-xs auth-note" role="status">{note}</p>}
-
-            <button type="button" className="auth-link auth-center" onClick={toggleMethod}>
-              {isEmail ? 'Login or sign up with mobile' : 'Login or sign up with email'}
-            </button>
-          </>
-        )}
-
-        {step === 'otp' && (
-          <form className="auth-form" onSubmit={verify} noValidate>
-            <p className="auth-sub">Enter the {OTP_LENGTH}-digit code sent to <strong>{display}</strong>.</p>
-
-            <div className={`auth-otp ${error ? 'has-error' : ''}`} role="group" aria-label="One-time code">
-              {otp.map((digit, i) => (
-                <input
-                  // eslint-disable-next-line react/no-array-index-key
-                  key={i}
-                  ref={(el) => { otpRefs.current[i] = el; }}
-                  type="text" inputMode="numeric" autoComplete={i === 0 ? 'one-time-code' : 'off'} maxLength={OTP_LENGTH}
-                  aria-label={`Digit ${i + 1}`} value={digit}
-                  onChange={(e) => onBoxChange(i, e)} onKeyDown={(e) => onBoxKeyDown(i, e)} onPaste={(e) => onBoxPaste(i, e)}
-                  onFocus={(e) => e.target.select()}
-                />
-              ))}
-            </div>
-            {error && <p className="field-error auth-center" role="alert">{error}</p>}
-
+          <form className="auth-form" onSubmit={sendCode} noValidate>
+            {usePhone ? (
+              <label className={`form-field ${error ? 'has-error' : ''}`}>
+                <span className="auth-label">Mobile number</span>
+                <span className="auth-phone">
+                  <span className="auth-phone-code" aria-hidden="true">+91</span>
+                  <input type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" maxLength={14} value={phone}
+                    autoFocus={autoFocus} aria-invalid={Boolean(error)}
+                    onChange={(e) => { setPhone(e.target.value.replace(/[^\d\s]/g, '')); setError(''); }} />
+                </span>
+                {error && <span className="field-error" role="alert">{error}</span>}
+              </label>
+            ) : (
+              <label className={`form-field ${error ? 'has-error' : ''}`}>
+                <span className="auth-label">Email address</span>
+                <input type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" value={email}
+                  autoFocus={autoFocus} aria-invalid={Boolean(error)} onChange={(e) => { setEmail(e.target.value); setError(''); }} />
+                {error && <span className="field-error" role="alert">{error}</span>}
+              </label>
+            )}
             <button type="submit" className="btn btn-dark btn-block auth-cta">Continue</button>
-
-            <div className="auth-otp-links">
-              {resendIn > 0
-                ? <span className="muted-xs">Resend code in {resendIn}s</span>
-                : <button type="button" className="auth-link" onClick={resend}>Resend code</button>}
-              <button type="button" className="auth-back" onClick={() => { setStep('identify'); setError(''); }}>
-                <ArrowLeft size={15} />Change {isEmail ? 'email' : 'number'}
-              </button>
-            </div>
           </form>
-        )}
-      </div>
+
+          <div className="auth-or" role="separator"><span>or</span></div>
+
+          <button type="button" className="btn btn-outline btn-block auth-google" onClick={() => setNote('Google sign-in is coming soon. Please continue with email for now.')}>
+            <GoogleMark />Continue with Google
+          </button>
+          {note && <p className="muted-xs auth-note" role="status">{note}</p>}
+
+          {!isSignUp && (
+            <button type="button" className="auth-link auth-center" onClick={toggleMethod}>
+              {usePhone ? 'Sign in with email instead' : 'Sign in with mobile instead'}
+            </button>
+          )}
+
+          {onModeChange && (
+            <p className="auth-switch">
+              {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+              <button type="button" className="auth-link" onClick={switchMode}>{isSignUp ? 'Sign in' : 'Sign up'}</button>
+            </p>
+          )}
+        </>
+      )}
+
+      {step === 'otp' && (
+        <form className="auth-form" onSubmit={verify} noValidate>
+          <p className="auth-sub">Enter the {OTP_LENGTH}-digit code sent to <strong>{sentTo}</strong>.</p>
+
+          <div className={`auth-otp ${error ? 'has-error' : ''}`} role="group" aria-label="One-time code">
+            {otp.map((digit, i) => (
+              <input
+                // eslint-disable-next-line react/no-array-index-key
+                key={i}
+                ref={(el) => { otpRefs.current[i] = el; }}
+                type="text" inputMode="numeric" autoComplete={i === 0 ? 'one-time-code' : 'off'} maxLength={OTP_LENGTH}
+                aria-label={`Digit ${i + 1}`} value={digit}
+                onChange={(e) => onBoxChange(i, e)} onKeyDown={(e) => onBoxKeyDown(i, e)} onPaste={(e) => onBoxPaste(i, e)}
+                onFocus={(e) => e.target.select()}
+              />
+            ))}
+          </div>
+          {error && <p className="field-error auth-center" role="alert">{error}</p>}
+
+          <button type="submit" className="btn btn-dark btn-block auth-cta">{isSignUp ? 'Verify email' : 'Sign in'}</button>
+
+          <div className="auth-otp-links">
+            {resendIn > 0
+              ? <span className="muted-xs">Resend code in {resendIn}s</span>
+              : <button type="button" className="auth-link" onClick={resend}>Resend code</button>}
+            <button type="button" className="auth-back" onClick={startOver}>
+              <ArrowLeft size={15} />Change {usePhone ? 'number' : 'email'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {step === 'phone' && (
+        <form className="auth-form" onSubmit={createAccount} noValidate>
+          <p className="auth-sub">
+            <strong>{normalisedEmail}</strong> is verified. Add your mobile number to finish creating your account.
+          </p>
+          <label className={`form-field ${error ? 'has-error' : ''}`}>
+            <span className="auth-label">Mobile number</span>
+            <span className="auth-phone">
+              <span className="auth-phone-code" aria-hidden="true">+91</span>
+              <input ref={phoneRef} type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" maxLength={14}
+                value={phone} aria-invalid={Boolean(error)}
+                onChange={(e) => { setPhone(e.target.value.replace(/[^\d\s]/g, '')); setError(''); }} />
+            </span>
+            {error && <span className="field-error" role="alert">{error}</span>}
+          </label>
+          <button type="submit" className="btn btn-dark btn-block auth-cta">Create account</button>
+          <button type="button" className="auth-back auth-center" onClick={startOver}>
+            <ArrowLeft size={15} />Use a different email
+          </button>
+        </form>
+      )}
+    </div>
   );
 }
 
-export function AuthModal({ message = '', onClose }) {
-  const [step, setStep] = useState('identify');
-  const title = step === 'identify' ? 'Sign in or sign up' : 'Verify OTP';
+const TITLES = {
+  signin: { email: 'Sign in', otp: 'Verify OTP' },
+  signup: { email: 'Sign up', otp: 'Verify your email', phone: 'Add your mobile number' },
+};
+
+// initialMode: 'signin' (default) or 'signup'. The user can switch inside the popup.
+export function AuthModal({ message = '', initialMode = 'signin', onClose }) {
+  const [step, setStep] = useState('email');
+  const [mode, setMode] = useState(initialMode);
   return createPortal(
-    <Modal title={title} onClose={onClose}>
-      <AuthFlow message={message} onDone={onClose} onStepChange={setStep} />
+    <Modal title={TITLES[mode][step] ?? 'Sign in'} onClose={onClose}>
+      {/* Same AuthFlow instance across modes, so a typed email carries over when switching */}
+      <AuthFlow message={message} mode={mode} onModeChange={setMode} onDone={onClose} onStepChange={setStep} />
     </Modal>,
     document.body,
   );

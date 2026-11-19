@@ -149,7 +149,7 @@ export function Header({ children, overlay = false }) {
             {user ? (
               <button type="button" className="btn btn-outline btn-sm" onClick={handleLogout}><LogOut size={16} />Log out</button>
             ) : (
-              <button type="button" className="btn btn-primary btn-sm" onClick={() => { setMenuOpen(false); openAuth('register'); }}><LogIn size={16} />Sign in or sign up</button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => { setMenuOpen(false); openAuth('login'); }}><LogIn size={16} />Sign in</button>
             )}
           </div>
         )}

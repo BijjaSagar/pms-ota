@@ -20,10 +20,10 @@ export function RequireAuth({ children }) {
       <div className="auth-gate card" role="region" aria-labelledby="auth-gate-title">
         <span className="auth-gate-icon"><LockKeyhole size={22} aria-hidden="true" /></span>
         <h1 id="auth-gate-title" className="h3">Sign in to continue</h1>
-        <p className="muted-sm">Sign in or create a free account with a one-time code to see this page.</p>
+        <p className="muted-sm">Sign in with a one-time code to see this page. New here? You can sign up from the same window.</p>
         <div className="auth-gate-actions">
-          <button type="button" className="btn btn-dark" onClick={() => openAuth('register')}>
-            <LogIn size={16} aria-hidden="true" />Sign in / Sign up
+          <button type="button" className="btn btn-dark" onClick={() => openAuth('login')}>
+            <LogIn size={16} aria-hidden="true" />Sign in
           </button>
           <Link to="/" className="btn btn-light">Back to home</Link>
         </div>
