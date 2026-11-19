@@ -51,13 +51,13 @@ function AuthProvider({ children }) {
     [users],
   );
 
-  const register = useCallback(({ name, method, value }) => {
-    const id = normalizeIdentifier(method, value);
+  // Sign up = verified email + mobile number (see AuthFlow). Both are stored normalised.
+  const register = useCallback(({ name = '', email, phone }) => {
     const newUser = {
       id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: name.trim(),
-      email: method === 'email' ? id : '',
-      phone: method === 'phone' ? id : '',
+      email: normalizeIdentifier('email', email),
+      phone: normalizeIdentifier('phone', phone),
       createdAt: new Date().toISOString(),
     };
     setUsers((current) => [...current, newUser]);
@@ -68,7 +68,8 @@ function AuthProvider({ children }) {
   const login = useCallback((existing) => { setUser(existing); }, []);
   const logout = useCallback(() => { setUser(null); }, []);
 
-  const openAuth = useCallback((mode = 'register', message = '') => {
+  // mode: 'login' (default) opens Sign in, 'register' opens Sign up.
+  const openAuth = useCallback((mode = 'login', message = '') => {
     setModal({ open: true, mode, message });
   }, []);
   const closeAuth = useCallback(() => {
@@ -105,7 +106,9 @@ function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={value}>
       {children}
-      {modal.open && <AuthModal message={modal.message} onClose={closeAuth} />}
+      {modal.open && (
+        <AuthModal message={modal.message} initialMode={modal.mode === 'register' ? 'signup' : 'signin'} onClose={closeAuth} />
+      )}
     </AuthContext.Provider>
   );
 }

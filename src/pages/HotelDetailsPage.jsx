@@ -72,7 +72,7 @@ export default function HotelDetailsPage() {
     if (!isAuthenticated) {
       // Sign-in is asked for only here, on the Reserve click.
       reservePending.current = true;
-      openAuth('register', 'Sign in or sign up to complete your booking.');
+      openAuth('login', 'Sign in to complete your booking.');
       return;
     }
     navigate('/checkout');
