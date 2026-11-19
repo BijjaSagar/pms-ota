@@ -25,7 +25,8 @@ function GoogleMark() {
   );
 }
 
-export function AuthModal({ message = '', onClose }) {
+// The sign-in flow itself, usable inline on a page or inside the modal below.
+export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true, cta = 'Continue' }) {
   const { findUser, register, login } = useAuth();
   const [method, setMethod] = useState('email'); // 'email' | 'phone'
   const [step, setStep] = useState('identify'); // 'identify' | 'otp'
@@ -43,8 +44,9 @@ export function AuthModal({ message = '', onClose }) {
   }, [resendIn]);
 
   useEffect(() => {
+    onStepChange?.(step);
     if (step === 'otp') otpRefs.current[0]?.focus();
-  }, [step]);
+  }, [step, onStepChange]);
 
   const isEmail = method === 'email';
   const display = isEmail ? normalizeIdentifier('email', value) : `+91 ${normalizeIdentifier('phone', value)}`;
@@ -111,7 +113,7 @@ export function AuthModal({ message = '', onClose }) {
     const existing = findUser(method, value);
     if (existing) login(existing);
     else register({ name: '', method, value });
-    onClose();
+    onDone?.();
   };
 
   const resend = () => {
@@ -121,10 +123,7 @@ export function AuthModal({ message = '', onClose }) {
     focusBox(0);
   };
 
-  const title = step === 'identify' ? 'Sign in or sign up' : 'Verify OTP';
-
-  return createPortal(
-    <Modal title={title} onClose={onClose}>
+  return (
       <div className="auth">
         {step === 'identify' && (
           <>
@@ -135,8 +134,8 @@ export function AuthModal({ message = '', onClose }) {
               {isEmail ? (
                 <label className={`form-field ${error ? 'has-error' : ''}`}>
                   <span className="auth-label">Email address</span>
-                  <input type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" value={value} autoFocus
-                    aria-invalid={Boolean(error)} onChange={(e) => { setValue(e.target.value); setError(''); }} />
+                  <input type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" value={value}
+                    autoFocus={autoFocus} aria-invalid={Boolean(error)} onChange={(e) => { setValue(e.target.value); setError(''); }} />
                   {error && <span className="field-error" role="alert">{error}</span>}
                 </label>
               ) : (
@@ -144,13 +143,13 @@ export function AuthModal({ message = '', onClose }) {
                   <span className="auth-label">Mobile number</span>
                   <span className="auth-phone">
                     <span className="auth-phone-code" aria-hidden="true">+91</span>
-                    <input type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" maxLength={14} value={value} autoFocus
-                      aria-invalid={Boolean(error)} onChange={(e) => { setValue(e.target.value.replace(/[^\d\s]/g, '')); setError(''); }} />
+                    <input type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" maxLength={14} value={value}
+                      autoFocus={autoFocus} aria-invalid={Boolean(error)} onChange={(e) => { setValue(e.target.value.replace(/[^\d\s]/g, '')); setError(''); }} />
                   </span>
                   {error && <span className="field-error" role="alert">{error}</span>}
                 </label>
               )}
-              <button type="submit" className="btn btn-dark btn-block auth-cta">Continue</button>
+              <button type="submit" className="btn btn-dark btn-block auth-cta">{cta}</button>
             </form>
 
             <div className="auth-or" role="separator"><span>or</span></div>
@@ -198,6 +197,15 @@ export function AuthModal({ message = '', onClose }) {
           </form>
         )}
       </div>
+  );
+}
+
+export function AuthModal({ message = '', onClose }) {
+  const [step, setStep] = useState('identify');
+  const title = step === 'identify' ? 'Sign in or sign up' : 'Verify OTP';
+  return createPortal(
+    <Modal title={title} onClose={onClose}>
+      <AuthFlow message={message} onDone={onClose} onStepChange={setStep} />
     </Modal>,
     document.body,
   );

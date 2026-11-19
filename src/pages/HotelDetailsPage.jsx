@@ -1,7 +1,7 @@
 // Hotel details — TriponX stay-page layout, with pms-ota's data and features
 // (room selection -> booking context -> /checkout, lightbox, OpenStreetMap, reviews, policies,
 // capacity warning, rooms left, wishlist).
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { ArrowRight, ChatIcon, HeartIcon, InfoIcon, ShareIcon } from '../components/Icons.jsx';
@@ -10,6 +10,7 @@ import { Gallery } from '../components/hotels/Gallery.jsx';
 import { ReviewList } from '../components/hotels/ReviewList.jsx';
 import { RoomCard } from '../components/hotels/RoomCard.jsx';
 import { Stars } from '../components/ui/Badge.jsx';
+import { useAuth } from '../lib/context/useAuth.js';
 import { useBooking } from '../lib/context/useBooking.js';
 import { useWishlist } from '../lib/context/useWishlist.js';
 import { getHotelBySlug } from '../lib/data/hotels.js';
@@ -26,6 +27,19 @@ export default function HotelDetailsPage() {
   const { search, selectedHotel, selectedRoom, selectRoom } = useBooking();
   const { isSaved, toggleWishlist } = useWishlist();
   const [shared, setShared] = useState(false);
+  const { isAuthenticated, authOpen, openAuth } = useAuth();
+  // Set when a signed-out guest clicks Reserve: once they sign in, continue to checkout.
+  const reservePending = useRef(false);
+
+  useEffect(() => {
+    if (isAuthenticated && reservePending.current) {
+      reservePending.current = false;
+      navigate('/checkout');
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Closing the popup without signing in cancels the pending reservation.
+  useEffect(() => { if (!authOpen && !isAuthenticated) reservePending.current = false; }, [authOpen, isAuthenticated]);
 
   const hotel = slug ? getHotelBySlug(slug) : undefined;
   if (!hotel) return <NotFoundPage />;
@@ -55,6 +69,12 @@ export default function HotelDetailsPage() {
 
   const handleReserve = () => {
     if (!isCurrentHotel || !selectedRoom) selectRoom(hotel, activeRoom);
+    if (!isAuthenticated) {
+      // Sign-in is asked for only here, on the Reserve click.
+      reservePending.current = true;
+      openAuth('register', 'Sign in or sign up to complete your booking.');
+      return;
+    }
     navigate('/checkout');
   };
 

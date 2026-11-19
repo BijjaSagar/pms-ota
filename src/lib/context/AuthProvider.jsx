@@ -75,9 +75,16 @@ function AuthProvider({ children }) {
     setModal((m) => ({ ...m, open: false }));
   }, []);
 
-  // First visit: signed-out users see the sign-in popup as soon as the site opens.
+  // The sign-in popup never opens on its own — only via openAuth() from a Sign in / Sign up click.
+
+  // Keep tabs in sync: signing in or out in one tab shows up in the others without a reload.
   useEffect(() => {
-    if (!readJSON(SESSION_KEY, null)) setModal((m) => (m.open ? m : { open: true, mode: 'register', message: '' }));
+    const onStorage = (e) => {
+      if (e.key === SESSION_KEY) setUser(readJSON(SESSION_KEY, null));
+      if (e.key === USERS_KEY) setUsers(readJSON(USERS_KEY, []));
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   const value = useMemo(

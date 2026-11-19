@@ -4172,3 +4172,22 @@ button.account-item {
 @media (max-width: 360px) {
   .site-footer > .container.footer-grid { padding: 24px 16px 20px; column-gap: 12px; }
 }
+
+/* ---------- Navbar: icon + label links ---------- */
+/* Desktop: logo, links and actions always on ONE row */
+@media (min-width: 1101px) {
+  .glass-nav:not(:has(.compact-search, .stepper-nav)) { flex-wrap: nowrap; }
+  .glass-nav .brand, .header-actions { flex: 0 0 auto; }
+  .primary-nav { flex-wrap: nowrap; white-space: nowrap; min-width: 0; }
+}
+.primary-nav { align-items: center; gap: 2px; }
+.primary-nav a { display: inline-flex; align-items: center; gap: 6px; padding: 9px 13px; }
+.primary-nav a svg { flex: 0 0 auto; opacity: .85; }
+
+/* Smaller laptops: tighter links, icons off so everything still fits on one row */
+@media (max-width: 1400px) {
+  .primary-nav { font-size: 14px; }
+  .primary-nav a { padding: 8px 11px; }
+  .primary-nav a svg { display: none; }
+}
+

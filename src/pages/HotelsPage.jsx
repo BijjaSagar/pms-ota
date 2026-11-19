@@ -10,12 +10,13 @@ import { Stars } from '../components/ui/Badge.jsx';
 import { useBooking } from '../lib/context/useBooking.js';
 import { useWishlist } from '../lib/context/useWishlist.js';
 import { destinations, hotels } from '../lib/data/hotels.js';
+import { PRICE_MAX } from '../components/hotels/FilterPanel.jsx';
 import { formatDate, nightsBetween } from '../lib/utils/date.js';
 import { formatCurrency } from '../lib/utils/pricing.js';
 import '../styles/hotels.css';
 
 const defaultFilters = {
-  maxPrice: 1000,
+  maxPrice: PRICE_MAX, // no budget limit until the guest sets one
   propertyTypes: [],
   amenities: [],
   minRating: 0,
@@ -72,6 +73,7 @@ export default function HotelsPage() {
     adults: Number(searchParams.get('adults') ?? search.adults),
     kids: Number(searchParams.get('kids') ?? search.kids),
   }), [searchParams, search.checkIn, search.checkOut, search.guests, search.rooms, search.adults, search.kids]);
+
 
   useEffect(() => { updateSearch(query); }, [query, updateSearch]);
 
@@ -324,3 +326,4 @@ export default function HotelsPage() {
     </div>
   );
 }
+

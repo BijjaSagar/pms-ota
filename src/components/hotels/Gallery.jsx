@@ -1,7 +1,11 @@
 // Hotel photos in the TriponX layout: 1 large + 4 small tiles with "All N photos",
 // or every photo (`variant="all"`, photos page). Any photo opens a keyboard-friendly lightbox
 // (feature from pms-ota's Gallery).
-import { useCallback, useEffect, useState } from 'react';
+// The lightbox is portalled to <body>: .page-main keeps a transform from its entry animation, and a
+// transformed ancestor turns `position: fixed` into "fixed to that element" — which is why the
+// lightbox used to open off-screen/under the navbar and photos looked like they "didn't open".
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import '../../styles/hotel-details.css';
@@ -9,6 +13,7 @@ import '../../styles/hotel-details.css';
 export function Gallery({ images, name, photosLink, variant = 'grid' }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const isOpen = activeIndex !== null;
+  const touchX = useRef(null);
 
   const close = useCallback(() => setActiveIndex(null), []);
   const next = useCallback(() => {
@@ -33,6 +38,16 @@ export function Gallery({ images, name, photosLink, variant = 'grid' }) {
     };
   }, [isOpen, close, next, previous]);
 
+  // Swipe left/right on touch screens.
+  const onTouchStart = (e) => { touchX.current = e.touches[0].clientX; };
+  const onTouchEnd = (e) => {
+    if (touchX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchX.current;
+    touchX.current = null;
+    if (Math.abs(dx) < 40) return;
+    if (dx < 0) next(); else previous();
+  };
+
   if (images.length === 0) return null;
 
   const shown = variant === 'all' ? images : images.slice(0, 5);
@@ -55,8 +70,9 @@ export function Gallery({ images, name, photosLink, variant = 'grid' }) {
         ))}
       </div>
 
-      {isOpen && (
-        <div className="hd-lightbox" role="dialog" aria-modal="true" aria-label={`${name} photo gallery`} onClick={close}>
+      {isOpen && createPortal(
+        <div className="hd-lightbox" role="dialog" aria-modal="true" aria-label={`${name} photo gallery`} onClick={close}
+          onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
           <button type="button" onClick={close} className="hd-lb-btn hd-lb-close" aria-label="Close gallery"><X size={20} /></button>
           <button type="button" onClick={(e) => { e.stopPropagation(); previous(); }} className="hd-lb-btn hd-lb-prev" aria-label="Previous photo">
             <ChevronLeft size={20} />
@@ -68,7 +84,8 @@ export function Gallery({ images, name, photosLink, variant = 'grid' }) {
           <button type="button" onClick={(e) => { e.stopPropagation(); next(); }} className="hd-lb-btn hd-lb-next" aria-label="Next photo">
             <ChevronRight size={20} />
           </button>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
