@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, BadgePercent, Briefcase, Check, Headphones, ChevronDown, CreditCard, Heart, Info, Globe, Hotel, House, Lock, LogIn, LogOut, Menu, UserRound, X } from 'lucide-react';
+import { ArrowRight, BadgePercent, Briefcase, Building2, Check, Headphones, ChevronDown, CreditCard, Heart, Info, Globe, Hotel, House, Lock, LogIn, LogOut, Menu, UserRound, X } from 'lucide-react';
 import { Logo } from './Icons.jsx';
 import { useWishlist } from '../lib/context/useWishlist.js';
 import { useAuth } from '../lib/context/useAuth.js';
@@ -22,12 +22,20 @@ const NAV_LINKS = [
   { label: 'Help & Support', to: '/#help-support', hash: true, Icon: Headphones },
 ];
 
-// Navbar link with its icon. Section links (/#offers) use Link; page links use NavLink for the active state.
 function NavItem({ l }) {
-  const content = <>{l.Icon && <l.Icon size={16} aria-hidden="true" />}{l.label}</>;
+  const content = l.iconOnly
+    ? <l.Icon size={18} aria-hidden="true" />
+    : l.sub
+      ? <>{l.Icon && <l.Icon size={16} aria-hidden="true" />}<span className="nav-two-line"><span>{l.label}</span><small>{l.sub}</small></span></>
+      : <>{l.Icon && <l.Icon size={16} aria-hidden="true" />}{l.label}</>;
+  const props = {
+    className: [l.cls, l.iconOnly && 'nav-icon-link'].filter(Boolean).join(' ') || undefined,
+    'aria-label': l.iconOnly ? l.label : undefined,
+    title: l.iconOnly ? l.label : undefined,
+  };
   return l.hash
-    ? <Link to={l.to}>{content}</Link>
-    : <NavLink to={l.to} end={l.end}>{content}</NavLink>;
+    ? <Link to={l.to} {...props}>{content}</Link>
+    : <NavLink to={l.to} end={l.end} {...props} className={({ isActive }) => [props.className, isActive && 'active'].filter(Boolean).join(' ')}>{content}</NavLink>;
 }
 
 const ACCOUNT_LINKS = [
@@ -94,11 +102,15 @@ export function Header({ children, overlay = false }) {
             </nav>
           )}
           <div className="header-actions">
+            <Link to="/list-property" target="_blank" rel="noopener noreferrer" className="btn btn-dark btn-sm list-property-btn hide-sm"
+              aria-label="List your property (opens in a new tab)">
+              <Building2 size={16} aria-hidden="true" />
+              <span className="nav-two-line"><span>List your property</span><small>Grow your business</small></span>
+            </Link>
             <Link to="/wishlist" className="icon-btn glass-chip nav-heart" aria-label={`Wishlist${wishlistCount ? `, ${wishlistCount} saved` : ''}`}>
               <Heart size={18} />
               {wishlistCount > 0 && <span className="nav-count">{wishlistCount}</span>}
             </Link>
-            <Link to="/hotels" className="btn btn-dark btn-sm book-stay hide-sm">Book a stay</Link>
             {!user ? (
               <button type="button" className="nav-signin" onClick={() => openAuth('login')}>Sign in</button>
             ) : (
@@ -142,7 +154,9 @@ export function Header({ children, overlay = false }) {
             <nav aria-label="Account navigation" className="mobile-menu-account">
               {ACCOUNT_LINKS.map(({ label, to, Icon }) => <Link key={label} to={to} className="mobile-menu-link"><Icon size={16} />{label}</Link>)}
             </nav>
-            <Link to="/hotels" className="btn btn-dark btn-sm">Book a stay</Link>
+            <Link to="/list-property" target="_blank" rel="noopener noreferrer" className="btn btn-dark btn-sm" onClick={() => setMenuOpen(false)}>
+              <Building2 size={16} />List your property
+            </Link>
             <button type="button" className="btn glass-chip btn-sm" onClick={() => { setMenuOpen(false); setLocaleOpen(true); }}>
               {flagOf(locale.country)} {locale.currency} · {locale.language.toUpperCase()}
             </button>
