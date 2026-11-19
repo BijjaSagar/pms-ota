@@ -9,12 +9,12 @@ import { Modal } from '../Layout.jsx';
 import { useAuth } from '../../lib/context/useAuth.js';
 import { normalizeIdentifier } from '../../lib/context/AuthProvider.jsx';
 import { OTP_LENGTH, verifyOtp } from '../../lib/utils/otp.js';
+import { OtpInput, emptyOtp } from './OtpInput.jsx';
 import '../../styles/auth.css';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MOBILE_RE = /^[6-9]\d{9}$/; // Indian mobile numbers
 const RESEND_SECONDS = 30;
-const emptyOtp = () => Array(OTP_LENGTH).fill('');
 
 function GoogleMark() {
   return (
@@ -29,7 +29,15 @@ function GoogleMark() {
 
 // The flow itself, usable inline on a page or inside the modal below.
 // mode 'signin' | 'signup'; onModeChange lets the user switch. Steps: 'email' -> 'otp' -> 'phone' (sign up only).
-export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true, mode = 'signin', onModeChange }) {
+// switchLabels (optional) overrides the bottom "Don't have an account? Sign up" wording per mode.
+const DEFAULT_SWITCH_LABELS = {
+  signin: ["Don't have an account?", 'Sign up'],
+  signup: ['Already have an account?', 'Sign in'],
+};
+
+export function AuthFlow({
+  message = '', onDone, onStepChange, autoFocus = true, mode = 'signin', onModeChange, switchLabels = DEFAULT_SWITCH_LABELS,
+}) {
   const { findUser, register, login } = useAuth();
   const isSignUp = mode === 'signup';
   const [step, setStep] = useState('email');
@@ -42,7 +50,7 @@ export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true,
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const [resendIn, setResendIn] = useState(0);
-  const otpRefs = useRef([]);
+  const [otpKey, setOtpKey] = useState(0); // bump to remount OtpInput (refocus first box after a resend)
   const phoneRef = useRef(null);
 
   useEffect(() => {
@@ -51,10 +59,17 @@ export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true,
     return () => clearTimeout(t);
   }, [resendIn]);
 
+  // Mode can change from our own link or from the parent page: start clean either way
+  // (the typed email is kept on purpose).
+  useEffect(() => {
+    setError('');
+    setNote('');
+    setMethod('email');
+  }, [mode]);
+
   useEffect(() => {
     onStepChange?.(step);
-    if (step === 'otp') otpRefs.current[0]?.focus();
-    if (step === 'phone') phoneRef.current?.focus();
+    if (step === 'phone') phoneRef.current?.focus(); // OtpInput focuses itself on mount
   }, [step, onStepChange]);
 
   const normalisedEmail = normalizeIdentifier('email', email);
@@ -92,40 +107,8 @@ export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true,
     setResendIn(RESEND_SECONDS);
   };
 
-  // ----- Step 2: OTP boxes (type, backspace, arrows and paste) -----
-  const focusBox = (i) => otpRefs.current[Math.max(0, Math.min(OTP_LENGTH - 1, i))]?.focus();
-
-  const fillFrom = (start, digits) => {
-    const next = [...otp];
-    let i = start;
-    for (const d of digits) { if (i >= OTP_LENGTH) break; next[i] = d; i += 1; }
-    setOtp(next);
-    setError('');
-    focusBox(i);
-  };
-
-  const onBoxChange = (i, e) => {
-    const digits = e.target.value.replace(/\D/g, '');
-    if (!digits) { const next = [...otp]; next[i] = ''; setOtp(next); return; }
-    // Typing into a filled box appends to its old digit; keep only what was newly typed.
-    const typed = otp[i] && digits.length > 1 && digits.startsWith(otp[i]) ? digits.slice(1) : digits;
-    fillFrom(i, typed);
-  };
-
-  const onBoxKeyDown = (i, e) => {
-    if (e.key === 'Backspace' && !otp[i] && i > 0) {
-      e.preventDefault();
-      const next = [...otp]; next[i - 1] = ''; setOtp(next); focusBox(i - 1);
-    } else if (e.key === 'ArrowLeft') { e.preventDefault(); focusBox(i - 1); }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); focusBox(i + 1); }
-  };
-
-  const onBoxPaste = (i, e) => {
-    const digits = e.clipboardData.getData('text').replace(/\D/g, '');
-    if (!digits) return;
-    e.preventDefault();
-    fillFrom(i, digits);
-  };
+  // ----- Step 2: OTP (boxes live in OtpInput) -----
+  const onOtpChange = (next) => { setOtp(next); setError(''); };
 
   const verify = (e) => {
     e.preventDefault();
@@ -144,7 +127,7 @@ export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true,
     setResendIn(RESEND_SECONDS);
     setOtp(emptyOtp());
     setError('');
-    focusBox(0);
+    setOtpKey((k) => k + 1); // remount -> focus first box
   };
 
   // ----- Step 3 (sign up): mobile number -----
@@ -160,12 +143,9 @@ export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true,
     onDone?.();
   };
 
-  const switchMode = () => {
-    setError('');
-    setNote('');
-    setMethod('email'); // sign up starts with email; sign in reopens on email too
-    onModeChange?.(isSignUp ? 'signin' : 'signup');
-  };
+  // Errors/method are reset by the [mode] effect above.
+  const switchMode = () => onModeChange?.(isSignUp ? 'signin' : 'signup');
+  const [switchPrompt, switchAction] = switchLabels[isSignUp ? 'signup' : 'signin'];
 
   const startOver = () => { setStep('email'); setOtp(emptyOtp()); setPhone(''); setError(''); };
 
@@ -218,8 +198,8 @@ export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true,
 
           {onModeChange && (
             <p className="auth-switch">
-              {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-              <button type="button" className="auth-link" onClick={switchMode}>{isSignUp ? 'Sign in' : 'Sign up'}</button>
+              {switchPrompt}
+              <button type="button" className="auth-link" onClick={switchMode}>{switchAction}</button>
             </p>
           )}
         </>
@@ -229,19 +209,7 @@ export function AuthFlow({ message = '', onDone, onStepChange, autoFocus = true,
         <form className="auth-form" onSubmit={verify} noValidate>
           <p className="auth-sub">Enter the {OTP_LENGTH}-digit code sent to <strong>{sentTo}</strong>.</p>
 
-          <div className={`auth-otp ${error ? 'has-error' : ''}`} role="group" aria-label="One-time code">
-            {otp.map((digit, i) => (
-              <input
-                // eslint-disable-next-line react/no-array-index-key
-                key={i}
-                ref={(el) => { otpRefs.current[i] = el; }}
-                type="text" inputMode="numeric" autoComplete={i === 0 ? 'one-time-code' : 'off'} maxLength={OTP_LENGTH}
-                aria-label={`Digit ${i + 1}`} value={digit}
-                onChange={(e) => onBoxChange(i, e)} onKeyDown={(e) => onBoxKeyDown(i, e)} onPaste={(e) => onBoxPaste(i, e)}
-                onFocus={(e) => e.target.select()}
-              />
-            ))}
-          </div>
+          <OtpInput key={otpKey} value={otp} onChange={onOtpChange} invalid={Boolean(error)} />
           {error && <p className="field-error auth-center" role="alert">{error}</p>}
 
           <button type="submit" className="btn btn-dark btn-block auth-cta">{isSignUp ? 'Verify email' : 'Sign in'}</button>

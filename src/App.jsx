@@ -13,7 +13,11 @@ import MyTripsPage from './pages/MyTripsPage.jsx';
 import WishlistPage from './pages/WishlistPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import MakeAPaymentPage from './pages/MakeAPaymentPage.jsx';
+import ListPropertyPage from './pages/ListPropertyPage.jsx';
+import PartnerPropertiesPage from './pages/PartnerPropertiesPage.jsx';
+import PartnerNewPropertyPage from './pages/PartnerNewPropertyPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
+import { PARTNER_PATH } from './lib/context/AuthProvider.jsx';
 import { RequireAuth } from './components/auth/RequireAuth.jsx';
 
 // Booking and personal pages need an account; signed-out visitors see a sign-in card (no auto popup).
@@ -46,16 +50,19 @@ function ScrollToTop() {
 function AppLayout() {
   const { pathname } = useLocation();
   const isHome = pathname === '/';
+  // Partner Hub is a separate, standalone experience (own top bar, opened in a new tab).
+  const isPartner = pathname.startsWith(PARTNER_PATH);
+  const siteChrome = !isHome && !isPartner;
   return (
     <div className="page">
       <a href="#main-content" className="skip-link">Skip to content</a>
       <ScrollToTop />
-      {!isHome && <Header />}
+      {siteChrome && <Header />}
       <main id="main-content" key={pathname} className="page-main">
         <Outlet />
       </main>
-      {!isHome && <Footer />}
-      <MobileNav />
+      {siteChrome && <Footer />}
+      {!isPartner && <MobileNav />}
     </div>
   );
 }
@@ -90,6 +97,12 @@ export default function App() {
           <Route path="trips" element={<MyTripsPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
+        {/* Partner Hub: public page with its own inline sign-in */}
+        <Route path="list-property" element={<ListPropertyPage />} />
+        {/* Partner Hub signed-in pages (PartnerShell checks sign-in and sends visitors back to /list-property) */}
+        <Route path="list-property/properties" element={<PartnerPropertiesPage />} />
+        <Route path="list-property/new" element={<PartnerNewPropertyPage />} />
+        <Route path="list-property/dashboard" element={<Navigate replace to="/list-property/properties" />} />
         <Route path="search" element={<LegacySearch />} />
         <Route path="stay/:id" element={<LegacyStay />} />
         <Route path="*" element={<NotFoundPage />} />

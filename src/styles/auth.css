@@ -19,7 +19,7 @@
 .auth { display: flex; flex-direction: column; gap: 16px; }
 .auth-form { display: flex; flex-direction: column; gap: 16px; }
 .auth-sub { color: var(--muted); font-size: 15px; line-height: 1.5; margin-top: -2px; }
-.auth-sub strong { color: var(--ink); font-weight: 700; word-break: break-all; }
+.auth-sub strong { color: var(--ink); font-weight: 700; overflow-wrap: anywhere; } /* wrap long emails only when needed */
 
 .auth-message {
   display: flex; align-items: flex-start; gap: 8px;

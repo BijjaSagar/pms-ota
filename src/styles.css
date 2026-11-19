@@ -4173,7 +4173,7 @@ button.account-item {
   .site-footer > .container.footer-grid { padding: 24px 16px 20px; column-gap: 12px; }
 }
 
-/* ---------- Navbar: icon + label links ---------- */
+/* ---------- Navbar trial: "List your property" + icon-only Help ---------- */
 /* Desktop: logo, links and actions always on ONE row */
 @media (min-width: 1101px) {
   .glass-nav:not(:has(.compact-search, .stepper-nav)) { flex-wrap: nowrap; }
@@ -4183,11 +4183,22 @@ button.account-item {
 .primary-nav { align-items: center; gap: 2px; }
 .primary-nav a { display: inline-flex; align-items: center; gap: 6px; padding: 9px 13px; }
 .primary-nav a svg { flex: 0 0 auto; opacity: .85; }
+.nav-two-line { display: flex; flex-direction: column; line-height: 1.1; text-align: left; }
+.nav-two-line small { font-size: 11px; font-weight: 600; color: var(--accent); letter-spacing: 0.01em; }
+.list-property-btn { gap: 8px; padding-top: 6px; padding-bottom: 6px; white-space: nowrap; }
+.list-property-btn .nav-two-line small { color: rgba(246, 245, 241, 0.75); }
+.primary-nav a.nav-icon-link { width: 40px; height: 40px; padding: 0; justify-content: center; }
 
 /* Smaller laptops: tighter links, icons off so everything still fits on one row */
 @media (max-width: 1400px) {
   .primary-nav { font-size: 14px; }
   .primary-nav a { padding: 8px 11px; }
   .primary-nav a svg { display: none; }
+}
+
+/* Tablets: keep it on one line — drop the subtitle */
+@media (max-width: 1100px) {
+  .nav-two-line small { display: none; }
+  .primary-nav a.nav-icon-link { width: 36px; height: 36px; }
 }
 

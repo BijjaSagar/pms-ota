@@ -6,6 +6,7 @@ import { AuthModal } from '../../components/auth/AuthModal.jsx';
 
 const USERS_KEY = 'triponx.users.v1';
 const SESSION_KEY = 'triponx.session.v1';
+export const PARTNER_PATH = '/list-property';
 
 function readJSON(key, fallback) {
   if (typeof window === 'undefined') return fallback;
@@ -52,17 +53,25 @@ function AuthProvider({ children }) {
   );
 
   // Sign up = verified email + mobile number (see AuthFlow). Both are stored normalised.
-  const register = useCallback(({ name = '', email, phone }) => {
+  // passwordHash is optional: guest sign-up uses OTP only; Partner Hub accounts also set a password.
+  const register = useCallback(({ name = '', email, phone, passwordHash }) => {
     const newUser = {
       id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: name.trim(),
       email: normalizeIdentifier('email', email),
       phone: normalizeIdentifier('phone', phone),
+      ...(passwordHash ? { passwordHash } : {}),
       createdAt: new Date().toISOString(),
     };
     setUsers((current) => [...current, newUser]);
     setUser(newUser);
     return newUser;
+  }, []);
+
+  // Patch a stored account (e.g. new password hash). Keeps the signed-in copy in sync.
+  const updateUser = useCallback((id, patch) => {
+    setUsers((current) => current.map((u) => (u.id === id ? { ...u, ...patch } : u)));
+    setUser((current) => (current && current.id === id ? { ...current, ...patch } : current));
   }, []);
 
   const login = useCallback((existing) => { setUser(existing); }, []);
@@ -78,7 +87,8 @@ function AuthProvider({ children }) {
 
   // The sign-in popup never opens on its own — only via openAuth() from a Sign in / Sign up click.
 
-  // Keep tabs in sync: signing in or out in one tab shows up in the others without a reload.
+  // Keep tabs in sync: the Partner Hub opens in a new tab, so a sign-in/out there should
+  // show up in the main site tab (and vice versa) without a reload.
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === SESSION_KEY) setUser(readJSON(SESSION_KEY, null));
@@ -95,12 +105,13 @@ function AuthProvider({ children }) {
       authOpen: modal.open,
       findUser,
       register,
+      updateUser,
       login,
       logout,
       openAuth,
       closeAuth,
     }),
-    [user, modal.open, findUser, register, login, logout, openAuth, closeAuth],
+    [user, modal.open, findUser, register, updateUser, login, logout, openAuth, closeAuth],
   );
 
   return (
