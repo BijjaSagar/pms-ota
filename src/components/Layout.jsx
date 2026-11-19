@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, Briefcase, Check, ChevronDown, CreditCard, Heart, Info, Globe, Lock, LogIn, LogOut, Menu, UserRound, X } from 'lucide-react';
+import { ArrowRight, BadgePercent, Briefcase, Check, Headphones, ChevronDown, CreditCard, Heart, Info, Globe, Hotel, House, Lock, LogIn, LogOut, Menu, UserRound, X } from 'lucide-react';
 import { Logo } from './Icons.jsx';
 import { useWishlist } from '../lib/context/useWishlist.js';
 import { useAuth } from '../lib/context/useAuth.js';
@@ -16,11 +16,19 @@ export function Brand() {
 
 // ---------- Navbar (pms-ota navigation, TriponX glass styling) ----------
 const NAV_LINKS = [
-  { label: 'Home', to: '/', end: true },
-  { label: 'Hotels', to: '/hotels' },
-  { label: 'Offers', to: '/#offers', hash: true },
-  { label: 'Help & Support', to: '/#help-support', hash: true },
+  { label: 'Home', to: '/', end: true, Icon: House },
+  { label: 'Hotels', to: '/hotels', Icon: Hotel },
+  { label: 'Offers', to: '/#offers', hash: true, Icon: BadgePercent },
+  { label: 'Help & Support', to: '/#help-support', hash: true, Icon: Headphones },
 ];
+
+// Navbar link with its icon. Section links (/#offers) use Link; page links use NavLink for the active state.
+function NavItem({ l }) {
+  const content = <>{l.Icon && <l.Icon size={16} aria-hidden="true" />}{l.label}</>;
+  return l.hash
+    ? <Link to={l.to}>{content}</Link>
+    : <NavLink to={l.to} end={l.end}>{content}</NavLink>;
+}
 
 const ACCOUNT_LINKS = [
   { label: 'My profile', to: '/profile', Icon: UserRound },
@@ -82,9 +90,7 @@ export function Header({ children, overlay = false }) {
           <Brand />
           {children ?? (
             <nav aria-label="Main navigation" className="primary-nav">
-              {NAV_LINKS.map((l) => (l.hash
-                ? <Link key={l.label} to={l.to}>{l.label}</Link>
-                : <NavLink key={l.label} to={l.to} end={l.end}>{l.label}</NavLink>))}
+              {NAV_LINKS.map((l) => <NavItem key={l.label} l={l} />)}
             </nav>
           )}
           <div className="header-actions">
@@ -131,7 +137,7 @@ export function Header({ children, overlay = false }) {
         {menuOpen && (
           <div className="mobile-menu glass-pop">
             <nav aria-label="Mobile navigation">
-              {NAV_LINKS.map((l) => <Link key={l.label} to={l.to} className="mobile-menu-link">{l.label}</Link>)}
+              {NAV_LINKS.map(({ label, to, Icon }) => <Link key={label} to={to} className="mobile-menu-link"><Icon size={16} />{label}</Link>)}
             </nav>
             <nav aria-label="Account navigation" className="mobile-menu-account">
               {ACCOUNT_LINKS.map(({ label, to, Icon }) => <Link key={label} to={to} className="mobile-menu-link"><Icon size={16} />{label}</Link>)}
@@ -252,7 +258,7 @@ export function EmptyState({ icon: Icon = Info, title, text, action }) {
 
 // ---------- Footer (pms-ota content, TriponX styling) ----------
 const FOOTER_COLUMNS = [
-  { title: 'Explore', links: [['Santorini', '/hotels?destination=Santorini'], ['Kyoto', '/hotels?destination=Kyoto'], ['Amalfi Coast', '/hotels?destination=Amalfi%20Coast'], ['Bali', '/hotels?destination=Bali'], ['Maldives', '/hotels?destination=Maldives']] },
+  { title: 'Explore', links: [['Udaipur', '/hotels?destination=Udaipur'], ['Goa', '/hotels?destination=Goa'], ['Jaipur', '/hotels?destination=Jaipur'], ['Kerala', '/hotels?destination=Kerala'], ['Rishikesh', '/hotels?destination=Rishikesh']] },
   { title: 'Company', links: [['Our story', '/#why-triponx'], ['Journal', '/#destinations'], ['Careers', '/#why-triponx'], ['Press', '/#concierge']] },
   { title: 'Support', links: [['Contact concierge', '/#concierge'], ['Booking help', '/#help-support'], ['Cancellation policy', '/#help-support'], ['Accessibility', '/#help-support']] },
 ];

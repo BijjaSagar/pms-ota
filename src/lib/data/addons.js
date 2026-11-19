@@ -1,4 +1,4 @@
-// Ported from pms-ota/src/data/addons.ts (types removed, logic unchanged).
+// Ported from pms-ota/src/data/addons.ts (types removed, logic unchanged). Prices in INR.
 const EARLY_CHECK_IN_ID = "early-check-in";
 const LATE_CHECK_OUT_ID = "late-check-out";
 const addons = [
@@ -6,7 +6,7 @@ const addons = [
     id: "breakfast",
     name: "Daily breakfast",
     description: "Buffet breakfast at the property restaurant, per guest per night.",
-    price: 35,
+    price: 950,
     unit: "person-night",
     icon: "coffee"
   },
@@ -14,7 +14,7 @@ const addons = [
     id: "airport-transfer",
     name: "Private airport transfer",
     description: "Round-trip pick-up and drop-off with a private driver.",
-    price: 80,
+    price: 2800,
     unit: "stay",
     icon: "car"
   },
@@ -22,7 +22,7 @@ const addons = [
     id: "spa-credit",
     name: "Spa credit",
     description: "Credit to use towards any treatment at the hotel spa.",
-    price: 120,
+    price: 4000,
     unit: "stay",
     icon: "sparkles"
   },
@@ -30,7 +30,7 @@ const addons = [
     id: "laundry",
     name: "Laundry service",
     description: "Same-day laundry and pressing for your whole stay.",
-    price: 25,
+    price: 750,
     unit: "stay",
     icon: "shirt"
   },
@@ -38,7 +38,7 @@ const addons = [
     id: "extra-bed",
     name: "Extra bed",
     description: "A rollaway bed for an additional guest, per night.",
-    price: 40,
+    price: 1500,
     unit: "night",
     icon: "bed"
   },
@@ -46,7 +46,7 @@ const addons = [
     id: "kids-pack",
     name: "Kids welcome pack",
     description: "Age-appropriate toys, snacks and activities for children.",
-    price: 30,
+    price: 900,
     unit: "stay",
     icon: "baby"
   },
@@ -54,7 +54,7 @@ const addons = [
     id: EARLY_CHECK_IN_ID,
     name: "Early check-in",
     description: "Check in from 11:00 AM instead of the standard time.",
-    price: 30,
+    price: 1500,
     unit: "stay",
     icon: "clock",
     inAddonList: false
@@ -63,7 +63,7 @@ const addons = [
     id: LATE_CHECK_OUT_ID,
     name: "Late check-out",
     description: "Keep your room until 2:00 PM on departure day.",
-    price: 35,
+    price: 1800,
     unit: "stay",
     icon: "clock",
     inAddonList: false

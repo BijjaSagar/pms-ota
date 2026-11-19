@@ -8,7 +8,7 @@ import '../../styles/hotels.css';
 const destinationOptions = Array.from(
   new Set([
     ...destinations.flatMap((d) => [d.city, d.country]),
-    'Goa', 'Hyderabad', 'Pune', 'Mumbai', 'gujrat', 'Maldives',
+    'Kumarakom', 'Rajasthan', 'Uttarakhand',
   ]),
 );
 
@@ -18,7 +18,7 @@ function formatNumericDate(value) {
   return `${month}/${day}/${year}`;
 }
 
-function Counter({ label, value, min, onChange }) {
+export function Counter({ label, value, min, onChange }) {
   return (
     <div className="sb-counter">
       <span>{label}</span>

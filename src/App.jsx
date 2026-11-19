@@ -16,7 +16,7 @@ import MakeAPaymentPage from './pages/MakeAPaymentPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import { RequireAuth } from './components/auth/RequireAuth.jsx';
 
-// Every page except Home needs an account; signed-out visitors get the register/login modal.
+// Booking and personal pages need an account; signed-out visitors see a sign-in card (no auto popup).
 function Protected() {
   return (
     <RequireAuth>
@@ -76,17 +76,19 @@ export default function App() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route index element={<Home />} />
+        {/* Browsing is open to everyone — no sign-in prompt just for visiting */}
+        <Route path="hotels" element={<HotelsPage />} />
+        <Route path="hotels/:slug" element={<HotelDetailsPage />} />
+        <Route path="hotels/:slug/photos" element={<HotelGalleryPage />} />
+        <Route path="wishlist" element={<WishlistPage />} />
+        <Route path="make-a-payment" element={<MakeAPaymentPage />} />
+        {/* Booking + personal pages need an account (reached by clicking Reserve / account links) */}
         <Route element={<Protected />}>
-          <Route path="hotels" element={<HotelsPage />} />
-          <Route path="hotels/:slug" element={<HotelDetailsPage />} />
-          <Route path="hotels/:slug/photos" element={<HotelGalleryPage />} />
           <Route path="checkout" element={<CheckoutPage />} />
           <Route path="payment" element={<PaymentPage />} />
           <Route path="confirmation/:bookingId" element={<ConfirmationPage />} />
           <Route path="trips" element={<MyTripsPage />} />
-          <Route path="wishlist" element={<WishlistPage />} />
           <Route path="profile" element={<ProfilePage />} />
-          <Route path="make-a-payment" element={<MakeAPaymentPage />} />
         </Route>
         <Route path="search" element={<LegacySearch />} />
         <Route path="stay/:id" element={<LegacyStay />} />

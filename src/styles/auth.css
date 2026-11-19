@@ -74,10 +74,29 @@
 }
 .auth-back:hover { color: var(--ink); }
 
-/* Protected pages for signed-out visitors: real content, dimmed by the overlay and locked behind the popup */
+/* Protected pages for signed-out visitors: real content, blurred, with a sign-in card on top.
+   The popup only opens when the card's button is clicked. */
+.auth-gate-wrap { position: relative; }
 .auth-locked {
   pointer-events: none; user-select: none;
   min-height: 60vh; max-height: 100vh; overflow: hidden;
+  filter: blur(6px); opacity: 0.55;
+}
+.auth-gate {
+  position: absolute; top: clamp(24px, 12vh, 120px); left: 50%; transform: translateX(-50%); z-index: 5;
+  width: min(440px, calc(100% - 32px)); padding: 28px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  box-shadow: 0 30px 70px -30px rgba(28, 43, 45, 0.45);
+}
+.auth-gate-icon {
+  width: 52px; height: 52px; border-radius: 999px; display: flex; align-items: center; justify-content: center;
+  background: var(--sage); color: var(--accent);
+}
+.auth-gate-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
+.auth-gate-actions .btn { gap: 8px; }
+@media (max-width: 720px) {
+  .auth-gate { padding: 22px 18px; }
+  .auth-gate-actions .btn { flex: 1 1 100%; justify-content: center; }
 }
 
 /* Navbar: plain "Sign in" text button + "IN INR" chip */

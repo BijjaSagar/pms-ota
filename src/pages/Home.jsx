@@ -8,7 +8,9 @@ import {
 } from '../components/Icons.jsx';
 import {
   Check as CheckLg, Copy, Headphones, Heart, Mail, Quote, ShieldCheck, Sparkles, Star,
+  ChevronDown,
 } from 'lucide-react';
+import { Counter } from '../components/hotels/SearchBar.jsx';
 import { intents, collections, featured, flexDays, formatINR } from '../data.js';
 import { hotels, getHotelBySlug } from '../lib/data/hotels.js';
 import { coupons } from '../lib/data/offers.js';
@@ -42,8 +44,8 @@ const CONCIERGE_PHONE = '+1 (800) 555-0182';
 const CONCIERGE_EMAIL = 'concierge@triponx.travel';
 
 const offerText = (c) => (c.type === 'percent'
-  ? `${c.value}% off selected stays up to ${c.maxDiscount ? `₹${c.maxDiscount}` : 'the listed cap'}`
-  : `₹${c.value} off stays over ₹${c.minSpend}`);
+  ? `${c.value}% off selected stays up to ${c.maxDiscount ? formatINR(c.maxDiscount) : 'the listed cap'}`
+  : `${formatINR(c.value)} off stays over ${formatINR(c.minSpend)}`);
 
 export default function Home() {
   const navigate = useNavigate();
@@ -54,6 +56,11 @@ export default function Home() {
   const [checkIn, setCheckIn] = useState(search.checkIn);
   const [checkOut, setCheckOut] = useState(search.checkOut);
   const [guests, setGuests] = useState(search.adults || 2);
+  const [rooms, setRooms] = useState(search.rooms || 1);
+  const [kids, setKids] = useState(search.kids || 0);
+  const [childAges, setChildAges] = useState(() => Array.from({ length: search.kids || 0 }, () => 5));
+  const [guestOpen, setGuestOpen] = useState(false);
+  const guestRef = useRef(null);
   const [picked, setPicked] = useState({});
   const [flexDay, setFlexDay] = useState(4);
   const [copied, setCopied] = useState('');
@@ -67,6 +74,25 @@ export default function Home() {
     return () => document.documentElement.classList.remove('snap-home');
   }, []);
 
+  // Close the guests popover on outside click / Escape (same as the hotels SearchBar).
+  useEffect(() => {
+    if (!guestOpen) return undefined;
+    const onDown = (e) => { if (guestRef.current && !guestRef.current.contains(e.target)) setGuestOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setGuestOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [guestOpen]);
+
+  const updateKids = (next) => {
+    const n = Math.min(6, next);
+    setKids(n);
+    setChildAges((c) => Array.from({ length: n }, (_, i) => c[i] ?? 5));
+  };
+
+  const totalGuests = guests + kids;
+  const guestsLabel = `${rooms} ${rooms === 1 ? 'Room' : 'Rooms'}, ${totalGuests} ${totalGuests === 1 ? 'Guest' : 'Guests'}`;
+
   // Keep check-out after check-in, like the pms-ota search bar.
   const onCheckIn = (value) => {
     setCheckIn(value);
@@ -77,8 +103,7 @@ export default function Home() {
   const onSearch = (e) => {
     e.preventDefault();
     const destination = where.trim();
-    const kids = search.kids ?? 0;
-    const rooms = search.rooms ?? 1;
+    setGuestOpen(false);
     updateSearch({ destination, checkIn, checkOut, adults: guests, kids, rooms, guests: guests + kids });
     navigate(destination ? `/hotels?destination=${encodeURIComponent(destination)}` : '/hotels');
   };
@@ -125,16 +150,37 @@ export default function Home() {
                 <input type="date" value={checkOut} min={checkIn ? toISODate(addDays(parseISODate(checkIn), 1)) : todayISO()} onChange={(e) => setCheckOut(e.target.value)} />
               </span>
             </label>
-            <div className="field">
-              <UsersIcon size={22} color="#3F6B5C" />
-              <span className="field-body">
-                <span className="field-label" id="guests-label">Guests</span>
-                <span className="stepper" aria-labelledby="guests-label">
-                  <button type="button" aria-label="Fewer guests" onClick={() => setGuests(Math.max(1, guests - 1))}>−</button>
-                  <span className="stepper-val">{guests} adult{guests > 1 ? 's' : ''}</span>
-                  <button type="button" aria-label="More guests" onClick={() => setGuests(Math.min(12, guests + 1))}>+</button>
+            <div className="field guest-field" ref={guestRef}>
+              <button type="button" className="guest-trigger" aria-expanded={guestOpen} aria-haspopup="dialog"
+                onClick={() => setGuestOpen((o) => !o)}>
+                <UsersIcon size={22} color="#3F6B5C" />
+                <span className="field-body">
+                  <span className="field-label">Guests &amp; rooms</span>
+                  <span className="guest-value">{guestsLabel}</span>
                 </span>
-              </span>
+                <ChevronDown size={18} className={`guest-caret ${guestOpen ? 'is-open' : ''}`} aria-hidden="true" />
+              </button>
+
+              {guestOpen && (
+                <div className="guest-pop glass-pop" role="dialog" aria-label="Guests and rooms">
+                  <Counter label="Rooms" value={rooms} min={1} onChange={(v) => setRooms(Math.min(3, v))} />
+                  <Counter label="Adults" value={guests} min={1} onChange={(v) => setGuests(Math.min(12, v))} />
+                  <Counter label="Children" value={kids} min={0} onChange={updateKids} />
+                  {childAges.map((age, index) => (
+                    <label key={index} className="sb-child-age">
+                      Child {index + 1} age
+                      <select value={age} onChange={(e) => {
+                        const next = [...childAges];
+                        next[index] = Number(e.target.value);
+                        setChildAges(next);
+                      }}>
+                        {Array.from({ length: 13 }, (_, a) => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                    </label>
+                  ))}
+                  <button type="button" className="btn btn-primary btn-sm btn-block mt-14" onClick={() => setGuestOpen(false)}>Apply</button>
+                </div>
+              )}
             </div>
             <button type="submit" className="btn btn-primary search-submit">
               <SearchIcon size={20} width={2} /> Search stays
@@ -193,7 +239,7 @@ export default function Home() {
             {coupons.map((c) => (
               <article key={c.code} className="tx-pass">
                 <div className="tx-pass-value">
-                  <span className="tx-pass-big">{c.type === 'percent' ? `${c.value}%` : `₹${c.value}`}</span>
+                  <span className="tx-pass-big">{c.type === 'percent' ? `${c.value}%` : formatINR(c.value)}</span>
                   <span className="tx-pass-off">off</span>
                 </div>
                 <div className="tx-pass-body">

@@ -6,8 +6,10 @@ import { amenityFilters, hotels, propertyTypeFilters } from '../../lib/data/hote
 import { formatCurrency } from '../../lib/utils/pricing.js';
 import '../../styles/hotels.css';
 
-export const PRICE_MIN = 250;
-export const PRICE_MAX = 2000;
+// Nightly budget in INR (catalogue runs roughly ₹8,500–₹48,000 per night).
+export const PRICE_MIN = 5000;
+export const PRICE_MAX = 50000;
+export const PRICE_STEP = 500;
 
 const preferenceFilters = ['Rush deals', 'Last-minute deal', 'Beachfront', 'Self check-in available', 'Breakfast included', 'Pool access'];
 const flexibleOptions = ['Guaranteed early check-in', 'Guaranteed late checkout'];
@@ -76,7 +78,7 @@ export function FilterPanel({ filters, onChange, destination, onDestinationChang
             <span key={i} style={{ height: `${Math.max(12, (n / histMax) * 100)}%` }} className={i <= activeBucket ? 'on' : ''} />
           ))}
         </div>
-        <input type="range" min={PRICE_MIN} max={PRICE_MAX} step={50} value={filters.maxPrice} onChange={setMaxPrice}
+        <input type="range" min={PRICE_MIN} max={PRICE_MAX} step={PRICE_STEP} value={filters.maxPrice} onChange={setMaxPrice}
           className="fp-range" style={{ '--fill': `${fillPct}%` }} aria-label="Maximum nightly budget" />
         <div className="row-gap-8">
           <div className="mini-field"><span>MIN</span><strong>{formatCurrency(PRICE_MIN)}</strong></div>

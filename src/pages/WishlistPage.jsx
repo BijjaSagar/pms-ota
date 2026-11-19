@@ -121,7 +121,7 @@ export default function WishlistPage() {
 
       {isModalOpen ? (
         <Modal title="Create a wishlist" onClose={closeCreate}>
-          <p className="modal-text">Give your list a name. For example: Mumbai, Bali or Family escape.</p>
+          <p className="modal-text">Give your list a name. For example: Goa, Kerala or Family escape.</p>
           <form onSubmit={handleCreateWishlist} className="col-gap-14">
             <TextField label="Wishlist name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Mumbai" />
             <button type="submit" className="btn btn-primary btn-block" disabled={!name.trim()}>Create wishlist</button>
