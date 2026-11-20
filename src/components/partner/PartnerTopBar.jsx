@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, ChevronDown, LogOut } from 'lucide-react';
 import { Brand } from '../Layout.jsx';
+import { PARTNER_PATHS } from './paths.js';
 import '../../styles/partner.css';
 
 export const PARTNER_SUPPORT_EMAIL = 'partners@triponx.travel';
@@ -60,7 +61,8 @@ export function PartnerTopBar({ user, onSignOut }) {
     <header className="lp-topbar">
       <div className="lp-topbar-inner">
         <div className="lp-topbar-brand">
-          <Brand />
+          {/* Logo stays inside the Partner Hub: Your properties when signed in, the hub's sign-in page otherwise */}
+          <Brand to={user ? PARTNER_PATHS.properties : PARTNER_PATHS.landing} />
           <span className="lp-hub-tag">Partner Hub</span>
         </div>
         <nav className="lp-topbar-actions" aria-label="Account">
