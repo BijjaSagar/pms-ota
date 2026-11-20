@@ -49,7 +49,7 @@ export function PropertyTypePicker({ initialType = '', cancelTo, onContinue }) {
             return (
               <label key={value} className={`ptp-tile ${on ? 'is-on' : ''}`}>
                 <input type="radio" name="ptp-type" value={value} checked={on} onChange={() => setType(value)} className="sr-only" />
-                <span className="ptp-tile-check" aria-hidden="true"><Check size={13} strokeWidth={3} /></span>
+                <span className="ptp-tile-check" aria-hidden="true"><Check size={12} strokeWidth={3} /></span>
                 <span className="ptp-tile-art"><PropertyIcon type={value} size={44} /></span>
                 <span className="ptp-tile-name">{label}</span>
               </label>

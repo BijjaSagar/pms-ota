@@ -37,6 +37,7 @@
 .pt-menu {
   position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; min-width: 240px; padding: 8px; border-radius: 16px;
   animation: pop-in .18s var(--ease) both;
+  background: rgba(255, 255, 255, 0.98); /* solid enough that page text never shows through */
 }
 .pt-menu-who { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
 .pt-menu-who strong { font-size: 14px; color: var(--ink); }
@@ -50,7 +51,8 @@
 /* ---------- Signed-in Partner Hub layout (PartnerShell) ---------- */
 /* Top bar + module row stay stuck to the top together */
 .ps-header { position: sticky; top: 0; z-index: 20; }
-.ps-header .lp-topbar { position: static; }
+.ps-header .lp-topbar { position: relative; z-index: 2; } /* above the module row, so the account menu opens over it */
+.ps-header .pmn { position: relative; z-index: 1; }
 
 /* Module row (PartnerModuleNav): icon on top, name below */
 .pmn { background: rgba(255, 255, 255, 0.92); border-bottom: 1px solid var(--line); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
@@ -406,25 +408,27 @@
 
 /* Types: square icon tiles, name only. Fixed column counts keep rows even (8 = 4+4, 6 = 4+2 / 3+3). */
 .ptp .ptp-types { margin-top: 26px; }
-.ptp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+/* Desktop: all 8 hotel types in one row (homes use 6 of the 8 slots, so tiles keep the same size) */
+.ptp-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 24px; }
 .ptp-tile {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  min-height: 168px; padding: 24px 12px 20px; text-align: center; cursor: pointer;
+  min-height: 184px; padding: 24px 10px 20px; text-align: center; cursor: pointer;
   border: 1.5px solid var(--line); border-radius: 24px; background: rgba(255, 255, 255, 0.72);
   transition: border-color .2s, box-shadow .2s, transform .2s var(--ease), background .2s;
 }
 .ptp-tile:hover { transform: translateY(-2px); border-color: var(--line-input); box-shadow: 0 14px 30px -24px rgba(28, 43, 45, 0.55); }
 .ptp-tile:has(input:focus-visible) { outline: 3px solid rgba(63, 107, 92, 0.35); outline-offset: 2px; }
 .ptp-tile-art {
-  width: 80px; height: 80px; border-radius: 26px; display: flex; align-items: center; justify-content: center;
+  width: 80px; height: 80px; border-radius: 24px; display: flex; align-items: center; justify-content: center;
   background: var(--sage); color: var(--accent-dark); transition: background .2s, color .2s, transform .25s var(--ease);
 }
 .ptp-tile:hover .ptp-tile-art { transform: scale(1.04); }
 .ptp-tile-name { font-size: 15px; font-weight: 700; line-height: 1.25; color: var(--ink); }
+.ptp-tile-art svg { width: 46px; height: 46px; }
 .ptp-tile.is-on { border-color: var(--accent); background: #fff; box-shadow: 0 18px 34px -24px rgba(47, 84, 71, 0.7); }
 .ptp-tile.is-on .ptp-tile-art { background: var(--accent); color: #fff; }
 .ptp-tile-check {
-  position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 999px;
+  position: absolute; top: 7px; right: 7px; width: 20px; height: 20px; border-radius: 999px; /* sits in the corner, clear of the icon */
   display: flex; align-items: center; justify-content: center; background: var(--accent); color: #fff;
   opacity: 0; transform: scale(.6); transition: opacity .2s, transform .2s var(--ease);
 }
@@ -449,7 +453,7 @@
 
 /* Tablets */
 @media (max-width: 1024px) {
-  .ptp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .ptp-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; } /* 8 = 4 + 4 */
 }
 
 /* Phones */
@@ -504,3 +508,17 @@
 @media (max-width: 720px) {
   .pp-soon { min-height: 42vh; }
 }
+
+/* ---------- Signed-in Partner Hub: full width ----------
+   Top bar, module row and page content all span the screen with the same side gutter,
+   so nothing sits in a narrow centred column with empty space left and right. */
+.ps-shell { --ps-gutter: clamp(16px, 3.4vw, 64px); }
+.ps-shell .lp-topbar-inner,
+.ps-shell .pmn-track,
+.ps-shell .ps-main { max-width: none; padding-left: var(--ps-gutter); padding-right: var(--ps-gutter); }
+/* Module items carry their own inner padding; pull the row in so icons line up with the page edge */
+.ps-shell .pmn-track { padding-left: calc(var(--ps-gutter) - 12px); padding-right: calc(var(--ps-gutter) - 12px); }
+@media (max-width: 720px) {
+  .ps-shell .pmn-track { padding-left: 8px; padding-right: 8px; }
+}
+

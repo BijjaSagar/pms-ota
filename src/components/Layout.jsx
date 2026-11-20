@@ -5,9 +5,10 @@ import { Logo } from './Icons.jsx';
 import { useWishlist } from '../lib/context/useWishlist.js';
 import { useAuth } from '../lib/context/useAuth.js';
 
-export function Brand() {
+// `to`: where the logo links. Defaults to the site home; the Partner Hub keeps partners inside the hub.
+export function Brand({ to = '/' }) {
   return (
-    <Link to="/" className="brand">
+    <Link to={to} className="brand">
       <Logo />
       <span className="brand-word">Tripon<span className="brand-x">X</span></span>
     </Link>
