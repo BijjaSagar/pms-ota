@@ -3,7 +3,7 @@
 // API later (e.g. POST /partners/leads on the NestJS backend) is a one-function change.
 import { isValidEmail, isValidPhone } from '../utils/validation.js';
 
-// Two families of property, shown as the first choice in "List New Property".
+// Two families of property, shown as the first choice in "Add a property".
 export const PROPERTY_CATEGORIES = [
   { id: 'stay', title: 'Hotels & stays', text: 'Rooms with front desk or on-site staff — hotels, resorts, palaces and more.' },
   { id: 'home', title: 'Homes & villas', text: 'A whole home or a few rooms guests book for themselves — villas, homestays, cottages.' },
@@ -75,7 +75,7 @@ export function validateLead(lead) {
 }
 
 const STORE_KEY = 'triponx.partnerLeads';
-// Keep plenty: these records are the partner's "In-Progress Properties" list, so dropping old ones would hide them.
+// Keep plenty: these records are the partner's "Under review" list, so dropping old ones would hide them.
 const STORE_LIMIT = 200;
 
 function makeReference() {

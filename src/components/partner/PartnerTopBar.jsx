@@ -54,6 +54,7 @@ function AccountMenu({ user, onSignOut }) {
   );
 }
 
+// Section navigation lives in PartnerModuleNav (the row under this bar), not here.
 export function PartnerTopBar({ user, onSignOut }) {
   return (
     <header className="lp-topbar">
@@ -62,7 +63,7 @@ export function PartnerTopBar({ user, onSignOut }) {
           <Brand />
           <span className="lp-hub-tag">Partner Hub</span>
         </div>
-        <nav className="lp-topbar-actions" aria-label="Partner Hub">
+        <nav className="lp-topbar-actions" aria-label="Account">
           {user ? <AccountMenu user={user} onSignOut={onSignOut} /> : (
             <Link to="/" className="btn btn-light btn-sm">Visit TriponX<ArrowUpRight size={15} aria-hidden="true" /></Link>
           )}
