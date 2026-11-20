@@ -39,6 +39,46 @@ export const ROOM_RANGES = [
   ['80+', 'More than 80 rooms'],
 ];
 
+export const PROPERTY_INFO_SECTIONS = [
+  { id: 'basic', label: 'Basic info' },
+  { id: 'location', label: 'Location' },
+  { id: 'amenities', label: 'Amenities' },
+  { id: 'rooms', label: 'Rooms' },
+  { id: 'photos', label: 'Photos & videos' },
+  { id: 'policies', label: 'Policies' },
+  { id: 'legal', label: 'Financial & legal' },
+];
+
+export const PROPERTY_RATINGS = [1, 2, 3, 4, 5];
+
+export const EMPTY_BASIC_INFO = {
+  propertyName: '', rating: '', builtYear: '', bookingSince: '',
+  channelManager: '', providerName: '', email: '', mobile: '', landline: '',
+  emailVerified: false, mobileVerified: false,
+};
+
+export function validateBasicInfo(info) {
+  const errors = {};
+  const year = new Date().getFullYear();
+  if (info.propertyName.trim().length < 2) errors.propertyName = 'Enter your property name.';
+  if (!PROPERTY_RATINGS.includes(Number(info.rating))) errors.rating = 'Choose a property rating.';
+  if (!info.builtYear || Number(info.builtYear) < 1800 || Number(info.builtYear) > year) {
+    errors.builtYear = 'Choose a valid built year.';
+  }
+  if (!info.bookingSince || Number(info.bookingSince) < 1800 || Number(info.bookingSince) > year) {
+    errors.bookingSince = 'Choose a valid booking year.';
+  }
+  if (info.channelManager !== 'yes' && info.channelManager !== 'no') {
+    errors.channelManager = 'Tell us whether you use a channel manager.';
+  }
+  if (!isValidEmail(info.email)) errors.email = 'Enter a valid email address.';
+  else if (!info.emailVerified) errors.email = 'Verify your email address.';
+  if (!isValidPhone(info.mobile)) errors.mobile = 'Enter a valid mobile number.';
+  else if (!info.mobileVerified) errors.mobile = 'Verify your mobile number.';
+  if (info.landline.trim() && !isValidPhone(info.landline)) errors.landline = 'Enter a valid landline number.';
+  return errors;
+}
+
 export const PARTNER_STATS = [
   { value: '2M+', label: 'Monthly travellers' },
   { value: '0', label: 'Sign-up fee' },
@@ -75,6 +115,7 @@ export function validateLead(lead) {
 }
 
 const STORE_KEY = 'triponx.partnerLeads';
+const DRAFT_KEY = 'triponx.propertyDrafts.v1';
 // Keep plenty: these records are the partner's "Under review" list, so dropping old ones would hide them.
 const STORE_LIMIT = 200;
 
@@ -117,4 +158,31 @@ export function getPartnerLeads(ownerId) {
   } catch {
     return [];
   }
+}
+
+const draftKey = (ownerId, type) => `${ownerId}::${type}`;
+
+export function getPropertyDraft(ownerId, type) {
+  if (!ownerId || !type) return { basic: {} };
+  try {
+    const all = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}');
+    if (!all || typeof all !== 'object' || Array.isArray(all)) return { basic: {} };
+    const saved = all[draftKey(ownerId, type)];
+    return saved?.basic && typeof saved.basic === 'object' && !Array.isArray(saved.basic) ? saved : { basic: {} };
+  } catch {
+    return { basic: {} };
+  }
+}
+
+export function savePropertyDraft(ownerId, type, draft) {
+  if (!ownerId || !type) throw new Error('Sign in required to save a draft.');
+  let all = {};
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}');
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) all = parsed;
+  } catch {
+    all = {};
+  }
+  all[draftKey(ownerId, type)] = draft;
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(all));
 }

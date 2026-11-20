@@ -1,20 +1,15 @@
 // "Add a property" (/list-property/new), two steps:
 //   1. PropertyTypePicker — what are you listing? (no ?type in the URL)
-//   2. ListingRequestForm — details, with the chosen type pre-filled (?type=resort)
+//   2. PropertyInfoPage — property details, with the chosen type pre-filled (?type=resort)
 // Keeping the type in the URL means refresh and the browser Back button behave as expected.
-// Once submitted, the request appears under Your properties -> Under review.
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Hammer } from 'lucide-react';
-import { ListingRequestForm } from '../components/partner/ListingRequestForm.jsx';
+import { ArrowLeft } from 'lucide-react';
 import { PartnerShell } from '../components/partner/PartnerShell.jsx';
+import { PropertyInfoPage } from '../components/partner/PropertyInfoPage.jsx';
 import { PropertyTypePicker } from '../components/partner/PropertyTypePicker.jsx';
-import { IN_PROGRESS_TAB, PARTNER_PATHS, propertiesTab } from '../components/partner/paths.js';
+import { PARTNER_PATHS } from '../components/partner/paths.js';
 import { propertyTypeById } from '../lib/data/partner.js';
 import '../styles/partner.css';
-
-// Step 2 (property details) is being rebuilt — until then it shows "Coming soon".
-// Flip to true to bring back the ListingRequestForm below; nothing else needs to change.
-const DETAILS_STEP_READY = false;
 
 export default function PartnerNewPropertyPage() {
   const [params, setParams] = useSearchParams();
@@ -39,18 +34,7 @@ export default function PartnerNewPropertyPage() {
             Listing a <strong>{chosen[1]}</strong>
             <button type="button" className="auth-link" onClick={() => setParams({ from: type })}>Change type</button>
           </p>
-          {DETAILS_STEP_READY ? (
-            <div className="card pp-form-card">
-              {/* key: switching type remounts the form with the new pre-filled type */}
-              <ListingRequestForm key={type} initialType={type}
-                doneLink={{ to: propertiesTab(IN_PROGRESS_TAB), label: 'See requests under review' }} />
-            </div>
-          ) : (
-            <section className="pp-soon" aria-labelledby="pp-soon-title">
-              <span className="pp-soon-icon"><Hammer size={28} aria-hidden="true" /></span>
-              <h2 id="pp-soon-title" className="pp-soon-title">Coming soon</h2>
-            </section>
-          )}
+          <PropertyInfoPage key={type} type={type} typeLabel={chosen[1]} />
         </>
       )}
     </PartnerShell>
