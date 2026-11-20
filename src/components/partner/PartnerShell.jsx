@@ -1,23 +1,17 @@
-// Layout for signed-in Partner Hub pages: top bar + left sidebar + content.
+// Layout for signed-in Partner Hub pages: top bar + module row + content.
 // Signed-out visitors are sent to the Partner Hub sign-in.
 import { useEffect } from 'react';
-import { Navigate, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { PartnerTopBar } from './PartnerTopBar.jsx';
+import { PartnerModuleNav } from './PartnerModuleNav.jsx';
 import { PartnerCredit } from './PartnerCredit.jsx';
 import { PARTNER_PATHS } from './paths.js';
 import { useAuth } from '../../lib/context/useAuth.js';
 import '../../styles/partner.css';
 
-const NAV = [
-  // "List New Property" belongs to My Properties, so keep that item highlighted there too.
-  { to: PARTNER_PATHS.properties, label: 'My Properties', Icon: Building2, also: [PARTNER_PATHS.newProperty] },
-];
-
 export function PartnerShell({ title, children }) {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
 
   useEffect(() => {
     const prev = document.title;
@@ -31,21 +25,14 @@ export function PartnerShell({ title, children }) {
 
   return (
     <div className="lp-shell ps-shell">
-      <PartnerTopBar user={user} onSignOut={signOut} />
-      <div className="ps-body">
-        <nav className="ps-side" aria-label="Partner menu">
-          {NAV.map(({ to, label, Icon, also }) => (
-            <NavLink key={to} to={to}
-              className={({ isActive }) => `ps-side-link ${isActive || also.includes(pathname) ? 'is-active' : ''}`}>
-              <Icon size={22} aria-hidden="true" /><span>{label}</span>
-            </NavLink>
-          ))}
-        </nav>
-        <main className="ps-main">
-          <div className="ps-content">{children}</div>
-          <PartnerCredit className="ps-credit" />
-        </main>
+      <div className="ps-header">
+        <PartnerTopBar user={user} onSignOut={signOut} />
+        <PartnerModuleNav />
       </div>
+      <main className="ps-main">
+        <div className="ps-content">{children}</div>
+        <PartnerCredit className="ps-credit" />
+      </main>
     </div>
   );
 }

@@ -16,6 +16,7 @@ import MakeAPaymentPage from './pages/MakeAPaymentPage.jsx';
 import ListPropertyPage from './pages/ListPropertyPage.jsx';
 import PartnerPropertiesPage from './pages/PartnerPropertiesPage.jsx';
 import PartnerNewPropertyPage from './pages/PartnerNewPropertyPage.jsx';
+import PartnerModuleSoonPage from './pages/PartnerModuleSoonPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import { PARTNER_PATH } from './lib/context/AuthProvider.jsx';
 import { RequireAuth } from './components/auth/RequireAuth.jsx';
@@ -102,6 +103,8 @@ export default function App() {
         {/* Partner Hub signed-in pages (PartnerShell checks sign-in and sends visitors back to /list-property) */}
         <Route path="list-property/properties" element={<PartnerPropertiesPage />} />
         <Route path="list-property/new" element={<PartnerNewPropertyPage />} />
+        {/* Modules not built yet (Bookings, Payments, …) show "Coming soon" */}
+        <Route path="list-property/module/:moduleId" element={<PartnerModuleSoonPage />} />
         <Route path="list-property/dashboard" element={<Navigate replace to="/list-property/properties" />} />
         <Route path="search" element={<LegacySearch />} />
         <Route path="stay/:id" element={<LegacyStay />} />

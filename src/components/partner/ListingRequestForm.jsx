@@ -1,4 +1,4 @@
-// 3-step "list a property" request (Property -> Contact -> Review). Used by "List New Property"
+// 3-step "list a property" request (Property -> Contact -> Review). Used by "Add a property"
 // (/list-property/new). Needs a signed-in user. `doneLink` = where the success screen sends the partner.
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';

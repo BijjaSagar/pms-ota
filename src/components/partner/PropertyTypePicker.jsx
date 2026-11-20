@@ -1,19 +1,12 @@
-// Step 1 of "List New Property": pick a category (Hotels & stays / Homes & villas), then a type.
-// Native radio inputs styled as cards -> arrow keys, Tab and screen readers work out of the box.
+// Step 1 of "Add a property": choose a category, then a property type.
+// Layout: a pill switch for the two categories, then square icon tiles (icon + name only).
+// Native radio inputs styled as pills/tiles -> arrow keys, Tab and screen readers work out of the box.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  ArrowRight, BedDouble, Building, Car, Castle, Check, DoorOpen, Gem, Hotel, House, Sailboat, Tent, TreePalm, TreePine,
-  Trees, Users, Wheat,
-} from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
+import { PropertyIcon } from './PropertyIcons.jsx';
 import { PROPERTY_CATEGORIES, PROPERTY_TYPES } from '../../lib/data/partner.js';
 import '../../styles/partner.css';
-
-const CATEGORY_ICONS = { stay: Hotel, home: House };
-const TYPE_ICONS = {
-  hotel: BedDouble, resort: TreePalm, boutique: Gem, palace: Castle, lodge: TreePine, guesthouse: DoorOpen,
-  houseboat: Sailboat, motel: Car, villa: House, homestay: Users, serviced: Building, cottage: Trees, farmstay: Wheat, camp: Tent,
-};
 
 const typesIn = (category) => PROPERTY_TYPES.filter(([v, , c]) => v && c === category);
 
@@ -36,41 +29,29 @@ export function PropertyTypePicker({ initialType = '', cancelTo, onContinue }) {
     <form className="ptp" onSubmit={submit}>
       <p className="ptp-step">Step 1 of 2 · Property type</p>
       <h1 className="pp-title">What are you listing?</h1>
-      <p className="muted-sm ptp-lead">Choose the option closest to your property. You can change it before you submit.</p>
 
-      <fieldset className="ptp-cats">
+      <fieldset className="ptp-switch">
         <legend className="sr-only">Property category</legend>
-        {PROPERTY_CATEGORIES.map(({ id, title, text }) => {
-          const Icon = CATEGORY_ICONS[id];
-          return (
-            <label key={id} className={`ptp-cat ${category === id ? 'is-on' : ''}`}>
-              <input type="radio" name="ptp-category" value={id} checked={category === id} onChange={() => pickCategory(id)} className="sr-only" />
-              <span className="ptp-cat-icon"><Icon size={26} aria-hidden="true" /></span>
-              <span className="ptp-cat-body">
-                <strong>{title}</strong>
-                <span>{text}</span>
-              </span>
-              <span className="ptp-cat-count">{typesIn(id).length} types</span>
-            </label>
-          );
-        })}
+        {PROPERTY_CATEGORIES.map(({ id, title }) => (
+          <label key={id} className={`ptp-switch-opt ${category === id ? 'is-on' : ''}`}>
+            <input type="radio" name="ptp-category" value={id} checked={category === id} onChange={() => pickCategory(id)} className="sr-only" />
+            <PropertyIcon type={id} size={26} />
+            <span>{title}</span>
+          </label>
+        ))}
       </fieldset>
 
       <fieldset className="ptp-types">
-        <legend className="ptp-types-title">Pick the type of {category === 'stay' ? 'stay' : 'home'}</legend>
+        <legend className="sr-only">{category === 'stay' ? 'Type of stay' : 'Type of home'}</legend>
         <div className="ptp-grid">
-          {typesIn(category).map(([value, label, , desc]) => {
-            const Icon = TYPE_ICONS[value] ?? Hotel;
+          {typesIn(category).map(([value, label]) => {
             const on = type === value;
             return (
               <label key={value} className={`ptp-tile ${on ? 'is-on' : ''}`}>
                 <input type="radio" name="ptp-type" value={value} checked={on} onChange={() => setType(value)} className="sr-only" />
-                <span className="ptp-tile-icon"><Icon size={22} aria-hidden="true" /></span>
-                <span className="ptp-tile-body">
-                  <strong>{label}</strong>
-                  <span>{desc}</span>
-                </span>
-                <span className="ptp-tile-check" aria-hidden="true">{on && <Check size={14} />}</span>
+                <span className="ptp-tile-check" aria-hidden="true"><Check size={13} strokeWidth={3} /></span>
+                <span className="ptp-tile-art"><PropertyIcon type={value} size={44} /></span>
+                <span className="ptp-tile-name">{label}</span>
               </label>
             );
           })}
@@ -79,9 +60,11 @@ export function PropertyTypePicker({ initialType = '', cancelTo, onContinue }) {
 
       <div className="ptp-bar">
         <Link to={cancelTo} className="btn btn-light">Cancel</Link>
-        <span className="ptp-bar-pick muted-sm" aria-live="polite">{chosen ? <>Selected: <strong>{chosen[1]}</strong></> : 'No type selected yet'}</span>
         <button type="submit" className="btn btn-primary" disabled={!type}>
-          {chosen ? `Continue as ${chosen[1]}` : 'Continue'}<ArrowRight size={16} aria-hidden="true" />
+          {/* Phones show the short label (the selected tile is already highlighted) */}
+          <span className="ptp-bar-label ptp-bar-label-long">{chosen ? `Continue as ${chosen[1]}` : 'Choose a type to continue'}</span>
+          <span className="ptp-bar-label ptp-bar-label-short" aria-hidden="true">Continue</span>
+          <ArrowRight size={16} aria-hidden="true" />
         </button>
       </div>
     </form>

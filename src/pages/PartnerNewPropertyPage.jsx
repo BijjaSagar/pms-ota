@@ -1,8 +1,8 @@
-// "List New Property" (/list-property/new), two steps:
+// "Add a property" (/list-property/new), two steps:
 //   1. PropertyTypePicker — what are you listing? (no ?type in the URL)
 //   2. ListingRequestForm — details, with the chosen type pre-filled (?type=resort)
 // Keeping the type in the URL means refresh and the browser Back button behave as expected.
-// Once submitted, the request appears under My Properties -> In-Progress Properties.
+// Once submitted, the request appears under Your properties -> Under review.
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Hammer } from 'lucide-react';
 import { ListingRequestForm } from '../components/partner/ListingRequestForm.jsx';
@@ -22,8 +22,8 @@ export default function PartnerNewPropertyPage() {
   const type = chosen?.[0] ? chosen[0] : '';
 
   return (
-    <PartnerShell title="List New Property">
-      <Link to={PARTNER_PATHS.properties} className="pp-back"><ArrowLeft size={16} aria-hidden="true" />My Properties</Link>
+    <PartnerShell title="Add a property">
+      <Link to={PARTNER_PATHS.properties} className="pp-back"><ArrowLeft size={16} aria-hidden="true" />Your properties</Link>
 
       {!type ? (
         // ?from=<type> (set by "Change type") keeps the previous choice selected in the picker.
@@ -33,7 +33,7 @@ export default function PartnerNewPropertyPage() {
         <>
           <p className="ptp-step">Step 2 of 2 · Property details</p>
           <div className="pp-head">
-            <h1 className="pp-title">List New Property</h1>
+            <h1 className="pp-title">Add a property</h1>
           </div>
           <p className="ptp-chosen">
             Listing a <strong>{chosen[1]}</strong>
@@ -43,7 +43,7 @@ export default function PartnerNewPropertyPage() {
             <div className="card pp-form-card">
               {/* key: switching type remounts the form with the new pre-filled type */}
               <ListingRequestForm key={type} initialType={type}
-                doneLink={{ to: propertiesTab(IN_PROGRESS_TAB), label: 'View In-Progress Properties' }} />
+                doneLink={{ to: propertiesTab(IN_PROGRESS_TAB), label: 'See requests under review' }} />
             </div>
           ) : (
             <section className="pp-soon" aria-labelledby="pp-soon-title">

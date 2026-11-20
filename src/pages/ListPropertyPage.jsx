@@ -1,6 +1,6 @@
 // Partner Hub — "List your property". Standalone page (own top bar, opened in a new tab from the navbar).
 // Signed out: promo panel + PartnerAuthCard (email + password, then an OTP popup).
-// Signed in (or the moment sign-in / sign-up completes): go straight to My Properties.
+// Signed in (or the moment sign-in / sign-up completes): go straight to Your properties.
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import {
@@ -44,7 +44,7 @@ export default function ListPropertyPage() {
     return () => { document.title = prev; };
   }, []);
 
-  // Signed in (here, on the main site, or in another tab) -> My Properties. `replace` keeps Back from bouncing here.
+  // Signed in (here, on the main site, or in another tab) -> Your properties. `replace` keeps Back from bouncing here.
   if (isAuthenticated) return <Navigate to={PARTNER_PATHS.properties} replace />;
 
   return (
