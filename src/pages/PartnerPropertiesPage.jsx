@@ -86,7 +86,7 @@ export default function PartnerPropertiesPage() {
           {view === LIVE && (
             <Empty Icon={CheckCircle2} title="Nothing live yet"
               text="Once a property is approved it goes live for guests and appears here.">
-              <AddButton />
+              <AddButton className="pv-add-block" />
               {underReview.length > 0 && (
                 <Link to={propertiesTab(REVIEW)} replace className="btn btn-light">See requests under review</Link>
               )}
@@ -96,7 +96,7 @@ export default function PartnerPropertiesPage() {
           {view === REVIEW && (underReview.length === 0 ? (
             <Empty Icon={ClipboardCheck} title="No requests under review"
               text="Add a property and it will wait here while our team checks it.">
-              <AddButton />
+              <AddButton className="pv-add-block" />
             </Empty>
           ) : (
             <ul className="pv-grid">
