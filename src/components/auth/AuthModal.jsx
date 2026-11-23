@@ -1,6 +1,7 @@
-// Sign in / Sign up with a one-time code.
-//   Sign in:  email OR mobile -> OTP -> signed in  (must already be registered)
-//   Sign up:  email -> OTP -> mobile number -> account created   (email must be new)
+// Sign in / Sign up with a one-time code (TriponX API: /api/v1/auth/*).
+//   Sign in:  email OR mobile -> code -> signed in            (the account must exist)
+//   Sign up:  email -> code -> account created + signed in     (the email must be new)
+//             -> optional: add a mobile number (its own code), or skip for now
 // Rendered into document.body so page transforms can't trap it (same reason as PortalModal).
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -8,13 +9,13 @@ import { ArrowLeft, Info } from 'lucide-react';
 import { Modal } from '../Layout.jsx';
 import { useAuth } from '../../lib/context/useAuth.js';
 import { normalizeIdentifier } from '../../lib/context/AuthProvider.jsx';
-import { OTP_LENGTH, verifyOtp } from '../../lib/utils/otp.js';
+import { OTP_LENGTH } from '../../lib/utils/otp.js';
 import { OtpInput, emptyOtp } from './OtpInput.jsx';
 import '../../styles/auth.css';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MOBILE_RE = /^[6-9]\d{9}$/; // Indian mobile numbers
-const RESEND_SECONDS = 30;
+const RESEND_SECONDS = 60;
 
 function GoogleMark() {
   return (
@@ -27,8 +28,19 @@ function GoogleMark() {
   );
 }
 
+// API error -> one line for the user. Field messages ("must be …") get a readable subject.
+function apiMessage(error, subject) {
+  // 404 / 409 come with a full sentence ("No account found with this email. Sign up to create one.").
+  if ((error?.status === 404 || error?.status === 409) && error.message) return error.message;
+  const fields = error?.fieldErrors ?? {};
+  const first = fields.otp ?? fields.email ?? fields.mobile;
+  if (fields.otp) return 'That code is wrong or has expired. Check it or ask for a new one.';
+  if (first && !/^[A-Z]/.test(first)) return `${subject} ${first}.`.replace(/\.\.$/, '.');
+  return error?.message || 'Something went wrong. Please try again.';
+}
+
 // The flow itself, usable inline on a page or inside the modal below.
-// mode 'signin' | 'signup'; onModeChange lets the user switch. Steps: 'email' -> 'otp' -> 'phone' (sign up only).
+// mode 'signin' | 'signup'; onModeChange lets the user switch. Steps: 'email' -> 'otp' -> 'phone' -> 'phoneOtp'.
 // switchLabels (optional) overrides the bottom "Don't have an account? Sign up" wording per mode.
 const DEFAULT_SWITCH_LABELS = {
   signin: ["Don't have an account?", 'Sign up'],
@@ -38,7 +50,7 @@ const DEFAULT_SWITCH_LABELS = {
 export function AuthFlow({
   message = '', onDone, onStepChange, autoFocus = true, mode = 'signin', onModeChange, switchLabels = DEFAULT_SWITCH_LABELS,
 }) {
-  const { findUser, register, login } = useAuth();
+  const { traveller } = useAuth();
   const isSignUp = mode === 'signup';
   const [step, setStep] = useState('email');
   // How the user identifies on the first step. Sign up always starts with email; sign in can use either.
@@ -49,6 +61,8 @@ export function AuthFlow({
   const [otp, setOtp] = useState(emptyOtp);
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
+  const [sentTo, setSentTo] = useState(''); // masked address from the API ("r***@example.com")
+  const [busy, setBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
   const [otpKey, setOtpKey] = useState(0); // bump to remount OtpInput (refocus first box after a resend)
   const phoneRef = useRef(null);
@@ -74,8 +88,7 @@ export function AuthFlow({
 
   const normalisedEmail = normalizeIdentifier('email', email);
   const normalisedPhone = normalizeIdentifier('phone', phone);
-  // Where the code was "sent", shown on the OTP step.
-  const sentTo = usePhone ? `+91 ${normalisedPhone}` : normalisedEmail;
+  const contact = usePhone ? { mobile: normalisedPhone } : { email: normalisedEmail };
 
   const toggleMethod = () => {
     setMethod(usePhone ? 'email' : 'phone');
@@ -83,71 +96,137 @@ export function AuthFlow({
     setNote('');
   };
 
-  // ----- Step 1: email (or mobile, when signing in) -----
-  const sendCode = (e) => {
-    e.preventDefault();
+  const codeSent = (res, fallback) => {
+    setSentTo(res?.destination || fallback);
+    setResendIn(res?.resendAfterSeconds || RESEND_SECONDS);
+    setOtp(emptyOtp());
+    setOtpKey((k) => k + 1);
+  };
+
+  // ----- Step 1: email (or mobile, when signing in) -> send a code -----
+  const sendCode = async (e) => {
+    e?.preventDefault();
+    if (busy) return;
     setNote('');
-    if (usePhone) {
-      if (!MOBILE_RE.test(normalisedPhone)) { setError('Enter a valid 10-digit mobile number.'); return; }
-      if (!findUser('phone', phone)) { setError('No account found with this mobile number. Sign up below to create one.'); return; }
-      setError('');
-      setOtp(emptyOtp());
-      setStep('otp');
-      setResendIn(RESEND_SECONDS);
+    if (usePhone ? !MOBILE_RE.test(normalisedPhone) : !EMAIL_RE.test(email.trim())) {
+      setError(usePhone ? 'Enter a valid 10-digit mobile number.' : 'Enter a valid email address.');
       return;
     }
-    if (!EMAIL_RE.test(email.trim())) { setError('Enter a valid email address.'); return; }
-    // Check the account before sending a code, so people are pointed to the right option.
-    const existing = findUser('email', email);
-    if (!isSignUp && !existing) { setError('No account found with this email. Sign up below to create one.'); return; }
-    if (isSignUp && existing) { setError('An account with this email already exists. Sign in below instead.'); return; }
-    setError('');
-    setOtp(emptyOtp());
-    setStep('otp');
-    setResendIn(RESEND_SECONDS);
+    setBusy(true);
+    try {
+      const res = await traveller.requestOtp(isSignUp ? 'signup' : 'signin', contact);
+      setError('');
+      codeSent(res, usePhone ? `+91 ${normalisedPhone}` : normalisedEmail);
+      setStep('otp');
+    } catch (err) {
+      setError(apiMessage(err, usePhone ? 'Mobile number' : 'Email'));
+      if (err.status === 429 && err.retryAfterSeconds) setResendIn(err.retryAfterSeconds);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // ----- Step 2: OTP (boxes live in OtpInput) -----
+  // ----- Step 2: the code -----
   const onOtpChange = (next) => { setOtp(next); setError(''); };
 
-  const verify = (e) => {
+  const verify = async (e) => {
     e.preventDefault();
+    if (busy) return;
     const code = otp.join('');
     if (code.length !== OTP_LENGTH) { setError(`Enter the ${OTP_LENGTH}-digit code.`); return; }
-    if (!verifyOtp(code)) { setError('That code is not correct. Please try again.'); return; }
-    setError('');
-    if (isSignUp) { setStep('phone'); return; } // email verified -> collect mobile number
-    const existing = usePhone ? findUser('phone', phone) : findUser('email', email);
-    if (!existing) { setError('No account found. Sign up instead.'); return; }
-    login(existing);
-    onDone?.();
+    setBusy(true);
+    try {
+      if (isSignUp) {
+        await traveller.verifySignup(normalisedEmail, code);
+        setError('');
+        setPhone('');
+        setStep('phone'); // signed in; a mobile number is optional
+      } else {
+        await traveller.verifySignin(contact, code);
+        onDone?.();
+      }
+    } catch (err) {
+      setError(apiMessage(err, 'Code'));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const resend = () => {
-    setResendIn(RESEND_SECONDS);
-    setOtp(emptyOtp());
-    setError('');
-    setOtpKey((k) => k + 1); // remount -> focus first box
+  const resend = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = step === 'phoneOtp'
+        ? await traveller.requestContactOtp({ mobile: normalisedPhone })
+        : await traveller.requestOtp(isSignUp ? 'signup' : 'signin', contact);
+      setError('');
+      codeSent(res, sentTo);
+    } catch (err) {
+      setError(apiMessage(err, 'Code'));
+      if (err.status === 429 && err.retryAfterSeconds) setResendIn(err.retryAfterSeconds);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  // ----- Step 3 (sign up): mobile number -----
-  const createAccount = (e) => {
+  // ----- Step 3 (sign up, optional): mobile number -> its own code -----
+  const sendPhoneCode = async (e) => {
     e.preventDefault();
-    const digits = normalizeIdentifier('phone', phone);
-    if (!MOBILE_RE.test(digits)) { setError('Enter a valid 10-digit mobile number.'); return; }
-    if (findUser('phone', digits)) { setError('This mobile number is already linked to another account.'); return; }
-    // Re-check the email too: another tab may have registered it meanwhile.
-    const existing = findUser('email', email);
-    if (existing) login(existing);
-    else register({ email, phone: digits });
-    onDone?.();
+    if (busy) return;
+    if (!MOBILE_RE.test(normalisedPhone)) { setError('Enter a valid 10-digit mobile number.'); return; }
+    setBusy(true);
+    try {
+      const res = await traveller.requestContactOtp({ mobile: normalisedPhone });
+      setError('');
+      codeSent(res, `+91 ${normalisedPhone}`);
+      setStep('phoneOtp');
+    } catch (err) {
+      setError(apiMessage(err, 'Mobile number'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyPhone = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    const code = otp.join('');
+    if (code.length !== OTP_LENGTH) { setError(`Enter the ${OTP_LENGTH}-digit code.`); return; }
+    setBusy(true);
+    try {
+      await traveller.verifyContactOtp({ mobile: normalisedPhone }, code);
+      onDone?.();
+    } catch (err) {
+      setError(apiMessage(err, 'Code'));
+    } finally {
+      setBusy(false);
+    }
   };
 
   // Errors/method are reset by the [mode] effect above.
   const switchMode = () => onModeChange?.(isSignUp ? 'signin' : 'signup');
   const [switchPrompt, switchAction] = switchLabels[isSignUp ? 'signup' : 'signin'];
 
-  const startOver = () => { setStep('email'); setOtp(emptyOtp()); setPhone(''); setError(''); };
+  const startOver = () => { setStep('email'); setOtp(emptyOtp()); setError(''); };
+  const changeNumber = () => { setStep('phone'); setOtp(emptyOtp()); setError(''); };
+
+  const otpStep = (onSubmit, cta, back) => (
+    <form className="auth-form" onSubmit={onSubmit} noValidate>
+      <p className="auth-sub">Enter the {OTP_LENGTH}-digit code sent to <strong>{sentTo}</strong>.</p>
+
+      <OtpInput key={otpKey} value={otp} onChange={onOtpChange} invalid={Boolean(error)} />
+      {error && <p className="field-error auth-center" role="alert">{error}</p>}
+
+      <button type="submit" className="btn btn-dark btn-block auth-cta" disabled={busy} aria-busy={busy}>{busy ? 'Checking…' : cta}</button>
+
+      <div className="auth-otp-links">
+        {resendIn > 0
+          ? <span className="muted-xs">Resend code in {resendIn}s</span>
+          : <button type="button" className="auth-link" onClick={resend} disabled={busy}>Resend code</button>}
+        {back}
+      </div>
+    </form>
+  );
 
   return (
     <div className="auth">
@@ -180,7 +259,7 @@ export function AuthFlow({
                 {error && <span className="field-error" role="alert">{error}</span>}
               </label>
             )}
-            <button type="submit" className="btn btn-dark btn-block auth-cta">Continue</button>
+            <button type="submit" className="btn btn-dark btn-block auth-cta" disabled={busy} aria-busy={busy}>{busy ? 'Sending code…' : 'Continue'}</button>
           </form>
 
           <div className="auth-or" role="separator"><span>or</span></div>
@@ -205,30 +284,16 @@ export function AuthFlow({
         </>
       )}
 
-      {step === 'otp' && (
-        <form className="auth-form" onSubmit={verify} noValidate>
-          <p className="auth-sub">Enter the {OTP_LENGTH}-digit code sent to <strong>{sentTo}</strong>.</p>
-
-          <OtpInput key={otpKey} value={otp} onChange={onOtpChange} invalid={Boolean(error)} />
-          {error && <p className="field-error auth-center" role="alert">{error}</p>}
-
-          <button type="submit" className="btn btn-dark btn-block auth-cta">{isSignUp ? 'Verify email' : 'Sign in'}</button>
-
-          <div className="auth-otp-links">
-            {resendIn > 0
-              ? <span className="muted-xs">Resend code in {resendIn}s</span>
-              : <button type="button" className="auth-link" onClick={resend}>Resend code</button>}
-            <button type="button" className="auth-back" onClick={startOver}>
-              <ArrowLeft size={15} />Change {usePhone ? 'number' : 'email'}
-            </button>
-          </div>
-        </form>
-      )}
+      {step === 'otp' && otpStep(verify, isSignUp ? 'Verify email' : 'Sign in', (
+        <button type="button" className="auth-back" onClick={startOver}>
+          <ArrowLeft size={15} />Change {usePhone ? 'number' : 'email'}
+        </button>
+      ))}
 
       {step === 'phone' && (
-        <form className="auth-form" onSubmit={createAccount} noValidate>
+        <form className="auth-form" onSubmit={sendPhoneCode} noValidate>
           <p className="auth-sub">
-            <strong>{normalisedEmail}</strong> is verified. Add your mobile number to finish creating your account.
+            Your account is ready and <strong>{normalisedEmail}</strong> is verified. Add your mobile number for booking updates — or skip this for now.
           </p>
           <label className={`form-field ${error ? 'has-error' : ''}`}>
             <span className="auth-label">Mobile number</span>
@@ -240,19 +305,24 @@ export function AuthFlow({
             </span>
             {error && <span className="field-error" role="alert">{error}</span>}
           </label>
-          <button type="submit" className="btn btn-dark btn-block auth-cta">Create account</button>
-          <button type="button" className="auth-back auth-center" onClick={startOver}>
-            <ArrowLeft size={15} />Use a different email
-          </button>
+          <button type="submit" className="btn btn-dark btn-block auth-cta" disabled={busy} aria-busy={busy}>{busy ? 'Sending code…' : 'Send code'}</button>
+          <button type="button" className="auth-link auth-center" onClick={() => onDone?.()}>Skip for now</button>
         </form>
       )}
+
+      {step === 'phoneOtp' && otpStep(verifyPhone, 'Verify mobile', (
+        <>
+          <button type="button" className="auth-back" onClick={changeNumber}><ArrowLeft size={15} />Change number</button>
+          <button type="button" className="auth-link" onClick={() => onDone?.()}>Skip for now</button>
+        </>
+      ))}
     </div>
   );
 }
 
 const TITLES = {
   signin: { email: 'Sign in', otp: 'Verify OTP' },
-  signup: { email: 'Sign up', otp: 'Verify your email', phone: 'Add your mobile number' },
+  signup: { email: 'Sign up', otp: 'Verify your email', phone: 'Add your mobile number', phoneOtp: 'Verify your mobile' },
 };
 
 // initialMode: 'signin' (default) or 'signup'. The user can switch inside the popup.

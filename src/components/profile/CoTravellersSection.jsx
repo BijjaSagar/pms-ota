@@ -1,5 +1,5 @@
 // Ported from pms-ota/src/components/profile/CoTravellersSection.tsx (TriponX styling).
-import { Mail, MapPin, Pencil, Phone, Plus, Trash2, UserRound } from 'lucide-react';
+import { Mail, MapPin, Pencil, Phone, Plus, RefreshCw, Trash2, UserRound } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import {
   countryOptions, genderOptions, mealPreferenceOptions, nationalityOptions, relationshipOptions,
@@ -29,16 +29,24 @@ function createEmptyCoTraveller() {
   };
 }
 
-export function CoTravellersSection({ travellers, onSave, onRemove }) {
+// API field names -> this form's field names / labels (for server validation messages).
+const API_FIELD = { mobileCountryCode: 'mobile' };
+const LABELS = { firstName: 'First name', middleName: 'Middle name', lastName: 'Last name', dob: 'Date of birth', mobile: 'Mobile number', email: 'Email' };
+
+export function CoTravellersSection({ travellers, error: loadError, onRetry, onSave, onRemove }) {
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState(null);
   const [errors, setErrors] = useState({});
   const [removeTarget, setRemoveTarget] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState('');
 
-  const openAdd = () => { setDraft(createEmptyCoTraveller()); setErrors({}); setFormOpen(true); };
-  const openEdit = (t) => { setDraft({ ...t }); setErrors({}); setFormOpen(true); };
-  const closeForm = useCallback(() => { setFormOpen(false); setDraft(null); setErrors({}); }, []);
-  const closeRemove = useCallback(() => setRemoveTarget(null), []);
+  const openAdd = () => { setDraft(createEmptyCoTraveller()); setErrors({}); setFormError(''); setFormOpen(true); };
+  const openEdit = (t) => { setDraft({ ...t }); setErrors({}); setFormError(''); setFormOpen(true); };
+  const closeForm = useCallback(() => { setFormOpen(false); setDraft(null); setErrors({}); setFormError(''); }, []);
+  const closeRemove = useCallback(() => { setRemoveTarget(null); setRemoveError(''); }, []);
 
   const setField = (key, value) => {
     setDraft((c) => (c ? { ...c, [key]: value } : c));
@@ -50,9 +58,9 @@ export function CoTravellersSection({ travellers, onSave, onRemove }) {
     setDraft((c) => (c ? { ...c, countryName: country.name, countryCode: country.code } : c));
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
-    if (!draft) return;
+    if (!draft || saving) return;
     const next = {};
     if (!draft.firstName.trim()) next.firstName = 'First name is required.';
     if (!draft.lastName.trim()) next.lastName = 'Last name is required.';
@@ -62,18 +70,41 @@ export function CoTravellersSection({ travellers, onSave, onRemove }) {
     else if (!isValidPhone(draft.mobile)) next.mobile = 'Enter a valid mobile number.';
     setErrors(next);
     if (Object.keys(next).length > 0) { revealFirstError(); return; }
-    onSave({
-      ...draft,
-      firstName: draft.firstName.trim(), middleName: draft.middleName.trim(), lastName: draft.lastName.trim(),
-      email: draft.email.trim(), mobile: draft.mobile.trim(),
-    });
-    closeForm();
+    setSaving(true);
+    setFormError('');
+    try {
+      await onSave({
+        ...draft,
+        firstName: draft.firstName.trim(), middleName: draft.middleName.trim(), lastName: draft.lastName.trim(),
+        email: draft.email.trim(), mobile: draft.mobile.trim(),
+      }, !editing);
+      closeForm();
+    } catch (err) {
+      const fieldErrs = {};
+      for (const [apiField, msg] of Object.entries(err.fieldErrors ?? {})) {
+        const field = API_FIELD[apiField] ?? apiField;
+        fieldErrs[field] = /^[A-Z]/.test(msg) ? msg : `${LABELS[field] ?? 'This field'} ${msg}.`.replace(/\.\.$/, '.');
+      }
+      setErrors(fieldErrs);
+      if (Object.keys(fieldErrs).length) revealFirstError();
+      else setFormError(err.message || 'Could not save. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const confirmRemove = () => {
-    if (!removeTarget) return;
-    onRemove(removeTarget.id);
-    setRemoveTarget(null);
+  const confirmRemove = async () => {
+    if (!removeTarget || removing) return;
+    setRemoving(true);
+    setRemoveError('');
+    try {
+      await onRemove(removeTarget.id);
+      setRemoveTarget(null);
+    } catch (err) {
+      setRemoveError(err.message || 'Could not remove. Please try again.');
+    } finally {
+      setRemoving(false);
+    }
   };
 
   const editing = draft && travellers.some((item) => item.id === draft.id);
@@ -85,6 +116,12 @@ export function CoTravellersSection({ travellers, onSave, onRemove }) {
         description="Save the people you travel with so checkout is faster next time."
         action={<button type="button" className="pill-btn dark" onClick={openAdd}><Plus size={14} aria-hidden="true" />Add co-traveller</button>}
       >
+        {loadError ? (
+          <div className="inline-error" role="alert">
+            <span>{loadError}</span>
+            <button type="button" className="pill-btn" onClick={onRetry}><RefreshCw size={13} aria-hidden="true" />Try again</button>
+          </div>
+        ) : null}
         <div className="rail-grid">
           {travellers.map((t) => (
             <article key={t.id} className="card person">
@@ -92,17 +129,17 @@ export function CoTravellersSection({ travellers, onSave, onRemove }) {
                 <span className="person-initials">{initials(t)}</span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <h3 className="person-name">{fullName(t)}</h3>
-                  <p className="muted-xs">{t.gender} · {t.nationality}</p>
+                  <p className="muted-xs">{[t.gender, t.nationality].filter(Boolean).join(' · ') || 'Co-traveller'}</p>
                 </div>
                 <Badge tone="accent">{t.relationship}</Badge>
               </div>
               <div className="trip-facts">
-                <span className="fact-pill">Born {formatDate(t.dob)}</span>
+                {t.dob ? <span className="fact-pill">Born {formatDate(t.dob)}</span> : null}
                 <span className="fact-pill">{t.mealPreference}</span>
               </div>
               <div className="app-list">
-                <p className="app-row"><span className="app-row-icon"><Phone size={15} aria-hidden="true" /></span><span className="app-row-main">{t.countryCode} {t.mobile}</span></p>
-                <p className="app-row"><span className="app-row-icon"><Mail size={15} aria-hidden="true" /></span><span className="app-row-main" style={{ overflowWrap: 'anywhere' }}>{t.email}</span></p>
+                {t.mobile ? <p className="app-row"><span className="app-row-icon"><Phone size={15} aria-hidden="true" /></span><span className="app-row-main">{t.countryCode} {t.mobile}</span></p> : null}
+                {t.email ? <p className="app-row"><span className="app-row-icon"><Mail size={15} aria-hidden="true" /></span><span className="app-row-main" style={{ overflowWrap: 'anywhere' }}>{t.email}</span></p> : null}
                 <p className="app-row"><span className="app-row-icon"><MapPin size={15} aria-hidden="true" /></span><span className="app-row-main">{t.countryName}</span></p>
               </div>
               <div className="person-actions">
@@ -146,9 +183,10 @@ export function CoTravellersSection({ travellers, onSave, onRemove }) {
                 <TextField full label="Email address" type="email" value={draft.email} onChange={(e) => setField('email', e.target.value)} error={errors.email} autoComplete="email" placeholder="priya@example.com" />
               </div>
             </div>
+            {formError ? <p className="field-error" role="alert">{formError}</p> : null}
             <div className="form-foot">
               <button type="button" className="btn btn-outline" onClick={closeForm}>Cancel</button>
-              <button type="submit" className="btn btn-primary">{editing ? 'Save changes' : 'Add co-traveller'}</button>
+              <button type="submit" className="btn btn-primary" disabled={saving} aria-busy={saving}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Add co-traveller'}</button>
             </div>
           </form>
         </Modal>
@@ -157,9 +195,10 @@ export function CoTravellersSection({ travellers, onSave, onRemove }) {
       {removeTarget ? (
         <Modal title="Remove co-traveller?" onClose={closeRemove}>
           <p className="modal-text">Are you sure you want to remove {fullName(removeTarget)} from your saved co-travellers?</p>
+          {removeError ? <p className="field-error" role="alert">{removeError}</p> : null}
           <div className="modal-actions">
-            <button type="button" className="btn btn-outline" onClick={() => setRemoveTarget(null)}>Cancel</button>
-            <button type="button" className="btn btn-danger" onClick={confirmRemove}>Remove</button>
+            <button type="button" className="btn btn-outline" onClick={closeRemove}>Cancel</button>
+            <button type="button" className="btn btn-danger" onClick={confirmRemove} disabled={removing} aria-busy={removing}>{removing ? 'Removing…' : 'Remove'}</button>
           </div>
         </Modal>
       ) : null}

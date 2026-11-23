@@ -140,3 +140,10 @@
   .auth-otp { gap: 5px; }
   .auth-otp input { font-size: 17px; }
 }
+
+/* Restoring a sign-in after a page load */
+.auth-loading { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 40vh; padding: 48px 16px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.auth-spinner { width: 18px; height: 18px; border-radius: 999px; border: 2px solid var(--line); border-top-color: var(--accent); animation: auth-spin .8s linear infinite; }
+@keyframes auth-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .auth-spinner { animation-duration: 2.4s; } }
+.btn[disabled], .btn[aria-busy="true"] { cursor: progress; opacity: .75; }
