@@ -6,9 +6,20 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../lib/context/useAuth.js';
 import '../../styles/auth.css';
 
-export function RequireAuth({ children }) {
-  const { isAuthenticated, openAuth } = useAuth();
+// Shown for the moment it takes to restore a sign-in after a page load (avoids flashing the sign-in gate).
+export function AuthLoading({ label = 'Checking your sign-in…' }) {
+  return (
+    <div className="auth-loading" role="status" aria-live="polite">
+      <span className="auth-spinner" aria-hidden="true" />
+      <span>{label}</span>
+    </div>
+  );
+}
 
+export function RequireAuth({ children }) {
+  const { isAuthenticated, authReady, openAuth } = useAuth();
+
+  if (!authReady) return <AuthLoading />;
   if (isAuthenticated) return children;
 
   return (

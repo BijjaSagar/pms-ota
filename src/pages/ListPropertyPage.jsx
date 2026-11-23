@@ -13,6 +13,7 @@ import { PartnerCredit } from '../components/partner/PartnerCredit.jsx';
 import { useAuth } from '../lib/context/useAuth.js';
 import { getHotelBySlug, hotels } from '../lib/data/hotels.js';
 import { PARTNER_FAQS, PARTNER_STATS } from '../lib/data/partner.js';
+import { AuthLoading } from '../components/auth/RequireAuth.jsx';
 import '../styles/account.css';
 import '../styles/partner.css';
 
@@ -32,7 +33,7 @@ const BENEFITS = [
 ];
 
 export default function ListPropertyPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authReady } = useAuth();
   const [openFaq, setOpenFaq] = useState(0);
 
   // A villa photo suits owners better than a city street; fall back to any hotel image.
@@ -45,6 +46,7 @@ export default function ListPropertyPage() {
   }, []);
 
   // Signed in to the Partner Hub (here or in another partner tab) -> Your properties. `replace` keeps Back from bouncing here.
+  if (!authReady) return <div className="lp-shell"><AuthLoading /></div>;
   if (isAuthenticated) return <Navigate to={PARTNER_PATHS.properties} replace />;
 
   return (

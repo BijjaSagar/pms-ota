@@ -1,124 +1,207 @@
-// Front-end only auth: registered accounts and the current sessions live in localStorage.
-// Replace register/login with API calls once the backend exists; the context shape can stay the same.
+// Sign-in for both areas, backed by the TriponX API (see lib/api/client.js for the token model).
 //
-// Guest (main site) and partner (Partner Hub, /list-property/...) logins are two different things:
-//                    accounts                     session
-//   main site   ->   triponx.users.v1             triponx.session.v1
-//   Partner Hub ->   triponx.partnerUsers.v1      triponx.partnerSession.v1
-// Each area only sees its own accounts and its own session: a guest account can't sign in to the
-// Partner Hub (and the other way round), and signing in or out of one never touches the other.
-// Components keep using useAuth() as before — which area is on screen decides which side they get.
-import { useCallback, useEffect, useMemo, useState } from 'react';
+// Guest (main site) and partner (Partner Hub, /list-property/...) are two different accounts and sessions:
+//   main site   -> /api/v1/auth/*           traveller accounts, one-time codes only
+//   Partner Hub -> /api/v1/partner/auth/*   partner accounts, email + password + code
+// Signing in or out of one never touches the other. Components keep using useAuth(): which area is on
+// screen decides which session `user`, `isAuthenticated`, `authReady` and `logout` refer to.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AuthContext } from './auth-context';
 import { AuthModal } from '../../components/auth/AuthModal.jsx';
+import { createSession, publicApi } from '../api/client.js';
 
-const USERS_KEY = 'triponx.users.v1';
-const SESSION_KEY = 'triponx.session.v1';
-const PARTNER_USERS_KEY = 'triponx.partnerUsers.v1';
-const PARTNER_SESSION_KEY = 'triponx.partnerSession.v1';
 export const PARTNER_PATH = '/list-property';
-
 export const isPartnerPath = (pathname = '') => pathname === PARTNER_PATH || pathname.startsWith(PARTNER_PATH + '/');
 
-function readJSON(key, fallback) {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJSON(key, value) {
-  try {
-    if (value === null) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // storage blocked (private mode etc.) — session simply won't persist
-  }
-}
-
-const readList = (key) => {
-  const list = readJSON(key, []);
-  return Array.isArray(list) ? list : [];
-};
-
-// Partner accounts made before the split lived in the shared list. Only the Partner Hub sets a password,
-// so those are the ones with a passwordHash: copy them over once so existing partners can still sign in
-// (same id, so their drafts and listings stay theirs).
-function readPartnerUsers() {
-  if (typeof window !== 'undefined') {
-    try {
-      if (window.localStorage.getItem(PARTNER_USERS_KEY) === null) {
-        return readList(USERS_KEY).filter((u) => u && u.passwordHash);
-      }
-    } catch {
-      // storage blocked: fall through to an empty list
-    }
-  }
-  return readList(PARTNER_USERS_KEY);
-}
-
-// Email is compared case-insensitively; phone by its digits only.
+// Email is compared case-insensitively; phone by its digits only (Indian numbers, without +91).
 export function normalizeIdentifier(method, value) {
   const v = String(value ?? '').trim();
   return method === 'phone' ? v.replace(/\D/g, '').slice(-10) : v.toLowerCase();
 }
 
+// The rest of the app reads user.name / user.email / user.phone / user.id.
+export function travellerFromApi(u) {
+  if (!u) return null;
+  const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+  return {
+    ...u,
+    name,
+    phone: u.mobile ?? '',
+  };
+}
+const partnerFromApi = (p) => (p ? { ...p, name: p.fullName ?? '', phone: '' } : null);
+
+// Old demo-only data (accounts and password hashes in localStorage) is no longer used: remove it once.
+function dropDemoStorage() {
+  try {
+    ['triponx.users.v1', 'triponx.session.v1', 'triponx.partnerUsers.v1', 'triponx.partnerSession.v1']
+      .forEach((k) => window.localStorage.removeItem(k));
+    Object.keys(window.localStorage).filter((k) => k.startsWith('triponx.devices.v1.')).forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    // storage blocked: nothing to clean
+  }
+}
+
+// Tell other open tabs about sign-in / sign-out, so they follow without a reload.
+const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('triponx-auth') : null;
+const announce = (area, type) => { try { channel?.postMessage({ area, type }); } catch { /* ignore */ } };
+
+// One session object per area for the whole app (module level: survives StrictMode remounts,
+// so a refresh is never sent twice with the same cookie).
+const listeners = { traveller: new Set(), partner: new Set() };
+const emit = (area, event) => listeners[area].forEach((fn) => fn(event));
+
+export const travellerApi = createSession({
+  refreshPath: '/auth/refresh',
+  onLost: () => emit('traveller', { type: 'lost' }),
+});
+export const partnerApi = createSession({
+  refreshPath: '/partner/auth/refresh',
+  onRefreshed: (data) => emit('partner', { type: 'user', user: partnerFromApi(data?.partner) }),
+  onLost: () => emit('partner', { type: 'lost' }),
+});
+
+// Restore a sign-in after a page load from the refresh cookie (no cookie -> signed out, quietly).
+let travellerRestore = null;
+let partnerRestore = null;
+const restoreTraveller = () => {
+  travellerRestore ??= travellerApi.refresh()
+    .then(() => travellerApi.get('/auth/me'))
+    .then(travellerFromApi)
+    .catch(() => null)
+    .finally(() => { setTimeout(() => { travellerRestore = null; }, 0); });
+  return travellerRestore;
+};
+const restorePartner = () => {
+  partnerRestore ??= partnerApi.refresh()
+    .then((data) => partnerFromApi(data?.partner))
+    .catch(() => null)
+    .finally(() => { setTimeout(() => { partnerRestore = null; }, 0); });
+  return partnerRestore;
+};
+
 function AuthProvider({ children }) {
-  const [guestUsers, setGuestUsers] = useState(() => readList(USERS_KEY));
-  const [partnerUsers, setPartnerUsers] = useState(readPartnerUsers);
-  const [guestUser, setGuestUser] = useState(() => readJSON(SESSION_KEY, null));
-  const [partnerUser, setPartnerUser] = useState(() => readJSON(PARTNER_SESSION_KEY, null));
+  const [guestUser, setGuestUser] = useState(null);
+  const [partnerUser, setPartnerUser] = useState(null);
+  const [ready, setReady] = useState({ traveller: false, partner: false });
   const [modal, setModal] = useState({ open: false, mode: 'register', message: '' });
 
-  // Which area is on screen decides which accounts and session the app sees and changes.
   const { pathname } = useLocation();
   const isPartner = isPartnerPath(pathname);
-  const users = isPartner ? partnerUsers : guestUsers;
-  const setUsers = isPartner ? setPartnerUsers : setGuestUsers;
-  const user = isPartner ? partnerUser : guestUser;
-  const setUser = isPartner ? setPartnerUser : setGuestUser;
+  const area = isPartner ? 'partner' : 'traveller';
 
-  useEffect(() => { writeJSON(USERS_KEY, guestUsers); }, [guestUsers]);
-  useEffect(() => { writeJSON(PARTNER_USERS_KEY, partnerUsers); }, [partnerUsers]);
-  useEffect(() => { writeJSON(SESSION_KEY, guestUser); }, [guestUser]);
-  useEffect(() => { writeJSON(PARTNER_SESSION_KEY, partnerUser); }, [partnerUser]);
+  useEffect(() => { dropDemoStorage(); }, []);
 
-  const findUser = useCallback(
-    (method, value) => {
-      const id = normalizeIdentifier(method, value);
-      return users.find((u) => (method === 'phone' ? u.phone === id : u.email === id)) ?? null;
-    },
-    [users],
-  );
-
-  // Sign up = verified email + mobile number (see AuthFlow). Both are stored normalised.
-  // passwordHash is optional: guest sign-up uses OTP only; Partner Hub accounts also set a password.
-  const register = useCallback(({ name = '', email, phone, passwordHash }) => {
-    const newUser = {
-      id: `${isPartner ? 'partner' : 'user'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      name: name.trim(),
-      email: normalizeIdentifier('email', email),
-      phone: normalizeIdentifier('phone', phone),
-      ...(passwordHash ? { passwordHash } : {}),
-      createdAt: new Date().toISOString(),
+  // Session events from the API client (token refreshed with new details, or the session was lost).
+  useEffect(() => {
+    const onTraveller = (e) => { if (e.type === 'lost') setGuestUser(null); };
+    const onPartner = (e) => {
+      if (e.type === 'lost') setPartnerUser(null);
+      if (e.type === 'user' && e.user) setPartnerUser(e.user);
     };
-    setUsers((current) => [...current, newUser]);
-    setUser(newUser);
-    return newUser;
-  }, [isPartner, setUsers, setUser]);
+    listeners.traveller.add(onTraveller);
+    listeners.partner.add(onPartner);
+    return () => { listeners.traveller.delete(onTraveller); listeners.partner.delete(onPartner); };
+  }, []);
 
-  // Patch a stored account (e.g. new password hash). Keeps the signed-in copy in sync.
-  const updateUser = useCallback((id, patch) => {
-    setUsers((current) => current.map((u) => (u.id === id ? { ...u, ...patch } : u)));
-    setUser((current) => (current && current.id === id ? { ...current, ...patch } : current));
-  }, [setUsers, setUser]);
+  // Restore the session of the area on screen (each area only when first visited).
+  const restoring = useRef({ traveller: false, partner: false });
+  const restore = useCallback(async (which) => {
+    if (restoring.current[which]) return;
+    restoring.current[which] = true;
+    const found = await (which === 'partner' ? restorePartner() : restoreTraveller());
+    if (which === 'partner') setPartnerUser(found); else setGuestUser(found);
+    setReady((r) => ({ ...r, [which]: true }));
+    restoring.current[which] = false;
+  }, []);
+  useEffect(() => { if (!ready[area]) restore(area); }, [area, ready, restore]);
 
-  const login = useCallback((existing) => { setUser(existing); }, [setUser]);
-  const logout = useCallback(() => { setUser(null); }, [setUser]);
+  // Another tab signed in or out.
+  useEffect(() => {
+    if (!channel) return undefined;
+    const onMessage = ({ data }) => {
+      if (!data?.area) return;
+      if (data.type === 'logout') {
+        if (data.area === 'partner') { partnerApi.clear(); setPartnerUser(null); } else { travellerApi.clear(); setGuestUser(null); }
+      }
+      if (data.type === 'login') restore(data.area);
+    };
+    channel.addEventListener('message', onMessage);
+    return () => channel.removeEventListener('message', onMessage);
+  }, [restore]);
+
+  // ---------- Traveller (main site): one-time codes ----------
+  const signedInTraveller = useCallback((result) => {
+    travellerApi.set(result);
+    const u = travellerFromApi(result.user);
+    setGuestUser(u);
+    setReady((r) => ({ ...r, traveller: true }));
+    announce('traveller', 'login');
+    return { user: u, isNewUser: Boolean(result.isNewUser) };
+  }, []);
+
+  const traveller = useMemo(() => ({
+    /** purpose 'signin' | 'signup'; contact { email } or { mobile } (Indian, 10 digits). */
+    requestOtp: (purpose, contact) => publicApi.post('/auth/otp/request', {
+      purpose,
+      ...(contact.mobile ? { mobileCountryCode: '+91', mobile: contact.mobile } : { email: contact.email }),
+    }),
+    verifySignin: async (contact, otp) => signedInTraveller(await publicApi.post('/auth/signin/verify', {
+      otp,
+      ...(contact.mobile ? { mobileCountryCode: '+91', mobile: contact.mobile } : { email: contact.email }),
+    })),
+    verifySignup: async (email, otp) => signedInTraveller(await publicApi.post('/auth/signup/verify-email', { email, otp })),
+    /** Add or change the email / mobile on the signed-in account (two steps, code each time). */
+    requestContactOtp: (contact) => travellerApi.post('/me/contact/otp/request',
+      contact.mobile ? { mobileCountryCode: '+91', mobile: contact.mobile } : { email: contact.email }),
+    verifyContactOtp: async (contact, otp) => {
+      const profile = await travellerApi.post('/me/contact/otp/verify', {
+        otp,
+        ...(contact.mobile ? { mobileCountryCode: '+91', mobile: contact.mobile } : { email: contact.email }),
+      });
+      setGuestUser((u) => (u ? travellerFromApi({ ...u, email: profile.email, mobile: profile.mobile, mobileCountryCode: profile.mobileCountryCode, emailVerified: profile.emailVerified, mobileVerified: profile.mobileVerified }) : u));
+      return profile;
+    },
+    /** After a profile save: keep the header name etc. in sync. */
+    applyProfile: (profile) => setGuestUser((u) => (u ? travellerFromApi({ ...u, ...profile, profileComplete: Boolean(profile.firstName && profile.lastName) }) : u)),
+  }), [signedInTraveller]);
+
+  // ---------- Partner Hub: email + password, then a code ----------
+  const signedInPartner = useCallback((result) => {
+    partnerApi.set(result);
+    const p = partnerFromApi(result.partner);
+    setPartnerUser(p);
+    setReady((r) => ({ ...r, partner: true }));
+    announce('partner', 'login');
+    return p;
+  }, []);
+
+  const partner = useMemo(() => ({
+    signup: ({ fullName, email, password, confirmPassword }) => publicApi.post('/partner/auth/signup', { fullName, email, password, confirmPassword }),
+    verifySignup: async (email, otp) => signedInPartner(await publicApi.post('/partner/auth/signup/verify', { email, otp })),
+    login: (email, password) => publicApi.post('/partner/auth/login', { email, password }), // -> { challengeId, destination, … }
+    verifyLogin: async (challengeId, otp) => signedInPartner(await publicApi.post('/partner/auth/login/verify', { challengeId, otp })),
+    resendOtp: (purpose, { email, challengeId }) => publicApi.post('/partner/auth/otp/resend', purpose === 'login' ? { purpose, challengeId } : { purpose, email }),
+    forgotPassword: (email) => publicApi.post('/partner/auth/password/forgot', { email }),
+    verifyResetOtp: (email, otp) => publicApi.post('/partner/auth/password/verify-otp', { email, otp }), // -> { resetToken }
+    resetPassword: (resetToken, password, confirmPassword) => publicApi.post('/partner/auth/password/reset', { resetToken, password, confirmPassword }),
+  }), [signedInPartner]);
+
+  // ---------- Sign out (the area on screen) ----------
+  const logout = useCallback(async () => {
+    if (isPartner) {
+      setPartnerUser(null);
+      partnerApi.clear();
+      try { await publicApi.post('/partner/auth/logout'); } catch { /* cookie cleared anyway on next refresh failure */ }
+      announce('partner', 'logout');
+    } else {
+      setGuestUser(null);
+      try { if (travellerApi.hasToken()) await travellerApi.post('/auth/logout'); } catch { /* already ended */ }
+      travellerApi.clear();
+      announce('traveller', 'logout');
+    }
+  }, [isPartner]);
 
   // mode: 'login' (default) opens Sign in, 'register' opens Sign up.
   const openAuth = useCallback((mode = 'login', message = '') => {
@@ -128,35 +211,20 @@ function AuthProvider({ children }) {
     setModal((m) => ({ ...m, open: false }));
   }, []);
 
-  // The sign-in popup never opens on its own — only via openAuth() from a Sign in / Sign up click.
-
-  // Keep open tabs of the same area in sync (sign in/out in one main-site tab shows in the others;
-  // same for Partner Hub tabs) without a reload. The two areas stay independent.
-  useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key === SESSION_KEY) setGuestUser(readJSON(SESSION_KEY, null));
-      if (e.key === PARTNER_SESSION_KEY) setPartnerUser(readJSON(PARTNER_SESSION_KEY, null));
-      if (e.key === USERS_KEY) setGuestUsers(readList(USERS_KEY));
-      if (e.key === PARTNER_USERS_KEY) setPartnerUsers(readList(PARTNER_USERS_KEY));
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
-
+  const user = isPartner ? partnerUser : guestUser;
   const value = useMemo(
     () => ({
       user,
       isAuthenticated: Boolean(user),
+      authReady: ready[area],
       authOpen: modal.open,
-      findUser,
-      register,
-      updateUser,
-      login,
+      traveller,
+      partner,
       logout,
       openAuth,
       closeAuth,
     }),
-    [user, modal.open, findUser, register, updateUser, login, logout, openAuth, closeAuth],
+    [user, ready, area, modal.open, traveller, partner, logout, openAuth, closeAuth],
   );
 
   return (
