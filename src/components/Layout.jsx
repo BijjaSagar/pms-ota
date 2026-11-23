@@ -104,7 +104,7 @@ export function Header({ children, overlay = false }) {
           )}
           <div className="header-actions">
             <Link to="/list-property" target="_blank" rel="noopener noreferrer" className="btn btn-dark btn-sm list-property-btn hide-sm"
-              aria-label="List your property (opens in a new tab)">
+              aria-label="List your property (opens in a new tab)" title="List your property">
               <Building2 size={16} aria-hidden="true" />
               <span className="nav-two-line"><span>List your property</span><small>Grow your business</small></span>
             </Link>

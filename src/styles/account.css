@@ -120,7 +120,6 @@ a.app-row:hover { background: rgba(255, 255, 255, 0.8); color: var(--ink); }
 .photo-stack { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
 .photo-stack .avatar-wrap { position: relative; }
 .photo-stack .cam { position: absolute; right: -6px; bottom: -6px; width: 34px; height: 34px; border-radius: 999px; background: #fff; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--accent-dark); }
-.doc-drop { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border-radius: 18px; border: 1px dashed var(--line-input); background: rgba(255, 255, 255, 0.4); }
 .save-bar { position: static; margin-top: 18px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 10px 10px 20px; border-radius: 999px; background: var(--glass-bg-strong); border: 1px solid var(--glass-border); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); box-shadow: var(--g-shine), 0 18px 40px -20px rgba(28, 43, 45, 0.4); }
 .ok-text { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--accent-dark); }
 .ok-box { display: flex; align-items: flex-start; gap: 8px; padding: 12px 16px; border-radius: 16px; background: rgba(231, 238, 233, 0.9); border: 1px solid #CFE0D5; font-size: 14px; color: var(--accent-dark); }
@@ -141,6 +140,24 @@ a.app-row:hover { background: rgba(255, 255, 255, 0.8); color: var(--ink); }
 .dev-dot.on { background: var(--accent); }
 .dev-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .dev-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 12px; color: var(--muted); text-align: right; }
+.dev-logout { flex: 0 0 auto; height: 34px; padding: 0 12px; }
+.dev-row.is-out .app-row-icon { background: rgba(169, 176, 168, 0.18); color: var(--muted); }
+.dev-row.is-out .app-row-main p:first-child { color: var(--muted); }
+.dev-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+/* Phones: name + button on the first line, place/time underneath (lined up with the name). */
+@media (max-width: 560px) {
+  .dev-row { flex-wrap: wrap; row-gap: 6px; }
+  .dev-row .app-row-main { flex: 1 1 0; }
+  .dev-row .app-row-main p:first-child { white-space: normal; overflow-wrap: anywhere; }
+  .dev-row .dev-logout { order: 2; }
+  .dev-row .dev-meta { order: 3; flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; gap: 2px 10px; padding-left: 50px; text-align: left; }
+  .dev-actions { justify-content: stretch; }
+  .dev-actions .pill-btn { flex: 1 1 auto; justify-content: center; }
+}
+@media (max-width: 360px) {
+  .dev-row .dev-logout span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .dev-row .dev-logout { width: 34px; padding: 0; justify-content: center; }
+}
 
 .pw-wrap { max-width: 640px; }
 .pw-form { display: flex; flex-direction: column; gap: 16px; }
