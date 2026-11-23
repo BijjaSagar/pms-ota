@@ -6,6 +6,7 @@ import {
   emptyCheckout,
   emptyGuest
 } from "./booking-context";
+import { TRAVELLER_SIGNED_OUT } from "./auth-events.js";
 const STORAGE_KEY = "triponx.booking.v1";
 function createInitialState() {
   const fallback = {
@@ -82,6 +83,12 @@ function BookingProvider({ children }) {
       confirmation: null
     }));
   }, []);
+  // Traveller signed out (here, in another tab, or the session ended): drop their guest details,
+  // checkout and confirmation so the next person on this browser doesn't see them. The search stays.
+  useEffect(() => {
+    window.addEventListener(TRAVELLER_SIGNED_OUT, resetBooking);
+    return () => window.removeEventListener(TRAVELLER_SIGNED_OUT, resetBooking);
+  }, [resetBooking]);
   const value = useMemo(
     () => ({
       ...state,
