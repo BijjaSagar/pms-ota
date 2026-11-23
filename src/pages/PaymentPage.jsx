@@ -15,6 +15,7 @@ import { formatCurrency } from '../lib/utils/pricing.js';
 import {
   cardDigits, detectCardBrand, formatCardNumber, formatExpiry, isValidCardNumber, isValidCvc, isValidExpiry,
 } from '../lib/utils/validation.js';
+import { revealFirstError } from '../lib/utils/revealError.js';
 import '../styles/checkout.css';
 
 const STEPS = ['Room', 'Details', 'Payment', 'Confirmed'];
@@ -67,10 +68,7 @@ export default function PaymentPage() {
     if (!acceptedTerms) next.terms = 'Please accept the booking terms to continue.';
     setErrors(next);
     if (Object.keys(next).length > 0) {
-      requestAnimationFrame(() => {
-        const first = document.querySelector('[aria-invalid="true"]');
-        if (first instanceof HTMLElement) first.focus();
-      });
+      revealFirstError(document, { focus: '[aria-invalid="true"]' });
     }
     return Object.keys(next).length === 0;
   };

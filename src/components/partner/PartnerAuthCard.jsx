@@ -2,7 +2,7 @@
 //   Sign in:         email + password  -> OTP popup -> signed in
 //   Create account:  name + email + password + confirm -> OTP popup (confirms email) -> account created
 //   Forgot password: email -> OTP popup -> new password + confirm -> back to Sign in
-// Demo OTP = today's date as DDMMYY (lib/utils/otp.js). Accounts are the same TriponX accounts as the main site.
+// Demo OTP = today's date as DDMMYY (lib/utils/otp.js). Partner accounts are separate from main-site guest accounts (see AuthProvider).
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, Check, CheckCircle2, Eye, EyeOff } from 'lucide-react';
@@ -11,6 +11,7 @@ import { OtpInput, emptyOtp } from '../auth/OtpInput.jsx';
 import { useAuth } from '../../lib/context/useAuth.js';
 import { OTP_LENGTH, verifyOtp } from '../../lib/utils/otp.js';
 import { PASSWORD_MIN, PASSWORD_RULES, checkPassword, hashPassword, isStrongPassword } from '../../lib/utils/password.js';
+import { revealFirstError } from '../../lib/utils/revealError.js';
 import '../../styles/auth.css';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -131,13 +132,13 @@ export function PartnerAuthCard() {
     if (!form.identifier.trim()) er.identifier = 'Enter your username or email address.';
     if (!form.password) er.password = 'Enter your password.';
     setErrors(er);
-    if (Object.keys(er).length) return;
+    if (Object.keys(er).length) { revealFirstError(); return; }
     setBusy(true);
     const user = form.identifier.includes('@') ? findUser('email', form.identifier) : null; // no usernames yet
     const ok = await checkPassword(user, form.password);
     setBusy(false);
     // Same message for unknown email and wrong password, so accounts can't be probed.
-    if (!ok) { setErrors({ form: SIGN_IN_ERROR }); return; }
+    if (!ok) { setErrors({ form: SIGN_IN_ERROR }); revealFirstError(); return; }
     setOtp({
       purpose: 'signin',
       email: user.email,
@@ -157,7 +158,7 @@ export function PartnerAuthCard() {
     if (!form.confirm) er.confirm = 'Confirm your password.';
     else if (form.confirm !== form.newPassword) er.confirm = 'Passwords do not match.';
     setErrors(er);
-    if (Object.keys(er).length) return;
+    if (Object.keys(er).length) { revealFirstError(); return; }
     setBusy(true);
     const passwordHash = await hashPassword(form.email, form.newPassword);
     setBusy(false);
@@ -167,7 +168,7 @@ export function PartnerAuthCard() {
       email,
       onVerified: () => {
         const existing = findUser('email', email); // another tab may have registered it meanwhile
-        if (existing) { setOtp(null); setErrors({ email: 'An account with this email already exists. Sign in instead.' }); return; }
+        if (existing) { setOtp(null); setErrors({ email: 'An account with this email already exists. Sign in instead.' }); revealFirstError(); return; }
         register({ name, email, passwordHash }); // also signs in
         setOtp(null);
       },
@@ -177,7 +178,7 @@ export function PartnerAuthCard() {
   // ----- Forgot password: OTP proves the email, then set a new password -----
   const forgot = (e) => {
     e.preventDefault();
-    if (!EMAIL_RE.test(form.email.trim())) { setErrors({ email: 'Enter a valid email address.' }); return; }
+    if (!EMAIL_RE.test(form.email.trim())) { setErrors({ email: 'Enter a valid email address.' }); revealFirstError(); return; }
     const email = form.email.trim().toLowerCase();
     setOtp({
       purpose: 'forgot',
@@ -186,7 +187,7 @@ export function PartnerAuthCard() {
         setOtp(null);
         const user = findUser('email', email);
         // Only revealed after the code proves the person controls this inbox.
-        if (!user) { setErrors({ email: 'No TriponX account uses this email. Create an account instead.' }); return; }
+        if (!user) { setErrors({ email: 'No partner account uses this email. Create an account instead.' }); revealFirstError(); return; }
         setResetUserId(user.id);
         setForm((f) => ({ ...f, newPassword: '', confirm: '' }));
         go('reset');
@@ -201,7 +202,7 @@ export function PartnerAuthCard() {
     if (!form.confirm) er.confirm = 'Confirm your password.';
     else if (form.confirm !== form.newPassword) er.confirm = 'Passwords do not match.';
     setErrors(er);
-    if (Object.keys(er).length) return;
+    if (Object.keys(er).length) { revealFirstError(); return; }
     const email = form.email.trim().toLowerCase();
     setBusy(true);
     const passwordHash = await hashPassword(email, form.newPassword);

@@ -44,7 +44,7 @@ export default function ListPropertyPage() {
     return () => { document.title = prev; };
   }, []);
 
-  // Signed in (here, on the main site, or in another tab) -> Your properties. `replace` keeps Back from bouncing here.
+  // Signed in to the Partner Hub (here or in another partner tab) -> Your properties. `replace` keeps Back from bouncing here.
   if (isAuthenticated) return <Navigate to={PARTNER_PATHS.properties} replace />;
 
   return (

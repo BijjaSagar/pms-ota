@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Building2, CheckCircle2, ChevronDown, ClipboardList, Image as ImageIcon, Info, LocateFixed, Lock, MapPin, Sparkles, Star, Trash2, Video } from 'lucide-react';
+import { ArrowRight, Building2, CheckCircle2, ChevronDown, ClipboardList, Image as ImageIcon, Info, LocateFixed, Lock, MapPin, Sparkles, Star, Trash2, Video, X } from 'lucide-react';
 import { TextField } from '../Layout.jsx';
 import { PortalModal } from '../profile/PortalModal.jsx';
 import { OtpInput, emptyOtp } from '../auth/OtpInput.jsx';
@@ -14,83 +15,158 @@ import {
   ROOM_VIEW_OPTIONS, createEmptyAmenitiesInfo, createEmptyPhotosInfo, createEmptyPoliciesInfo,
   getPropertyDraft, normalizePhotosDraft, normalizePoliciesDraft, sanitizePhotosForDraft, savePropertyDraft,
   validateAmenitiesInfo, validateBasicInfo, validateLocationInfo, validatePhotosInfo, validatePoliciesInfo,
-  validateRoomsInfo,
+  validateRoomsInfo, MOBILE_LENGTH, PROPERTY_NAME_MAX, mobileError, sanitizeMobile,
 } from '../../lib/data/partner.js';
-import { isValidEmail, isValidPhone } from '../../lib/utils/validation.js';
+import { isValidEmail } from '../../lib/utils/validation.js';
 import { OTP_LENGTH, todayOtp, verifyOtp } from '../../lib/utils/otp.js';
-import { addressToLocationFields, buildAddressQuery, buildOsmEmbedUrl, forwardGeocodeAddressInfo, getCurrentCoordinates, GPS_GOOD_ACCURACY_METERS, isAddressMapReady, reverseGeocode } from '../../lib/utils/location.js';
+import { LocationMap } from './LocationMap.jsx';
+import { ERROR_FIELD, revealFirstError as revealError } from '../../lib/utils/revealError.js';
+import { addressToLocationFields, buildAddressQuery, forwardGeocodeAddressInfo, getCurrentCoordinates, GPS_GOOD_ACCURACY_METERS, isAddressMapReady, reverseGeocode } from '../../lib/utils/location.js';
 import '../../styles/auth.css';
 import '../../styles/partner.css';
 
 const RESEND_SECONDS = 30;
-const ROOM_LAST_INPUT_INDEX = ROOM_CATEGORIES.length - 2;
+
+// The "place" a pin belongs to. Building name and locality are left out on purpose (see pinFixedForRef).
+const placeKey = (info) => ['pincode', 'city', 'state', 'country']
+  .map((key) => String(info?.[key] ?? '').trim().toLowerCase()).join('|');
+
+// Metres between two points (haversine) — decides whether a typed building name still applies after a drag.
+function distanceMeters(a, b) {
+  const rad = (deg) => (deg * Math.PI) / 180;
+  const dLat = rad(b.latitude - a.latitude);
+  const dLng = rad(b.longitude - a.longitude);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.latitude)) * Math.cos(rad(b.latitude)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.sqrt(h));
+}
+const SAME_BUILDING_METERS = 120;
+// Last Rooms tab ("Amenities for room"): the only step that shows "Save rooms"; every tab before it shows Next.
+// (Was length - 2, which put Save on "Meal plan, rate & inventory" and made it validate the unopened amenities tab.)
+const ROOM_LAST_INPUT_INDEX = ROOM_CATEGORIES.length - 1;
+
+// Phones show the options as a bottom sheet; wider screens as a dropdown under (or above) the field.
+const SHEET_QUERY = '(max-width: 720px)';
+const MENU_MAX_HEIGHT = 280;
+const STICKY_BAR_SPACE = 96; // sticky Save / Back bar at the bottom of the form
 
 function ResponsiveSelectField({ label, value, onChange, options, error }) {
   const [open, setOpen] = useState(false);
+  // { sheet: bottom sheet (phones), up: open above the field, maxHeight: px that fit on screen }
+  const [placement, setPlacement] = useState({ sheet: false, up: false, maxHeight: MENU_MAX_HEIGHT });
   const rootRef = useRef(null);
+  const triggerRef = useRef(null);
+  const menuRef = useRef(null);
   const selected = options.find(([optionValue]) => optionValue === value);
   const selectedLabel = selected?.[1] ?? 'Select';
+
+  const close = (restoreFocus = false) => {
+    setOpen(false);
+    if (restoreFocus) triggerRef.current?.focus();
+  };
+
+  const toggle = () => {
+    if (open) { close(); return; }
+    const sheet = window.matchMedia(SHEET_QUERY).matches;
+    let up = false;
+    let maxHeight = MENU_MAX_HEIGHT;
+    if (!sheet && triggerRef.current) {
+      // Open where there is room: below unless the space under the field (minus the sticky bar) is too small.
+      const rect = triggerRef.current.getBoundingClientRect();
+      const below = window.innerHeight - rect.bottom - STICKY_BAR_SPACE;
+      const headerBottom = document.querySelector('.ps-header')?.getBoundingClientRect().bottom ?? 0; // sticky top bar + module row
+      const above = rect.top - headerBottom - 12;
+      const wanted = Math.min(MENU_MAX_HEIGHT, options.length * 45);
+      up = below < wanted && above > below;
+      maxHeight = Math.max(140, Math.min(MENU_MAX_HEIGHT, up ? above : below));
+    }
+    setPlacement({ sheet, up, maxHeight });
+    setOpen(true);
+  };
 
   useEffect(() => {
     if (!open) return undefined;
     const closeOnOutsideClick = (event) => {
-      if (!rootRef.current?.contains(event.target)) setOpen(false);
+      if (!rootRef.current?.contains(event.target) && !menuRef.current?.contains(event.target)) setOpen(false);
     };
     const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') { setOpen(false); triggerRef.current?.focus(); }
     };
+    // Field scrolled / resized away from where the dropdown was placed -> close it rather than leave it floating.
+    const closeOnResize = () => setOpen(false);
     document.addEventListener('pointerdown', closeOnOutsideClick);
     document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('resize', closeOnResize);
+    // Bottom sheet: keep the page behind it from scrolling.
+    const prevOverflow = document.body.style.overflow;
+    if (placement.sheet) document.body.style.overflow = 'hidden';
+    // Bring the selected option into view.
+    menuRef.current?.querySelector('.is-selected')?.scrollIntoView({ block: 'nearest' });
     return () => {
       document.removeEventListener('pointerdown', closeOnOutsideClick);
       document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('resize', closeOnResize);
+      document.body.style.overflow = prevOverflow;
     };
-  }, [open]);
+  }, [open, placement.sheet]);
 
   const choose = (nextValue) => {
     onChange({ target: { value: nextValue } });
-    setOpen(false);
+    close(true);
   };
+
+  const menu = open && (
+    <>
+      <button type="button" className="pi-responsive-select-backdrop" aria-label="Close dropdown" onClick={() => close(true)} />
+      <div
+        ref={menuRef}
+        className={`pi-responsive-select-menu ${placement.up ? 'is-up' : ''}`}
+        role="listbox"
+        aria-label={label}
+        style={placement.sheet ? undefined : { '--pi-menu-max': `${placement.maxHeight}px` }}
+      >
+        <div className="pi-responsive-select-mobile-head">
+          <span className="pi-sheet-handle" aria-hidden="true" />
+          <strong>{label}</strong>
+          <button type="button" className="pi-sheet-close" onClick={() => close(true)} aria-label="Close dropdown"><X size={18} aria-hidden="true" /></button>
+        </div>
+        <div className="pi-responsive-select-options">
+          {/* The '' placeholder ("Select …") already shows on the field itself, so it isn't offered as a choice */}
+          {options.filter(([optionValue]) => optionValue !== '').map(([optionValue, optionLabel]) => (
+            <button
+              type="button"
+              key={optionValue}
+              role="option"
+              aria-selected={optionValue === value}
+              className={optionValue === value ? 'is-selected' : ''}
+              onClick={() => choose(optionValue)}
+            >
+              <span>{optionLabel}</span>
+              {optionValue === value && <CheckCircle2 size={16} aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
 
   return (
     <div ref={rootRef} className={`pi-responsive-select form-field ${error ? 'has-error' : ''}`}>
       <span className="pi-label">{label}</span>
-      <button
-        type="button"
-        className="pi-responsive-select-trigger"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((current) => !current)}
-      >
-        <span>{selectedLabel}</span>
-        <ChevronDown size={16} aria-hidden="true" />
-      </button>
-      {open && (
-        <>
-          <button type="button" className="pi-responsive-select-backdrop" aria-label="Close dropdown" onClick={() => setOpen(false)} />
-          <div className="pi-responsive-select-menu" role="listbox" aria-label={label}>
-            <div className="pi-responsive-select-mobile-head">
-              <strong>{label}</strong>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close dropdown">Close</button>
-            </div>
-            <div className="pi-responsive-select-options">
-              {options.map(([optionValue, optionLabel]) => (
-                <button
-                  type="button"
-                  key={optionValue}
-                  role="option"
-                  aria-selected={optionValue === value}
-                  className={optionValue === value ? 'is-selected' : ''}
-                  onClick={() => choose(optionValue)}
-                >
-                  <span>{optionLabel}</span>
-                  {optionValue === value && <CheckCircle2 size={16} aria-hidden="true" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+      <div className="pi-responsive-select-anchor">
+        <button
+          ref={triggerRef}
+          type="button"
+          className="pi-responsive-select-trigger"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={toggle}
+        >
+          <span>{selectedLabel}</span>
+          <ChevronDown size={16} aria-hidden="true" />
+        </button>
+        {/* Bottom sheet goes to <body>: no ancestor (transform, filter, containment) can trap position: fixed */}
+        {open && (placement.sheet ? createPortal(menu, document.body) : menu)}
+      </div>
       {error && <span className="field-error" role="alert">{error}</span>}
     </div>
   );
@@ -259,6 +335,18 @@ function ProgressRail({ basicComplete, locationComplete, amenitiesComplete, room
     + Number(basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete)
     + Number(basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete && policiesComplete);
   const total = PROPERTY_INFO_SECTIONS.length;
+  const stepsRef = useRef(null);
+
+  // Phones: the step list scrolls sideways -> keep the current step in view. Only the list scrolls
+  // (scrollIntoView would also move the page). No-op when the list isn't scrollable (tablet/desktop column).
+  useEffect(() => {
+    const list = stepsRef.current;
+    const current = list?.querySelector('.pi-step.is-current');
+    if (!list || !current || list.scrollWidth <= list.clientWidth) return;
+    const l = list.getBoundingClientRect();
+    const c = current.getBoundingClientRect();
+    list.scrollTo({ left: list.scrollLeft + (c.left - l.left) - (l.width - c.width) / 2, behavior: 'smooth' });
+  }, [activeSection]);
 
   return (
     <aside className="pi-rail" aria-label="Property information progress">
@@ -270,7 +358,7 @@ function ProgressRail({ basicComplete, locationComplete, amenitiesComplete, room
         </div>
         <p className="pi-progress-label">{completed} of {total} sections complete</p>
       </div>
-      <ol className="pi-steps">
+      <ol className="pi-steps" ref={stepsRef}>
         {PROPERTY_INFO_SECTIONS.map((section, index) => {
           const isBasic = section.id === 'basic';
           const isLocation = section.id === 'location';
@@ -344,6 +432,8 @@ export function PropertyInfoPage({ type }) {
   const [info, setInfo] = useState(() => {
     const saved = getPropertyDraft(user?.id, type).basic;
     const normalized = { ...EMPTY_BASIC_INFO, email: user?.email ?? '', mobile: user?.phone ?? '', ...saved };
+    // Older drafts / profiles may hold "+91 98765 43210": keep the 10-digit number only.
+    normalized.mobile = sanitizeMobile(normalized.mobile, { keepLast: true });
     if (/^\d{4}-\d{2}-\d{2}$/.test(normalized.bookingSince)) {
       normalized.bookingSince = normalized.bookingSince.slice(0, 4);
     }
@@ -354,15 +444,23 @@ export function PropertyInfoPage({ type }) {
   const [basicComplete, setBasicComplete] = useState(() => Object.keys(validateBasicInfo(info)).length === 0);
   const [activeSection, setActiveSection] = useState('basic');
   const [otpField, setOtpField] = useState(null);
-  const [locationInfo, setLocationInfo] = useState(() => ({
-    ...EMPTY_LOCATION_INFO,
-    ...(getPropertyDraft(user?.id, type).location ?? {}),
-  }));
+  // Pin placed by hand (drag / tap / GPS / saved draft): remember which place (pincode, city, state, country) it
+  // belongs to. While those stay the same, edits to the other fields (building name, locality) never move the pin
+  // back to the address's rough geocode point. Changing the place itself re-places the pin.
+  const pinFixedForRef = useRef(null);
+  const [locationInfo, setLocationInfo] = useState(() => {
+    const saved = { ...EMPTY_LOCATION_INFO, ...(getPropertyDraft(user?.id, type).location ?? {}) };
+    if (saved.latitude && saved.longitude) pinFixedForRef.current = placeKey(saved); // saved pin is trusted
+    return saved;
+  });
+  const [pinAddress, setPinAddress] = useState(''); // full address of the pin, shown under the map
   const [locationErrors, setLocationErrors] = useState({});
   const [locationComplete, setLocationComplete] = useState(() => Object.keys(validateLocationInfo(locationInfo)).length === 0);
   const [mapError, setMapError] = useState('');
   const [locating, setLocating] = useState(false);
   const [geocodingAddress, setGeocodingAddress] = useState(false);
+  const [pinLookup, setPinLookup] = useState(false); // pin moved -> looking up its address
+  const pinLookupRequestRef = useRef(0);
   const [amenitiesInfo, setAmenitiesInfo] = useState(() => {
     const empty = createEmptyAmenitiesInfo();
     const saved = getPropertyDraft(user?.id, type)?.amenities ?? {};
@@ -472,7 +570,7 @@ export function PropertyInfoPage({ type }) {
     () => isAddressMapReady(locationInfo),
     [locationInfo.apartmentName, locationInfo.area, locationInfo.pincode, locationInfo.city, locationInfo.state, locationInfo.country],
   );
-  const mapBusy = locating || geocodingAddress;
+  const mapBusy = locating || geocodingAddress || pinLookup;
 
   useEffect(() => {
     const requestId = ++autoGeocodeRequestRef.current;
@@ -482,6 +580,8 @@ export function PropertyInfoPage({ type }) {
     }
     const queryKey = addressQuery.toLowerCase();
     if (lastAutoGeocodedQueryRef.current === queryKey) return undefined;
+    // Hand-placed pin and the place (pincode/city/state/country) unchanged: building / locality edits keep the pin.
+    if (pinFixedForRef.current !== null && pinFixedForRef.current === placeKey(locationInfo)) return undefined;
     const timer = setTimeout(async () => {
       setGeocodingAddress(true);
       setMapError('');
@@ -489,6 +589,8 @@ export function PropertyInfoPage({ type }) {
         const coordinates = await forwardGeocodeAddressInfo(locationInfo);
         if (requestId !== autoGeocodeRequestRef.current) return;
         lastAutoGeocodedQueryRef.current = queryKey;
+        pinFixedForRef.current = null; // pin now follows the typed address
+        setPinAddress('');
         setLocationInfo((current) => ({
           ...current,
           latitude: String(coordinates.latitude),
@@ -526,7 +628,21 @@ export function PropertyInfoPage({ type }) {
   };
   const set = (key) => (event) => setValue(key, event.target.value);
 
+  // Mobile never holds more than 10 characters. A pasted "+91 98765 43210" keeps its 10 digits
+  // (a plain maxLength would cut it to "+91 98765 ").
+  const onMobileChange = (event) => {
+    const raw = event.target.value;
+    if (raw.length <= MOBILE_LENGTH) { setValue('mobile', raw); return; }
+    const pastedNumber = sanitizeMobile(raw);
+    const looksLikeFullNumber = /^\+?[\d\s()-]+$/.test(raw) && raw.replace(/\D/g, '').length > MOBILE_LENGTH;
+    setValue('mobile', looksLikeFullNumber && pastedNumber.length === MOBILE_LENGTH && raw.replace(/\D/g, '').length <= MOBILE_LENGTH + 3
+      ? pastedNumber
+      : raw.slice(0, MOBILE_LENGTH));
+  };
+
   const setLocationValue = (key, value) => {
+    // Typing wins over a pin lookup still in flight (its result would overwrite what was just typed).
+    if (key !== 'addressConfirmed') { ++pinLookupRequestRef.current; setPinLookup(false); }
     setLocationInfo((current) => ({ ...current, [key]: value }));
     setLocationErrors((current) => {
       if (!current[key]) return current;
@@ -562,16 +678,49 @@ export function PropertyInfoPage({ type }) {
     setNotice(null);
   };
 
+  // After Next opens another tab (Amenities / Rooms / Policies): bring the card's top (title + tab row) back into
+  // view just under the sticky header, and centre the new tab in the sideways tab row. Without this the page
+  // stays scrolled down and the new tab opens at its bottom.
+  // Tab row: scroll sideways only (scrollIntoView would also scroll the page and fight our own page scroll).
+  const centerTab = (tab) => {
+    const row = tab?.closest('.pi-amenity-tabs');
+    if (!row) return;
+    const r = row.getBoundingClientRect();
+    const t = tab.getBoundingClientRect();
+    row.scrollTo({ left: row.scrollLeft + (t.left - r.left) - (r.width - t.width) / 2, behavior: 'smooth' });
+  };
+  const headerBottom = () => document.querySelector('.ps-header')?.getBoundingClientRect().bottom ?? 0;
+  const scrollPageTo = (top) => {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: Math.max(0, top), behavior: reduce ? 'auto' : 'smooth' });
+  };
+
+  const showNewTab = (tabSelector) => {
+    requestAnimationFrame(() => {
+      const form = formRef.current;
+      const card = form?.querySelector('.pi-card');
+      centerTab(form?.querySelector(tabSelector));
+      if (!card) return;
+      const top = card.getBoundingClientRect().top;
+      // Only scroll up (never push the page down when the card top is already visible).
+      if (top < headerBottom() + 8) scrollPageTo(window.scrollY + top - headerBottom() - 16);
+    });
+  };
+
+  // After a failed Save / Next: scroll to the first problem and focus it (shared helper, lib/utils/revealError.js).
+  // In tabbed sections the tab row stays in view too when the field still fits on screen with it.
+  const DEFAULT_ERROR_TARGET = ERROR_FIELD;
+  const revealFirstError = (focusSelector = DEFAULT_ERROR_TARGET, tabSelector = null) => {
+    if (tabSelector) requestAnimationFrame(() => centerTab(formRef.current?.querySelector(tabSelector)));
+    revealError(formRef.current, { focus: focusSelector, keepInView: '.pi-amenity-tabs' });
+  };
+
   const goToNextCategory = () => {
     if (isLastCategory) return;
     const missing = validateAmenitiesInfo(amenitiesInfo)[activeCategory.id];
     if (missing?.length) {
       setAmenitiesErrors((current) => ({ ...current, [activeCategory.id]: missing }));
-      requestAnimationFrame(() => {
-        const form = formRef.current;
-        form?.querySelector(`[data-amenity-tab="${activeCategory.id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
-        form?.querySelector('.pi-amenity-row.has-error input')?.focus();
-      });
+      revealFirstError('.pi-amenity-row.has-error input', `[data-amenity-tab="${activeCategory.id}"]`);
       return;
     }
     const nextIndex = activeCategoryIndex + 1;
@@ -582,10 +731,7 @@ export function PropertyInfoPage({ type }) {
     });
     setAmenityUnlockedIndex((current) => Math.max(current, nextIndex));
     changeAmenityCategory(nextCategory.id);
-    requestAnimationFrame(() => {
-      formRef.current?.querySelector(`[data-amenity-tab="${nextCategory.id}"]`)
-        ?.scrollIntoView({ block: 'nearest', inline: 'center' });
-    });
+    showNewTab(`[data-amenity-tab="${nextCategory.id}"]`);
   };
 
   const onAmenityTabKeyDown = (event, index) => {
@@ -683,14 +829,19 @@ export function PropertyInfoPage({ type }) {
 
   const goToNextRoomCategory = () => {
     if (isRoomSaveStep) return;
+    // Like Amenities: Next checks only this tab's fields, so problems show where they are (not at the end).
+    const allErrors = validateRoomsInfo(roomsInfo);
+    const tabErrors = Object.fromEntries(Object.entries(allErrors).filter(([field]) => activeRoomCategory.fields.includes(field)));
+    if (Object.keys(tabErrors).length) {
+      setRoomErrors(tabErrors);
+      revealFirstError('.pi-amenity-panel .has-error input, .pi-amenity-panel .has-error select, .pi-amenity-panel .has-error button');
+      return;
+    }
     const nextIndex = activeRoomCategoryIndex + 1;
     const nextCategory = ROOM_CATEGORIES[nextIndex];
     setRoomUnlockedIndex((current) => Math.max(current, nextIndex));
     changeRoomCategory(nextCategory.id);
-    requestAnimationFrame(() => {
-      formRef.current?.querySelector(`[data-room-tab="${nextCategory.id}"]`)
-        ?.scrollIntoView({ block: 'nearest', inline: 'center' });
-    });
+    showNewTab(`[data-room-tab="${nextCategory.id}"]`);
   };
 
   const onRoomFormKeyDown = (event) => {
@@ -715,6 +866,24 @@ export function PropertyInfoPage({ type }) {
     formRef.current?.querySelector(`[data-room-tab="${nextCategory.id}"]`)?.focus();
   };
 
+  const goToNextPolicyCategory = () => {
+    const next = POLICY_CATEGORIES[activePolicyCategoryIndex + 1];
+    if (!next) return;
+    setActivePolicyCategoryId(next.id);
+    setNotice(null);
+    showNewTab(`[data-policy-tab="${next.id}"]`);
+  };
+
+  // Enter in a text box on an earlier tab would submit the whole section and flag tabs not opened yet.
+  // Before the last tab, Enter moves to the next tab instead (same as Rooms).
+  const onPolicyFormKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.defaultPrevented || isLastPolicyCategory) return;
+    const tagName = event.target?.tagName;
+    if (tagName === 'BUTTON' || tagName === 'TEXTAREA') return;
+    event.preventDefault();
+    goToNextPolicyCategory();
+  };
+
   const onPolicyTabKeyDown = (event, index) => {
     let nextIndex = null;
     const lastIndex = POLICY_CATEGORIES.length - 1;
@@ -732,6 +901,8 @@ export function PropertyInfoPage({ type }) {
   const useCurrentLocation = async () => {
     const requestId = ++currentLocationRequestRef.current;
     ++autoGeocodeRequestRef.current;
+    ++pinLookupRequestRef.current;
+    setPinLookup(false);
     setMapError('');
     setGeocodingAddress(false);
     setLocating(true);
@@ -752,6 +923,8 @@ export function PropertyInfoPage({ type }) {
         addressConfirmed: false,
       };
       lastAutoGeocodedQueryRef.current = buildAddressQuery(next).toLowerCase();
+      pinFixedForRef.current = placeKey(next); // GPS pin is precise: field edits must not move it
+      setPinAddress(typeof result.display_name === 'string' ? result.display_name : '');
       setLocationInfo(next);
       setLocationErrors({});
       setLocationComplete(false);
@@ -771,6 +944,89 @@ export function PropertyInfoPage({ type }) {
     }
   };
 
+  // Pin dragged / map tapped: keep the exact spot, then fill the address fields from it (map -> fields).
+  // Fields typed by hand still move the pin (fields -> map, the debounced effect above).
+  const onMapPick = async ({ latitude, longitude }) => {
+    const requestId = ++pinLookupRequestRef.current;
+    ++autoGeocodeRequestRef.current; // a pending "address -> pin" lookup must not pull the pin back
+    ++currentLocationRequestRef.current;
+    setLocating(false);
+    setGeocodingAddress(false);
+    setMapError('');
+    setNotice(null);
+    setLocationInfo((current) => ({
+      ...current, latitude: String(latitude), longitude: String(longitude), addressConfirmed: false,
+    }));
+    setLocationComplete(false);
+    setPinLookup(true);
+    // Where the pin was before this move (decides whether old field values can still apply).
+    const before = locationCoordinates;
+    // Pin is hand-placed from now on: a slow "address -> pin" lookup or field edits must not pull it back.
+    pinFixedForRef.current = placeKey(locationInfo);
+    setPinAddress('');
+    try {
+      const result = await reverseGeocode({ latitude, longitude });
+      if (requestId !== pinLookupRequestRef.current) return;
+      const fields = addressToLocationFields(result);
+      const smallMove = before ? distanceMeters(before, { latitude, longitude }) < SAME_BUILDING_METERS : false;
+      setLocationInfo((current) => {
+        // Every field follows the pin. When the lookup has no value for a field: a small nudge (same building)
+        // keeps what was there; a real move clears it, so an old pincode/city is never left next to a new place.
+        const next = { ...current, latitude: String(latitude), longitude: String(longitude), addressConfirmed: false };
+        Object.entries(fields).forEach(([key, value]) => {
+          if (value) next[key] = value;
+          else if (!smallMove) next[key] = '';
+        });
+        // The fields now describe this pin: don't geocode them again (that would snap the pin to a rougher point).
+        lastAutoGeocodedQueryRef.current = buildAddressQuery(next).toLowerCase();
+        pinFixedForRef.current = placeKey(next);
+        return next;
+      });
+      setLocationErrors((current) => {
+        const rest = { ...current };
+        Object.keys(fields).forEach((key) => { if (fields[key]) delete rest[key]; });
+        delete rest.addressConfirmed;
+        return rest;
+      });
+      setPinAddress(typeof result.display_name === 'string' ? result.display_name : '');
+      setNotice({ kind: 'success', text: 'Address updated from the pin. Check the details below and save.' });
+    } catch (error) {
+      if (requestId !== pinLookupRequestRef.current) return;
+      setMapError(error instanceof Error
+        ? `${error.message} The pin is saved; you can type the address yourself.`
+        : 'We could not find the address for this pin. The pin is saved; you can type the address yourself.');
+    } finally {
+      if (requestId === pinLookupRequestRef.current) setPinLookup(false);
+    }
+  };
+
+  // "Move pin to the typed address": explicit fields -> map, even when the pin was placed by hand.
+  const placePinAtTypedAddress = async () => {
+    if (!addressReady) {
+      setMapError('Enter a 6-digit pincode and the city first, then we can find it on the map.');
+      return;
+    }
+    const requestId = ++autoGeocodeRequestRef.current;
+    ++pinLookupRequestRef.current;
+    setPinLookup(false);
+    setMapError('');
+    setGeocodingAddress(true);
+    try {
+      const coordinates = await forwardGeocodeAddressInfo(locationInfo);
+      if (requestId !== autoGeocodeRequestRef.current) return;
+      lastAutoGeocodedQueryRef.current = addressQuery.toLowerCase();
+      pinFixedForRef.current = null;
+      setPinAddress('');
+      setLocationInfo((current) => ({ ...current, latitude: String(coordinates.latitude), longitude: String(coordinates.longitude) }));
+      setNotice({ kind: 'info', text: 'Pin moved to the address you typed. Drag it to the exact entrance if needed.' });
+    } catch (error) {
+      if (requestId !== autoGeocodeRequestRef.current) return;
+      setMapError(error instanceof Error ? error.message : 'We could not place this address on the map. Please try again.');
+    } finally {
+      if (requestId === autoGeocodeRequestRef.current) setGeocodingAddress(false);
+    }
+  };
+
   const goToSection = (sectionId) => {
     setActiveSection(sectionId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -781,7 +1037,7 @@ export function PropertyInfoPage({ type }) {
     const nextErrors = validateBasicInfo(info);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) {
-      requestAnimationFrame(() => formRef.current?.querySelector('.has-error input, .has-error select')?.focus());
+      revealFirstError();
       return;
     }
     try {
@@ -799,7 +1055,7 @@ export function PropertyInfoPage({ type }) {
     const nextErrors = validateLocationInfo(locationInfo);
     setLocationErrors(nextErrors);
     if (Object.keys(nextErrors).length) {
-      requestAnimationFrame(() => formRef.current?.querySelector('.has-error input, .has-error select')?.focus());
+      revealFirstError();
       return;
     }
     try {
@@ -819,11 +1075,7 @@ export function PropertyInfoPage({ type }) {
     const firstCategory = AMENITY_CATEGORIES.find((category) => nextErrors[category.id]?.length);
     if (firstCategory) {
       setActiveCategoryId(firstCategory.id);
-      requestAnimationFrame(() => {
-        const form = formRef.current;
-        form?.querySelector(`[data-amenity-tab="${firstCategory.id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
-        form?.querySelector('.pi-amenity-row.has-error input')?.focus();
-      });
+      revealFirstError('.pi-amenity-row.has-error input', `[data-amenity-tab="${firstCategory.id}"]`);
       return;
     }
     try {
@@ -849,13 +1101,7 @@ export function PropertyInfoPage({ type }) {
         setActiveRoomCategoryId(category.id);
       }
       setNotice({ kind: 'error', text: 'Complete the highlighted room details before saving.' });
-      requestAnimationFrame(() => {
-        const form = formRef.current;
-        if (category) {
-          form?.querySelector(`[data-room-tab="${category.id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
-        }
-        form?.querySelector('.pi-room-amenity-row.has-error input, .has-error input, .has-error select')?.focus();
-      });
+      revealFirstError(`.pi-room-amenity-row.has-error input, ${DEFAULT_ERROR_TARGET}`, category ? `[data-room-tab="${category.id}"]` : null);
       return;
     }
     try {
@@ -1066,7 +1312,7 @@ export function PropertyInfoPage({ type }) {
     setPhotoErrors(nextErrors);
     const firstError = Object.keys(nextErrors)[0];
     if (firstError) {
-      requestAnimationFrame(() => formRef.current?.querySelector('.pi-photo-block.has-error .pi-upload-zone, .pi-photo-block.has-error select, .pi-photo-card.has-error select')?.focus());
+      revealFirstError('.pi-photo-block.has-error .pi-upload-zone, .pi-photo-block.has-error select, .pi-photo-card.has-error select, .pi-video-row.has-error input');
       return;
     }
     try {
@@ -1090,13 +1336,7 @@ export function PropertyInfoPage({ type }) {
     if (firstField) {
       const category = POLICY_CATEGORIES.find(({ fields }) => fields.includes(firstField));
       if (category) setActivePolicyCategoryId(category.id);
-      requestAnimationFrame(() => {
-        const form = formRef.current;
-        if (category) {
-          form?.querySelector(`[data-policy-tab="${category.id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
-        }
-        form?.querySelector('.pi-policy-yesno.has-error input, .pi-policy-radio-list.has-error input, .pi-policy-check-field.has-error input, .has-error input, .has-error select')?.focus();
-      });
+      revealFirstError(`.pi-policy-yesno.has-error input, .pi-policy-radio-list.has-error input, .pi-policy-check-field.has-error input, ${DEFAULT_ERROR_TARGET}`, category ? `[data-policy-tab="${category.id}"]` : null);
       return;
     }
     try {
@@ -1151,11 +1391,11 @@ export function PropertyInfoPage({ type }) {
   };
 
   const openVerify = (field) => {
-    const valid = field === 'email' ? isValidEmail(info.email) : isValidPhone(info.mobile);
+    const valid = field === 'email' ? isValidEmail(info.email) : !mobileError(info.mobile);
     if (!valid) {
-      const message = field === 'email' ? 'Enter a valid email address.' : 'Enter a valid mobile number.';
+      const message = field === 'email' ? 'Enter a valid email address.' : mobileError(info.mobile);
       setErrors((current) => ({ ...current, [field]: message }));
-      requestAnimationFrame(() => formRef.current?.querySelector(`#pi-verify-${field}`)?.focus());
+      revealFirstError(`#pi-verify-${field}`);
       return;
     }
     setNotice(null);
@@ -1202,36 +1442,36 @@ export function PropertyInfoPage({ type }) {
             {noticeMarkup}
             <form ref={formRef} noValidate onSubmit={onLocationSubmit}>
               <SectionCard icon={MapPin} title="Property location" subtitle="Where guests will find your property.">
-                {locationCoordinates ? (
-                  <div className="pi-map-shell">
-                    <iframe
-                      className="pi-map-frame"
-                      title="Map showing the selected location"
-                      loading="lazy"
-                      src={buildOsmEmbedUrl(locationCoordinates)}
-                    />
-                    <div className="pi-map-tools">
-                      <button type="button" className="btn btn-light pi-map-action" onClick={useCurrentLocation} disabled={mapBusy}>
-                        <LocateFixed size={16} aria-hidden="true" />
-                        {locating ? 'Locating…' : 'Update to my current location'}
-                      </button>
-                    </div>
-                    <span className="pi-map-attribution">© OpenStreetMap contributors</span>
+                {/* Two-way: drag the pin / tap the map -> fields fill in; type the address -> pin moves */}
+                <LocationMap
+                  latitude={locationCoordinates?.latitude}
+                  longitude={locationCoordinates?.longitude}
+                  onPick={onMapPick}
+                  disabled={locating}
+                >
+                  <div className="pi-map-tools">
+                    <button type="button" className="btn btn-light pi-map-action" onClick={useCurrentLocation} disabled={mapBusy}
+                      aria-label={locating ? 'Locating' : 'Use my current location'}>
+                      <LocateFixed size={16} aria-hidden="true" />
+                      <span className="pi-map-action-long">{locating ? 'Locating…' : locationCoordinates ? 'Update to my current location' : 'Use my current location'}</span>
+                      <span className="pi-map-action-short" aria-hidden="true">{locating ? 'Locating…' : 'My location'}</span>
+                    </button>
                   </div>
-                ) : (
-                  <div className="pi-map-preview">
-                    <span className="pi-map-pin"><MapPin size={26} aria-hidden="true" /></span>
-                    <span className="pi-map-caption">Map preview</span>
-                    <span className="pi-map-note">Fill in the address below to place it on the map, or use your current location.</span>
-                    <div className="pi-map-tools">
-                      <button type="button" className="btn btn-light pi-map-action" onClick={useCurrentLocation} disabled={mapBusy}>
-                        <LocateFixed size={16} aria-hidden="true" />
-                        {locating ? 'Locating…' : 'Use my current location'}
+                </LocationMap>
+                {geocodingAddress && <p className="pi-map-status" role="status">Finding this address on the map…</p>}
+                {pinLookup && <p className="pi-map-status" role="status">Finding the address for this pin…</p>}
+                {!mapBusy && (pinAddress || (locationCoordinates && addressReady)) && (
+                  <div className="pi-map-meta">
+                    {pinAddress && (
+                      <p className="pi-map-pinned"><MapPin size={14} aria-hidden="true" /><span><strong>Pin is at:</strong> {pinAddress}</span></p>
+                    )}
+                    {locationCoordinates && addressReady && (
+                      <button type="button" className="pi-otp-link pi-map-resync" onClick={placePinAtTypedAddress}>
+                        Move pin to the address typed below
                       </button>
-                    </div>
+                    )}
                   </div>
                 )}
-                {geocodingAddress && <p className="pi-map-status" role="status">Finding this address on the map…</p>}
                 {mapError && <p className="field-error pi-map-error" role="alert">{mapError}</p>}
                 <div className="pi-grid pi-location-grid">
                   <TextField
@@ -1362,10 +1602,13 @@ export function PropertyInfoPage({ type }) {
               </SectionCard>
               <div className="pi-actions pi-amenity-actions">
                 <button type="button" className="btn btn-light" onClick={() => selectSection('location')}>Back to Location</button>
+                {/* Different keys = different <button> elements. Without them React reuses the Next button and only
+                    flips type to "submit" during the click, so the browser then submits the form and the last tab
+                    opens already full of "Choose Yes or No" errors. Same for Rooms and Policies below. */}
                 {isLastCategory ? (
-                  <button type="submit" className="btn btn-primary">Save amenities<CheckCircle2 size={16} aria-hidden="true" /></button>
+                  <button key="save" type="submit" className="btn btn-primary">Save amenities<CheckCircle2 size={16} aria-hidden="true" /></button>
                 ) : (
-                  <button type="button" className="btn btn-primary" onClick={goToNextCategory}>Next<ArrowRight size={16} aria-hidden="true" /></button>
+                  <button key="next" type="button" className="btn btn-primary" onClick={goToNextCategory}>Next<ArrowRight size={16} aria-hidden="true" /></button>
                 )}
               </div>
             </form>
@@ -1480,9 +1723,9 @@ export function PropertyInfoPage({ type }) {
               <div className="pi-actions pi-amenity-actions">
                 <button type="button" className="btn btn-light" onClick={() => selectSection('amenities')}>Back to Amenities</button>
                 {isRoomSaveStep ? (
-                  <button type="submit" className="btn btn-primary">Save rooms<CheckCircle2 size={16} aria-hidden="true" /></button>
+                  <button key="save" type="submit" className="btn btn-primary">Save rooms<CheckCircle2 size={16} aria-hidden="true" /></button>
                 ) : (
-                  <button type="button" className="btn btn-primary" onClick={goToNextRoomCategory}>Next<ArrowRight size={16} aria-hidden="true" /></button>
+                  <button key="next" type="button" className="btn btn-primary" onClick={goToNextRoomCategory}>Next<ArrowRight size={16} aria-hidden="true" /></button>
                 )}
               </div>
             </form>
@@ -1627,7 +1870,7 @@ export function PropertyInfoPage({ type }) {
         ) : activeSection === 'policies' ? (
           <>
             {noticeMarkup}
-            <form ref={formRef} noValidate onSubmit={onPoliciesSubmit}>
+            <form ref={formRef} noValidate onSubmit={onPoliciesSubmit} onKeyDown={onPolicyFormKeyDown}>
               <SectionCard icon={ClipboardList} title="Policies" subtitle="Set the rules guests see before they book. Answer every question in each tab.">
                 <div className="pi-amenity-tabs" role="tablist" aria-label="Policy categories">
                   {POLICY_CATEGORIES.map((category, index) => {
@@ -1779,12 +2022,13 @@ export function PropertyInfoPage({ type }) {
               <div className="pi-actions pi-amenity-actions">
                 <button type="button" className="btn btn-light" onClick={() => selectSection('photos')}>Back to Photos &amp; videos</button>
                 {isLastPolicyCategory ? (
-                  <button type="submit" className="btn btn-primary">Save &amp; continue<ArrowRight size={16} aria-hidden="true" /></button>
+                  <button key="save" type="submit" className="btn btn-primary">Save &amp; continue<ArrowRight size={16} aria-hidden="true" /></button>
                 ) : (
                   <button
+                    key="next"
                     type="button"
                     className="btn btn-primary"
-                    onClick={() => setActivePolicyCategoryId(POLICY_CATEGORIES[activePolicyCategoryIndex + 1].id)}
+                    onClick={goToNextPolicyCategory}
                   >
                     Next<ArrowRight size={16} aria-hidden="true" />
                   </button>
@@ -1816,6 +2060,7 @@ export function PropertyInfoPage({ type }) {
                     onChange={set('propertyName')}
                     error={errors.propertyName}
                     autoComplete="organization"
+                    maxLength={PROPERTY_NAME_MAX}
                     placeholder="e.g. Casa Azul Resort"
                   />
                   <ResponsiveSelectField label="Accepting bookings since" value={info.bookingSince} onChange={set('bookingSince')} options={bookingYears} error={errors.bookingSince} />
@@ -1873,12 +2118,12 @@ export function PropertyInfoPage({ type }) {
                     label="Mobile no."
                     type="tel"
                     value={info.mobile}
-                    onChange={set('mobile')}
+                    onChange={onMobileChange}
                     error={errors.mobile}
                     verified={info.mobileVerified}
                     onVerify={() => openVerify('mobile')}
-                    autoComplete="tel"
-                    placeholder="98765 43210"
+                    autoComplete="tel-national"
+                    placeholder="10-digit mobile number"
                   />
                   <TextField label="Landline no. (optional)" type="tel" value={info.landline} onChange={set('landline')} error={errors.landline} autoComplete="tel" placeholder="Include area code" />
                 </div>

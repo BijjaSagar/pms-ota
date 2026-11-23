@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { TextField } from '../Layout.jsx';
 import { PortalModal as Modal } from './PortalModal.jsx';
 import { SectionCard } from './SectionCard.jsx';
+import { revealFirstError } from '../../lib/utils/revealError.js';
 
 export function ResetPasswordSection({ registeredEmail }) {
   const [oldPassword, setOldPassword] = useState('');
@@ -23,7 +24,7 @@ export function ResetPasswordSection({ registeredEmail }) {
     else if (newPassword === oldPassword) next.newPassword = 'Choose a password different from your current one.';
     setErrors(next);
     setSuccess('');
-    if (Object.keys(next).length > 0) return;
+    if (Object.keys(next).length > 0) { revealFirstError(); return; }
     setOldPassword('');
     setNewPassword('');
     setSuccess('Your password has been updated.');

@@ -78,8 +78,8 @@
 /* When the row scrolls, fade its edges so it's clear there's more */
 @media (max-width: 1180px) {
   .pmn-track {
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 28px), transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0, #000 18px, #000 calc(100% - 28px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
   }
 }
 .ps-main { max-width: 1200px; margin: 0 auto; padding: 32px 32px 72px; min-width: 0; min-height: calc(100svh - 66px); }
@@ -268,6 +268,8 @@
 
 /* ---------- Below the fold ---------- */
 .lp-shell .lp-section { margin-top: 88px; } /* beats the global .container { margin: 0 auto } */
+/* Below-the-fold sections + footer share the top bar / hero column (1480px), so edges line up on wide screens */
+.lp-shell .container { max-width: 1480px; padding-left: 28px; padding-right: 28px; }
 .lp-section > .h2 { margin-bottom: 26px; }
 .lp-benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .lp-benefit { display: flex; flex-direction: column; gap: 8px; }
@@ -352,6 +354,7 @@
   .lp-wizard-nav .btn { flex: 1; justify-content: center; }
   .lp-wizard-nav > span:empty { display: none; }
   .lp-shell .lp-section { margin-top: 52px; }
+  .lp-shell .container { padding-left: 16px; padding-right: 16px; }
   .lp-benefits, .lp-faq { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .lp-faq-item button { padding: 16px 18px; font-size: 15px; }
   .lp-faq-item p { padding: 0 18px 16px; }
@@ -580,6 +583,11 @@
 .pi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; }
 .pi-grid > * { min-width: 0; }
 .pi-contact-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Email / mobile carry a Verify button, so they need more room than a plain field (the rail eats space on tablets).
+   Media queries, not container queries: container-type on .pi-card would make it the containing block for the
+   position: fixed dropdown sheet on phones and push the sheet off-screen. */
+@media (min-width: 721px) and (max-width: 1279px) { .pi-contact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 721px) and (max-width: 900px) { .pi-contact-grid { grid-template-columns: minmax(0, 1fr); } }
 .pi-grid .form-field input,
 .pi-grid .form-field select { width: 100%; }
 .pi-grid .form-field.has-error select { border-color: #B3412F; }
@@ -607,18 +615,43 @@
   border: 1px solid var(--line); border-radius: 14px; background: #fff;
   box-shadow: 0 18px 40px -18px rgba(28, 43, 45, 0.38);
 }
-.pi-responsive-select-mobile-head { display: none; }
-.pi-responsive-select-options { max-height: 280px; overflow-y: auto; overscroll-behavior: contain; }
-.pi-responsive-select-options button {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  width: 100%; min-height: 44px; padding: 10px 12px;
-  border: 0; border-bottom: 1px solid var(--line); background: #fff;
-  color: var(--ink-2); font: inherit; font-size: 14px; text-align: left; cursor: pointer;
+/* Not enough room under the field (sticky Save bar / screen bottom) -> open above it */
+.pi-responsive-select-anchor { position: relative; }
+.pi-responsive-select-menu.is-up { top: auto; bottom: calc(100% + 6px); box-shadow: 0 -18px 40px -18px rgba(28, 43, 45, 0.38); }
+.pi-responsive-select-menu {
+  max-height: var(--pi-menu-max, 280px); display: flex; flex-direction: column;
+  animation: pi-menu-in .16s var(--ease) both; transform-origin: top center;
 }
-.pi-responsive-select-options button:last-child { border-bottom: 0; }
+.pi-responsive-select-menu.is-up { transform-origin: bottom center; }
+@keyframes pi-menu-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+@keyframes pi-sheet-up { from { transform: translateY(100%); } }
+@keyframes pi-fade-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .pi-responsive-select-menu, .pi-responsive-select-backdrop { animation: none; }
+}
+.pi-responsive-select-mobile-head { display: none; }
+.pi-responsive-select-options {
+  flex: 1 1 auto; min-height: 0; max-height: var(--pi-menu-max, 280px); padding: 6px;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-input) transparent;
+}
+/* Options: label centred; the tick sits on the right without pushing the label off-centre */
+.pi-responsive-select-options button {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 44px; padding: 10px 40px; margin: 0;
+  border: 0; border-radius: 10px; background: transparent;
+  color: var(--ink-2); font: inherit; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer;
+  transition: background .15s, color .15s, transform .1s;
+}
+.pi-responsive-select-options button + button { margin-top: 2px; }
 .pi-responsive-select-options button span { min-width: 0; overflow-wrap: anywhere; }
-.pi-responsive-select-options button.is-selected { background: var(--sage); color: var(--accent-dark); font-weight: 800; }
-.pi-responsive-select-options button:hover { background: rgba(231, 238, 233, 0.65); }
+.pi-responsive-select-options button svg { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--accent); }
+.pi-responsive-select-options button:hover { background: rgba(231, 238, 233, 0.65); color: var(--ink); }
+.pi-responsive-select-options button:active { transform: scale(.985); }
+.pi-responsive-select-options button:focus-visible { outline: 3px solid rgba(63, 107, 92, 0.35); outline-offset: -3px; }
+.pi-responsive-select-options button.is-selected {
+  background: var(--sage); color: var(--accent-dark); font-weight: 800;
+  box-shadow: inset 0 0 0 1.5px rgba(63, 107, 92, 0.35);
+}
 .pi-content .select-wrap select,
 .pi-photo-default-tag select {
   box-sizing: border-box;
@@ -695,6 +728,47 @@
   border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--bg);
 }
 .pi-map-frame { display: block; width: 100%; height: 220px; border: 0; }
+
+/* Interactive map (LocationMap). isolation keeps Leaflet's internal z-indexes (400–1000) inside the card,
+   so the map never draws over the sticky header, Save bar or dropdown sheet. */
+.pi-map-live { isolation: isolate; }
+.pi-map-canvas { width: 100%; height: clamp(240px, 32vw, 340px); background: #E8EEE9; font: inherit; }
+.pi-map-canvas:focus-visible { outline: 3px solid rgba(63, 107, 92, 0.35); outline-offset: -3px; }
+.pi-map-live .pi-map-tools { z-index: 1000; }
+.pi-map-live .leaflet-control-attribution { font-size: 10px; background: rgba(255, 255, 255, 0.85); border-radius: 6px 0 0 0; }
+.pi-map-live .leaflet-control-zoom { border: 0; box-shadow: 0 8px 20px -10px rgba(28, 43, 45, 0.5); border-radius: 12px; overflow: hidden; }
+.pi-map-live .leaflet-control-zoom a { width: 34px; height: 34px; line-height: 34px; color: var(--ink); }
+.pi-map-hint {
+  position: absolute; z-index: 1000; top: 12px; left: 50%; transform: translateX(-50%); pointer-events: none;
+  padding: 6px 12px; border-radius: 999px; background: rgba(28, 43, 45, 0.82); color: #fff;
+  font-size: 12px; font-weight: 700; white-space: nowrap; box-shadow: 0 8px 20px -10px rgba(28, 43, 45, 0.7);
+}
+/* Pin (L.divIcon) */
+.pi-leaflet-pin { background: none; border: 0; cursor: grab; }
+.pi-leaflet-pin:active { cursor: grabbing; }
+.pi-leaflet-pin-body {
+  position: absolute; left: 3px; top: 0; width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
+  background: var(--accent); border: 3px solid #fff; transform: rotate(-45deg);
+  box-shadow: 0 8px 16px -6px rgba(28, 43, 45, 0.7); transition: transform .15s var(--ease);
+}
+.pi-leaflet-pin-dot { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: #fff; }
+.pi-leaflet-pin-shadow { position: absolute; left: 12px; bottom: 0; width: 12px; height: 5px; border-radius: 50%; background: rgba(28, 43, 45, 0.35); }
+.leaflet-dragging .pi-leaflet-pin-body { transform: rotate(-45deg) translate(3px, -3px) scale(1.08); }
+.pi-map-action-short { display: none; }
+/* Under the map: the pin's full address + "Move pin to the address typed below" */
+.pi-map-meta { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 6px 16px; margin: -8px 0 16px; }
+.pi-map-pinned { display: flex; gap: 6px; flex: 1 1 280px; min-width: 0; margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.pi-map-pinned svg { flex: 0 0 auto; margin-top: 2px; color: var(--accent); }
+.pi-map-pinned strong { color: var(--ink-2); }
+.pi-map-meta .pi-map-resync { font-size: 12px; font-weight: 800; white-space: nowrap; }
+/* Small phones: hint moves clear of the zoom buttons, location button uses its short label */
+@media (max-width: 480px) {
+  .pi-map-hint { left: auto; right: 10px; transform: none; max-width: calc(100% - 70px); padding: 5px 10px; font-size: 11px; white-space: normal; text-align: center; }
+  .pi-map-live .pi-map-tools { bottom: 24px; }
+  .pi-map-live .pi-map-action { min-height: 38px; height: 38px; padding: 0 12px; }
+  .pi-map-action-long { display: none; }
+  .pi-map-action-short { display: inline; }
+}
 .pi-map-tools {
   position: absolute; left: 12px; bottom: 12px; z-index: 2;
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
@@ -901,8 +975,8 @@
 
 @media (max-width: 1180px) {
   .pi-amenity-tabs {
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 20px), transparent 100%);
-    mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 calc(100% - 20px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
   }
 }
 
@@ -966,7 +1040,6 @@
 @media (min-width: 721px) and (max-width: 1024px) {
   .pi-layout { grid-template-columns: 218px minmax(0, 1fr); gap: 16px; }
   .pi-rail { position: sticky; top: 140px; padding: 16px 14px; }
-  .pi-contact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pi-rail-title { margin-bottom: 12px; font-size: 17px; }
   .pi-steps { margin-top: 16px; gap: 0; }
   .pi-step { gap: 8px; padding: 8px 6px; }
@@ -1016,50 +1089,42 @@
     padding: 10px 12px;
     font-size: 16px;
   }
+  /* Phones: options open as a bottom sheet (rendered into <body>) */
   .pi-responsive-select-backdrop {
-    display: block;
-    position: fixed;
-    z-index: 90;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: rgba(16, 28, 30, 0.48);
+    display: block; position: fixed; z-index: 90; inset: 0; width: 100%; height: 100%; padding: 0; border: 0;
+    background: rgba(16, 28, 30, 0.5); cursor: default;
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    animation: pi-fade-in .2s ease both;
   }
   .pi-responsive-select-menu {
-    position: fixed;
-    z-index: 91;
-    top: auto;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    max-height: min(70vh, 520px);
-    border: 0;
-    border-radius: 20px 20px 0 0;
+    position: fixed; z-index: 91; top: auto; right: 0; bottom: 0; left: 0;
+    width: 100%; max-width: 560px; margin: 0 auto; max-height: min(72svh, 560px);
+    border: 0; border-radius: 24px 24px 0 0; background: #fff;
     padding-bottom: env(safe-area-inset-bottom);
-    box-shadow: 0 -18px 50px rgba(28, 43, 45, 0.22);
+    box-shadow: 0 -24px 60px -10px rgba(28, 43, 45, 0.3);
+    animation: pi-sheet-up .28s cubic-bezier(.22, 1, .36, 1) both;
   }
   .pi-responsive-select-mobile-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    min-height: 52px;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--line);
+    position: relative; display: flex; align-items: center; justify-content: center;
+    min-height: 60px; padding: 18px 56px 12px; border-bottom: 1px solid var(--line);
   }
-  .pi-responsive-select-mobile-head strong { font-size: 14px; color: var(--ink); }
-  .pi-responsive-select-mobile-head button {
-    border: 0;
-    background: transparent;
-    color: var(--accent);
-    font: inherit;
-    font-size: 14px;
-    font-weight: 800;
+  .pi-sheet-handle {
+    position: absolute; top: 8px; left: 50%; width: 40px; height: 4px; margin-left: -20px;
+    border-radius: 999px; background: var(--line-input);
   }
-  .pi-responsive-select-options { max-height: calc(min(70vh, 520px) - 52px); }
-  .pi-responsive-select-options button { min-height: 48px; padding: 12px 16px; font-size: 16px; }
+  .pi-responsive-select-mobile-head strong {
+    font-size: 15px; font-weight: 800; letter-spacing: -0.01em; color: var(--ink); text-align: center;
+  }
+  .pi-sheet-close {
+    position: absolute; right: 12px; top: 50%; margin-top: 3px; transform: translateY(-50%);
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    border: 0; border-radius: 999px; background: var(--bg); color: var(--ink-2); cursor: pointer;
+  }
+  .pi-sheet-close:active { background: var(--sage); }
+  .pi-responsive-select-options { max-height: none; padding: 8px 12px 14px; }
+  .pi-responsive-select-options button { min-height: 52px; padding: 12px 48px; font-size: 16px; border-radius: 14px; }
+  .pi-responsive-select-options button svg { right: 18px; width: 20px; height: 20px; }
+  .pi-responsive-select-options button + button { margin-top: 4px; }
   .pi-content .select-wrap,
   .pi-content .select-wrap select,
   .pi-photo-card .select-wrap,
@@ -1111,6 +1176,19 @@
     background: var(--bg); border-top: 1px solid var(--line);
   }
   .pi-actions .btn { flex: 1; justify-content: center; }
+  /* Step list scrolls sideways on phones: no scrollbar, fade the trailing edge */
+  .pi-steps {
+    scrollbar-width: none; overscroll-behavior-x: contain;
+    -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
+  }
+  .pi-steps::-webkit-scrollbar { display: none; }
+}
+
+/* Narrow phones: two long button labels don't fit on one row -> wrap, primary action on top */
+@media (max-width: 520px) {
+  .pi-actions { flex-wrap: wrap-reverse; }
+  .pi-actions .btn { flex: 1 1 auto; min-width: 0; }
 }
 
 @media (max-width: 480px) {
@@ -1156,19 +1234,16 @@
   .pi-content .select-caret { right: 8px; }
   .pi-star { width: 34px; height: 34px; }
   .pi-verify-input { flex-direction: column; align-items: stretch; }
+  .pi-verify-input input { flex: 0 0 auto; } /* flex: 1 in a column squashed the input to ~20px tall */
   .pi-verify-btn { width: 100%; }
   .pi-map-preview { min-height: 150px; padding: 14px; }
   .pi-map-frame { height: 160px; }
   .pi-map-tools { gap: 6px; }
   .pi-map-action { justify-content: center; }
-  .pi-actions { flex-wrap: wrap; }
   .pi-actions .btn { flex: 1 1 100%; }
   .pi-amenity-panel-head { flex-direction: column; align-items: flex-start; gap: 4px; }
   .pi-amenity-list { gap: 8px; }
   .pi-amenity-segments .pi-segment { padding-inline: 8px; }
-  .pi-content form > .pi-amenity-actions { flex-wrap: nowrap; gap: 6px; }
-  .pi-amenity-actions .btn { flex: 1 1 0; min-width: 0; padding-inline: 8px; font-size: 12px; }
-  .pi-amenity-actions .btn svg { display: none; }
   .pi-video-preview { display: none; }
   .pi-policy-check-grid { grid-template-columns: minmax(0, 1fr); }
   .pi-cover-actions { left: 8px; right: 8px; justify-content: center; }
@@ -1189,5 +1264,24 @@
 .ps-shell .pmn-track { padding-left: calc(var(--ps-gutter) - 12px); padding-right: calc(var(--ps-gutter) - 12px); }
 @media (max-width: 720px) {
   .ps-shell .pmn-track { padding-left: 8px; padding-right: 8px; }
+}
+
+/* ---------- Large desktops, TVs, 4K (CSS width ≥ 2200px) ----------
+   Everything here is sized in px, so on a 2560/3840-wide screen at 100% scaling text and controls get tiny
+   and forms stretch edge to edge. Scale the whole Partner Hub up, and stop rows growing past a readable width. */
+@media (min-width: 2200px) {
+  .lp-shell { zoom: 1.25; }
+  /* vh-based heights are zoomed too -> divide them back so nothing is taller than the screen */
+  .lp-shell { min-height: calc(100vh / 1.25); }
+  .lp-split { min-height: calc((100svh - 66px * 1.25) / 1.25); }
+  .ps-main { min-height: calc((100svh - 160px) / 1.25); }
+  .ps-shell .lp-topbar-inner,
+  .ps-shell .pmn-track,
+  .ps-shell .ps-main { max-width: 1920px; margin-left: auto; margin-right: auto; }
+}
+@media (min-width: 3200px) {
+  .lp-shell { zoom: 1.75; min-height: calc(100vh / 1.75); }
+  .lp-split { min-height: calc((100svh - 66px * 1.75) / 1.75); }
+  .ps-main { min-height: calc((100svh - 160px) / 1.75); }
 }
 
