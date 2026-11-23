@@ -10,6 +10,7 @@ import { useLocation } from 'react-router-dom';
 import { AuthContext } from './auth-context';
 import { AuthModal } from '../../components/auth/AuthModal.jsx';
 import { createSession, publicApi } from '../api/client.js';
+import { announceTravellerSignedOut } from './auth-events.js';
 
 export const PARTNER_PATH = '/list-property';
 export const isPartnerPath = (pathname = '') => pathname === PARTNER_PATH || pathname.startsWith(PARTNER_PATH + '/');
@@ -95,7 +96,7 @@ function AuthProvider({ children }) {
 
   // Session events from the API client (token refreshed with new details, or the session was lost).
   useEffect(() => {
-    const onTraveller = (e) => { if (e.type === 'lost') setGuestUser(null); };
+    const onTraveller = (e) => { if (e.type === 'lost') { setGuestUser(null); announceTravellerSignedOut(); } };
     const onPartner = (e) => {
       if (e.type === 'lost') setPartnerUser(null);
       if (e.type === 'user' && e.user) setPartnerUser(e.user);
@@ -123,7 +124,7 @@ function AuthProvider({ children }) {
     const onMessage = ({ data }) => {
       if (!data?.area) return;
       if (data.type === 'logout') {
-        if (data.area === 'partner') { partnerApi.clear(); setPartnerUser(null); } else { travellerApi.clear(); setGuestUser(null); }
+        if (data.area === 'partner') { partnerApi.clear(); setPartnerUser(null); } else { travellerApi.clear(); setGuestUser(null); announceTravellerSignedOut(); }
       }
       if (data.type === 'login') restore(data.area);
     };
@@ -197,8 +198,11 @@ function AuthProvider({ children }) {
       announce('partner', 'logout');
     } else {
       setGuestUser(null);
-      try { if (travellerApi.hasToken()) await travellerApi.post('/auth/logout'); } catch { /* already ended */ }
-      travellerApi.clear();
+      announceTravellerSignedOut(); // trips + booking details leave this browser
+      travellerApi.clear(); // drop the in-memory access token at once
+      // Always tell the server, even without a token: it ends the session from the refresh cookie
+      // and deletes the tpx_rt cookie (DevTools > Application > Cookies).
+      try { await publicApi.post('/auth/logout'); } catch { /* offline: the session still ends when it expires */ }
       announce('traveller', 'logout');
     }
   }, [isPartner]);
