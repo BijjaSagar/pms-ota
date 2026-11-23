@@ -8,6 +8,7 @@ import { useAuth } from '../../lib/context/useAuth.js';
 import {
   EMPTY_LEAD, PROPERTY_TYPES, ROOM_RANGES, submitPartnerLead, validateLead,
 } from '../../lib/data/partner.js';
+import { revealFirstError } from '../../lib/utils/revealError.js';
 import '../../styles/account.css';
 import '../../styles/partner.css';
 
@@ -48,9 +49,7 @@ export function ListingRequestForm({ doneLink = { to: '/', label: 'Go to TriponX
   // Signing in (here or in another tab) fills in the contact step.
   useEffect(() => { if (user) setLead((l) => withAccountDetails(l, user)); }, [user]);
 
-  const focusFirstError = () => requestAnimationFrame(() => {
-    rootRef.current?.querySelector('.has-error input, .has-error select, .has-error textarea')?.focus();
-  });
+  const focusFirstError = () => revealFirstError(rootRef.current);
 
   const set = (key) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;

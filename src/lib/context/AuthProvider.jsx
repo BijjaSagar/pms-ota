@@ -1,12 +1,25 @@
-// Front-end only auth: registered users and the current session live in localStorage.
+// Front-end only auth: registered accounts and the current sessions live in localStorage.
 // Replace register/login with API calls once the backend exists; the context shape can stay the same.
+//
+// Guest (main site) and partner (Partner Hub, /list-property/...) logins are two different things:
+//                    accounts                     session
+//   main site   ->   triponx.users.v1             triponx.session.v1
+//   Partner Hub ->   triponx.partnerUsers.v1      triponx.partnerSession.v1
+// Each area only sees its own accounts and its own session: a guest account can't sign in to the
+// Partner Hub (and the other way round), and signing in or out of one never touches the other.
+// Components keep using useAuth() as before — which area is on screen decides which side they get.
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AuthContext } from './auth-context';
 import { AuthModal } from '../../components/auth/AuthModal.jsx';
 
 const USERS_KEY = 'triponx.users.v1';
 const SESSION_KEY = 'triponx.session.v1';
+const PARTNER_USERS_KEY = 'triponx.partnerUsers.v1';
+const PARTNER_SESSION_KEY = 'triponx.partnerSession.v1';
 export const PARTNER_PATH = '/list-property';
+
+export const isPartnerPath = (pathname = '') => pathname === PARTNER_PATH || pathname.startsWith(PARTNER_PATH + '/');
 
 function readJSON(key, fallback) {
   if (typeof window === 'undefined') return fallback;
@@ -27,6 +40,27 @@ function writeJSON(key, value) {
   }
 }
 
+const readList = (key) => {
+  const list = readJSON(key, []);
+  return Array.isArray(list) ? list : [];
+};
+
+// Partner accounts made before the split lived in the shared list. Only the Partner Hub sets a password,
+// so those are the ones with a passwordHash: copy them over once so existing partners can still sign in
+// (same id, so their drafts and listings stay theirs).
+function readPartnerUsers() {
+  if (typeof window !== 'undefined') {
+    try {
+      if (window.localStorage.getItem(PARTNER_USERS_KEY) === null) {
+        return readList(USERS_KEY).filter((u) => u && u.passwordHash);
+      }
+    } catch {
+      // storage blocked: fall through to an empty list
+    }
+  }
+  return readList(PARTNER_USERS_KEY);
+}
+
 // Email is compared case-insensitively; phone by its digits only.
 export function normalizeIdentifier(method, value) {
   const v = String(value ?? '').trim();
@@ -34,15 +68,24 @@ export function normalizeIdentifier(method, value) {
 }
 
 function AuthProvider({ children }) {
-  const [users, setUsers] = useState(() => {
-    const list = readJSON(USERS_KEY, []);
-    return Array.isArray(list) ? list : [];
-  });
-  const [user, setUser] = useState(() => readJSON(SESSION_KEY, null));
+  const [guestUsers, setGuestUsers] = useState(() => readList(USERS_KEY));
+  const [partnerUsers, setPartnerUsers] = useState(readPartnerUsers);
+  const [guestUser, setGuestUser] = useState(() => readJSON(SESSION_KEY, null));
+  const [partnerUser, setPartnerUser] = useState(() => readJSON(PARTNER_SESSION_KEY, null));
   const [modal, setModal] = useState({ open: false, mode: 'register', message: '' });
 
-  useEffect(() => { writeJSON(USERS_KEY, users); }, [users]);
-  useEffect(() => { writeJSON(SESSION_KEY, user); }, [user]);
+  // Which area is on screen decides which accounts and session the app sees and changes.
+  const { pathname } = useLocation();
+  const isPartner = isPartnerPath(pathname);
+  const users = isPartner ? partnerUsers : guestUsers;
+  const setUsers = isPartner ? setPartnerUsers : setGuestUsers;
+  const user = isPartner ? partnerUser : guestUser;
+  const setUser = isPartner ? setPartnerUser : setGuestUser;
+
+  useEffect(() => { writeJSON(USERS_KEY, guestUsers); }, [guestUsers]);
+  useEffect(() => { writeJSON(PARTNER_USERS_KEY, partnerUsers); }, [partnerUsers]);
+  useEffect(() => { writeJSON(SESSION_KEY, guestUser); }, [guestUser]);
+  useEffect(() => { writeJSON(PARTNER_SESSION_KEY, partnerUser); }, [partnerUser]);
 
   const findUser = useCallback(
     (method, value) => {
@@ -56,7 +99,7 @@ function AuthProvider({ children }) {
   // passwordHash is optional: guest sign-up uses OTP only; Partner Hub accounts also set a password.
   const register = useCallback(({ name = '', email, phone, passwordHash }) => {
     const newUser = {
-      id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `${isPartner ? 'partner' : 'user'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: name.trim(),
       email: normalizeIdentifier('email', email),
       phone: normalizeIdentifier('phone', phone),
@@ -66,16 +109,16 @@ function AuthProvider({ children }) {
     setUsers((current) => [...current, newUser]);
     setUser(newUser);
     return newUser;
-  }, []);
+  }, [isPartner, setUsers, setUser]);
 
   // Patch a stored account (e.g. new password hash). Keeps the signed-in copy in sync.
   const updateUser = useCallback((id, patch) => {
     setUsers((current) => current.map((u) => (u.id === id ? { ...u, ...patch } : u)));
     setUser((current) => (current && current.id === id ? { ...current, ...patch } : current));
-  }, []);
+  }, [setUsers, setUser]);
 
-  const login = useCallback((existing) => { setUser(existing); }, []);
-  const logout = useCallback(() => { setUser(null); }, []);
+  const login = useCallback((existing) => { setUser(existing); }, [setUser]);
+  const logout = useCallback(() => { setUser(null); }, [setUser]);
 
   // mode: 'login' (default) opens Sign in, 'register' opens Sign up.
   const openAuth = useCallback((mode = 'login', message = '') => {
@@ -87,12 +130,14 @@ function AuthProvider({ children }) {
 
   // The sign-in popup never opens on its own — only via openAuth() from a Sign in / Sign up click.
 
-  // Keep tabs in sync: the Partner Hub opens in a new tab, so a sign-in/out there should
-  // show up in the main site tab (and vice versa) without a reload.
+  // Keep open tabs of the same area in sync (sign in/out in one main-site tab shows in the others;
+  // same for Partner Hub tabs) without a reload. The two areas stay independent.
   useEffect(() => {
     const onStorage = (e) => {
-      if (e.key === SESSION_KEY) setUser(readJSON(SESSION_KEY, null));
-      if (e.key === USERS_KEY) setUsers(readJSON(USERS_KEY, []));
+      if (e.key === SESSION_KEY) setGuestUser(readJSON(SESSION_KEY, null));
+      if (e.key === PARTNER_SESSION_KEY) setPartnerUser(readJSON(PARTNER_SESSION_KEY, null));
+      if (e.key === USERS_KEY) setGuestUsers(readList(USERS_KEY));
+      if (e.key === PARTNER_USERS_KEY) setPartnerUsers(readList(PARTNER_USERS_KEY));
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);

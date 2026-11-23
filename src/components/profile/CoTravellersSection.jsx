@@ -10,6 +10,7 @@ import { Badge } from '../ui/Badge.jsx';
 import { SelectField, TextField } from '../Layout.jsx';
 import { PortalModal as Modal } from './PortalModal.jsx';
 import { SectionCard } from './SectionCard.jsx';
+import { revealFirstError } from '../../lib/utils/revealError.js';
 
 const opts = (list) => list.map((o) => [o, o]);
 
@@ -60,7 +61,7 @@ export function CoTravellersSection({ travellers, onSave, onRemove }) {
     if (!draft.mobile.trim()) next.mobile = 'Mobile number is required.';
     else if (!isValidPhone(draft.mobile)) next.mobile = 'Enter a valid mobile number.';
     setErrors(next);
-    if (Object.keys(next).length > 0) return;
+    if (Object.keys(next).length > 0) { revealFirstError(); return; }
     onSave({
       ...draft,
       firstName: draft.firstName.trim(), middleName: draft.middleName.trim(), lastName: draft.lastName.trim(),

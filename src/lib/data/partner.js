@@ -57,10 +57,45 @@ export const EMPTY_BASIC_INFO = {
   emailVerified: false, mobileVerified: false,
 };
 
+// ---------- Property name: letters only (checked on Save; typing is never blocked) ----------
+// Letters (any language) and spaces, plus the few marks real names use: . ' & -  (e.g. "Sam's Inn & Spa").
+export const PROPERTY_NAME_MAX = 100;
+
+export function propertyNameError(value) {
+  const name = String(value ?? '').trim();
+  if (!name) return 'Enter your property name.';
+  if (/[^\p{L}\p{M}\s.'&-]/u.test(name)) return 'Property name can contain letters only.';
+  if ((name.match(/\p{L}/gu) ?? []).length < 2) return 'Property name must have at least 2 letters.';
+  return '';
+}
+
+// ---------- Mobile number: exactly 10 digits, India (checked on Save / Verify; typing is never blocked) ----------
+export const MOBILE_LENGTH = 10;
+
+// Only used to tidy a number stored as "+91 98765 43210" (profile / old draft) when the form loads.
+export function sanitizeMobile(value, { keepLast = false } = {}) {
+  let digits = String(value ?? '').replace(/\D/g, '');
+  // Pasted with a country code / trunk zero: +91 98765 43210, 091…, 098765 43210 -> 9876543210
+  if (digits.length === MOBILE_LENGTH + 2 && digits.startsWith('91')) digits = digits.slice(2);
+  else if (digits.length === MOBILE_LENGTH + 3 && digits.startsWith('091')) digits = digits.slice(3);
+  else if (digits.length === MOBILE_LENGTH + 1 && digits.startsWith('0')) digits = digits.slice(1);
+  return keepLast ? digits.slice(-MOBILE_LENGTH) : digits.slice(0, MOBILE_LENGTH);
+}
+
+export function mobileError(value) {
+  const digits = String(value ?? '').trim();
+  if (!digits) return 'Enter your mobile number.';
+  if (!/^\d+$/.test(digits)) return 'Mobile number can contain digits only.';
+  if (digits.length !== MOBILE_LENGTH) return `Mobile number must be ${MOBILE_LENGTH} digits.`;
+  if (!/^[6-9]/.test(digits)) return 'Enter a valid mobile number. It should start with 6, 7, 8 or 9.';
+  return '';
+}
+
 export function validateBasicInfo(info) {
   const errors = {};
   const year = new Date().getFullYear();
-  if (info.propertyName.trim().length < 2) errors.propertyName = 'Enter your property name.';
+  const nameError = propertyNameError(info.propertyName);
+  if (nameError) errors.propertyName = nameError;
   if (!PROPERTY_RATINGS.includes(Number(info.rating))) errors.rating = 'Choose a property rating.';
   if (!info.builtYear || Number(info.builtYear) < 1800 || Number(info.builtYear) > year) {
     errors.builtYear = 'Choose a valid built year.';
@@ -73,7 +108,8 @@ export function validateBasicInfo(info) {
   }
   if (!isValidEmail(info.email)) errors.email = 'Enter a valid email address.';
   else if (!info.emailVerified) errors.email = 'Verify your email address.';
-  if (!isValidPhone(info.mobile)) errors.mobile = 'Enter a valid mobile number.';
+  const mobileProblem = mobileError(info.mobile);
+  if (mobileProblem) errors.mobile = mobileProblem;
   else if (!info.mobileVerified) errors.mobile = 'Verify your mobile number.';
   if (info.landline.trim() && !isValidPhone(info.landline)) errors.landline = 'Enter a valid landline number.';
   return errors;

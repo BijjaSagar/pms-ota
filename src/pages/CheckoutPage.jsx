@@ -15,6 +15,7 @@ import { findCoupon } from '../lib/data/offers.js';
 import { createBooking } from '../lib/utils/booking.js';
 import { formatCurrency } from '../lib/utils/pricing.js';
 import { isValidEmail, isValidPhone } from '../lib/utils/validation.js';
+import { revealFirstError } from '../lib/utils/revealError.js';
 import '../styles/checkout.css';
 
 const GSTIN_PATTERN = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
@@ -90,10 +91,7 @@ export default function CheckoutPage() {
   const submit = (event) => {
     event?.preventDefault();
     if (!validate()) {
-      requestAnimationFrame(() => {
-        const first = document.querySelector('[aria-invalid="true"]');
-        if (first instanceof HTMLElement) first.focus();
-      });
+      revealFirstError(document, { focus: '[aria-invalid="true"]' });
       return;
     }
     updateGuest(form);
