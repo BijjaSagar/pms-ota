@@ -1,54 +1,71 @@
-// Ported from pms-ota/src/context/TripsProvider.tsx (types removed, logic unchanged).
+// Ported from pms-ota/src/context/TripsProvider.tsx; trips are now kept per traveller account.
+//
+// Until the backend has a bookings API, trips live in this browser under one key per account:
+//   triponx.trips.v1.<travellerId>
+// Signed out -> no trips in memory or on screen (the next person on this browser sees nothing).
+// Signed in  -> that account's own trips load again. Each account only ever sees its own key.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TripsContext } from "./trips-context";
-import { TRAVELLER_SIGNED_OUT } from "./auth-events.js";
-const STORAGE_KEY = "triponx.trips.v1";
+import { useAuth } from "./useAuth.js";
+
+const KEY_PREFIX = "triponx.trips.v1";
+const LEGACY_KEY = KEY_PREFIX; // before trips were per account (one shared list)
+
 function isBooking(value) {
   if (!value || typeof value !== "object") return false;
   const booking = value;
   return typeof booking.reference === "string" && Boolean(booking.hotel && booking.search);
 }
-function createInitialBookings() {
-  if (typeof window === "undefined") return [];
+
+function readList(key) {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isBooking);
+    const parsed = JSON.parse(window.localStorage.getItem(key) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter(isBooking) : [];
   } catch {
     return [];
   }
 }
+
+function loadTrips(key) {
+  if (!key || typeof window === "undefined") return [];
+  const own = readList(key);
+  // One-time move of the old shared list into the first account that signs in on this browser.
+  const legacy = readList(LEGACY_KEY);
+  if (!legacy.length) return own;
+  try { window.localStorage.removeItem(LEGACY_KEY); } catch { /* storage blocked */ }
+  const known = new Set(own.map((b) => b.reference));
+  return [...own, ...legacy.filter((b) => !known.has(b.reference))];
+}
+
 function TripsProvider({ children }) {
-  const [bookings, setBookings] = useState(createInitialBookings);
+  const { travellerId } = useAuth();
+  const key = travellerId ? `${KEY_PREFIX}.${travellerId}` : null;
+  // Bookings and the key they belong to change together, so one account's trips are never saved under another's.
+  const [store, setStore] = useState(() => ({ key, bookings: loadTrips(key) }));
+  if (store.key !== key) setStore({ key, bookings: loadTrips(key) }); // signed in / out / switched account
+
   useEffect(() => {
+    if (!store.key) return; // signed out: nothing to save, and the account's saved trips stay for its next sign-in
     try {
-      if (bookings.length) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
-      else window.localStorage.removeItem(STORAGE_KEY);
+      if (store.bookings.length) window.localStorage.setItem(store.key, JSON.stringify(store.bookings));
+      else window.localStorage.removeItem(store.key);
     } catch {
+      // storage blocked — trips last until reload
     }
-  }, [bookings]);
+  }, [store]);
+
+  const { bookings } = store;
   const getBooking = useCallback(
     (reference) => bookings.find((booking) => booking.reference === reference),
     [bookings]
   );
   const addBooking = useCallback((booking) => {
-    setBookings(
-      (current) => current.some((entry) => entry.reference === booking.reference) ? current : [booking, ...current]
-    );
+    setStore((current) => (current.bookings.some((entry) => entry.reference === booking.reference)
+      ? current
+      : { ...current, bookings: [booking, ...current.bookings] }));
   }, []);
   const cancelBooking = useCallback((reference) => {
-    setBookings((current) => current.filter((booking) => booking.reference !== reference));
-  }, []);
-  // Traveller signed out (here, in another tab, or the session ended): their trips leave this browser.
-  useEffect(() => {
-    const clear = () => {
-      setBookings([]);
-      try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* storage blocked */ }
-    };
-    window.addEventListener(TRAVELLER_SIGNED_OUT, clear);
-    return () => window.removeEventListener(TRAVELLER_SIGNED_OUT, clear);
+    setStore((current) => ({ ...current, bookings: current.bookings.filter((booking) => booking.reference !== reference) }));
   }, []);
   const value = useMemo(
     () => ({ bookings, getBooking, addBooking, cancelBooking }),

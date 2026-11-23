@@ -198,7 +198,7 @@ function AuthProvider({ children }) {
       announce('partner', 'logout');
     } else {
       setGuestUser(null);
-      announceTravellerSignedOut(); // trips + booking details leave this browser
+      announceTravellerSignedOut(); // booking details are cleared; trips are hidden until this account signs in again
       travellerApi.clear(); // drop the in-memory access token at once
       // Always tell the server, even without a token: it ends the session from the refresh cookie
       // and deletes the tpx_rt cookie (DevTools > Application > Cookies).
@@ -221,6 +221,8 @@ function AuthProvider({ children }) {
       user,
       isAuthenticated: Boolean(user),
       authReady: ready[area],
+      // The main-site account, whatever area is on screen (trips are kept per traveller account).
+      travellerId: guestUser?.id ?? null,
       authOpen: modal.open,
       traveller,
       partner,
@@ -228,7 +230,7 @@ function AuthProvider({ children }) {
       openAuth,
       closeAuth,
     }),
-    [user, ready, area, modal.open, traveller, partner, logout, openAuth, closeAuth],
+    [user, guestUser?.id, ready, area, modal.open, traveller, partner, logout, openAuth, closeAuth],
   );
 
   return (
