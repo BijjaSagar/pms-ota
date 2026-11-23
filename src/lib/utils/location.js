@@ -1,6 +1,9 @@
 const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse';
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 const MIN_REQUEST_INTERVAL_MS = 1000;
+const GPS_TIMEOUT_MS = 12000;
+const REVERSE_GEOCODE_TIMEOUT_MS = 8000;
+export const GPS_GOOD_ACCURACY_METERS = 50;
 let lastRequestAt = 0;
 
 function waitForRequestSlot() {
@@ -27,6 +30,18 @@ function geolocationMessage(error) {
   return 'We could not read your location. Please try again or enter the address manually.';
 }
 
+function normalisePosition(position) {
+  const latitude = Number(position?.coords?.latitude);
+  const longitude = Number(position?.coords?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  const reportedAccuracy = Number(position?.coords?.accuracy);
+  const accuracy = Number.isFinite(reportedAccuracy) && reportedAccuracy >= 0
+    ? reportedAccuracy
+    : Number.POSITIVE_INFINITY;
+  return { latitude, longitude, accuracy };
+}
+
 export function getCurrentCoordinates() {
   return new Promise((resolve, reject) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -37,19 +52,47 @@ export function getCurrentCoordinates() {
       reject(new Error('Location services need a secure HTTPS connection. Please enter the address manually.'));
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const latitude = Number(coords.latitude);
-        const longitude = Number(coords.longitude);
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-          reject(new Error('We could not read your location. Please try again or enter the address manually.'));
-          return;
-        }
-        resolve({ latitude, longitude });
-      },
-      (error) => reject(new Error(geolocationMessage(error))),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
+    const options = { enableHighAccuracy: true, timeout: GPS_TIMEOUT_MS, maximumAge: 0 };
+    let best = null;
+    let lastError = null;
+    let watchId = null;
+    let settled = false;
+    let timeoutId = null;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      if (watchId !== null && typeof navigator.geolocation.clearWatch === 'function') {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      if (timeoutId !== null) clearTimeout(timeoutId);
+      callback(value);
+    };
+    const onSuccess = (position) => {
+      const next = normalisePosition(position);
+      if (!next) return;
+      if (!best || next.accuracy < best.accuracy) best = next;
+      if (best.accuracy <= GPS_GOOD_ACCURACY_METERS) finish(resolve, best);
+    };
+    const onError = (error) => {
+      lastError = error;
+      if (error?.code === 1) finish(best ? resolve : reject, best ?? new Error(geolocationMessage(error)));
+    };
+    timeoutId = setTimeout(() => {
+      if (best) {
+        finish(resolve, best);
+        return;
+      }
+      finish(reject, new Error(lastError ? geolocationMessage(lastError) : 'Location lookup timed out. Please try again or enter the address manually.'));
+    }, GPS_TIMEOUT_MS);
+    try {
+      if (typeof navigator.geolocation.watchPosition === 'function') {
+        watchId = navigator.geolocation.watchPosition(onSuccess, onError, options);
+      } else {
+        navigator.geolocation.getCurrentPosition(onSuccess, onError, options);
+      }
+    } catch {
+      finish(reject, new Error('We could not start location services. Please enter the address manually.'));
+    }
   });
 }
 
@@ -65,25 +108,37 @@ export async function reverseGeocode({ latitude, longitude }) {
     lat: String(latitude),
     lon: String(longitude),
   });
-  let response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REVERSE_GEOCODE_TIMEOUT_MS);
   try {
-    response = await fetch(`${NOMINATIM_REVERSE_URL}?${params}`);
-  } catch {
-    throw new Error('Could not reach the address lookup service. Check your connection and try again.');
+    let response;
+    try {
+      response = await fetch(`${NOMINATIM_REVERSE_URL}?${params}`, { signal: controller.signal });
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw new Error('Address lookup timed out. Please try again.');
+      }
+      throw new Error('Could not reach the address lookup service. Check your connection and try again.');
+    }
+    if (response.status === 429) {
+      throw new Error('Address lookup is busy right now. Wait a moment and try again.');
+    }
+    if (!response.ok) {
+      throw new Error('Address lookup is temporarily unavailable. Please enter the address manually.');
+    }
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error('Address lookup returned an invalid response. Please enter the address manually.');
+    }
+    if (!data || typeof data !== 'object' || data.error || !data.address) {
+      throw new Error('No address was found for this location. Please enter it manually.');
+    }
+    return data;
+  } finally {
+    clearTimeout(timeoutId);
   }
-  if (!response.ok) {
-    throw new Error('Address lookup is temporarily unavailable. Please enter the address manually.');
-  }
-  let data;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error('Address lookup returned an invalid response. Please enter the address manually.');
-  }
-  if (!data || typeof data !== 'object' || data.error || !data.address) {
-    throw new Error('No address was found for this location. Please enter it manually.');
-  }
-  return data;
 }
 
 export async function forwardGeocode(query, { allowNoResult = false } = {}) {

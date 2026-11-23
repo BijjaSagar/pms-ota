@@ -18,11 +18,12 @@ import {
 } from '../../lib/data/partner.js';
 import { isValidEmail, isValidPhone } from '../../lib/utils/validation.js';
 import { OTP_LENGTH, todayOtp, verifyOtp } from '../../lib/utils/otp.js';
-import { addressToLocationFields, buildAddressQuery, buildOsmEmbedUrl, forwardGeocodeAddressInfo, getCurrentCoordinates, isAddressMapReady, reverseGeocode } from '../../lib/utils/location.js';
+import { addressToLocationFields, buildAddressQuery, buildOsmEmbedUrl, forwardGeocodeAddressInfo, getCurrentCoordinates, GPS_GOOD_ACCURACY_METERS, isAddressMapReady, reverseGeocode } from '../../lib/utils/location.js';
 import '../../styles/auth.css';
 import '../../styles/partner.css';
 
 const RESEND_SECONDS = 30;
+const ROOM_LAST_INPUT_INDEX = ROOM_CATEGORIES.length - 2;
 
 function ResponsiveSelectField({ label, value, onChange, options, error }) {
   const [open, setOpen] = useState(false);
@@ -93,6 +94,33 @@ function ResponsiveSelectField({ label, value, onChange, options, error }) {
       {error && <span className="field-error" role="alert">{error}</span>}
     </div>
   );
+}
+
+function isAmenityCategoryComplete(category, info) {
+  return category.items.every((item) => {
+    const value = info?.[category.id]?.[item.id];
+    return value === 'yes' || value === 'no';
+  });
+}
+
+function getInitialAmenityCategoryState(info) {
+  const firstIncompleteIndex = AMENITY_CATEGORIES.findIndex((category) => !isAmenityCategoryComplete(category, info));
+  const index = firstIncompleteIndex === -1 ? AMENITY_CATEGORIES.length - 1 : firstIncompleteIndex;
+  return {
+    activeCategoryId: AMENITY_CATEGORIES[index]?.id ?? AMENITY_CATEGORIES[0].id,
+    unlockedIndex: index,
+  };
+}
+
+function getInitialRoomCategoryState(info) {
+  const errors = validateRoomsInfo(info);
+  const firstIncompleteIndex = ROOM_CATEGORIES.findIndex((category) => category.fields.some((field) => Boolean(errors[field])));
+  const rawIndex = firstIncompleteIndex === -1 ? ROOM_LAST_INPUT_INDEX : firstIncompleteIndex;
+  const index = Math.min(rawIndex, ROOM_LAST_INPUT_INDEX);
+  return {
+    activeCategoryId: ROOM_CATEGORIES[index]?.id ?? ROOM_CATEGORIES[0].id,
+    unlockedIndex: index,
+  };
 }
 
 function OtpModal({ field, value, onClose, onVerified }) {
@@ -276,11 +304,7 @@ function ProgressRail({ basicComplete, locationComplete, amenitiesComplete, room
                 <span className="pi-step-body">
                   <span className="pi-step-name">{section.label}</span>
                   <span className="pi-step-note">
-                    {done ? 'Complete' : active && !locked ? 'In progress' : isAmenities && locked ? 'Complete Location first' : isPhotos && locked ? 'Complete Rooms first' : isPolicies && locked ? 'Complete Photos first' : isLegal && locked ? 'Complete Policies first' : (isLocation || isAmenities || isRooms || isPhotos || isPolicies || isLegal) && !locked ? 'Ready to complete' : (
-                      <span className="pi-soon">
-                        {locked && <Lock size={10} aria-hidden="true" />}Locked
-                      </span>
-                    )}
+                    {done ? 'Complete' : active && !locked ? 'In progress' : !locked && (isLocation || isAmenities || isRooms || isPhotos || isPolicies || isLegal) ? 'Ready to complete' : null}
                   </span>
                 </span>
               </button>
@@ -311,6 +335,7 @@ export function PropertyInfoPage({ type }) {
   const { user } = useAuth();
   const formRef = useRef(null);
   const autoGeocodeRequestRef = useRef(0);
+  const currentLocationRequestRef = useRef(0);
   const lastAutoGeocodedQueryRef = useRef('');
   const coverInputRef = useRef(null);
   const galleryInputRef = useRef(null);
@@ -350,7 +375,9 @@ export function PropertyInfoPage({ type }) {
       return [id, clean];
     }));
   });
-  const [activeCategoryId, setActiveCategoryId] = useState(AMENITY_CATEGORIES[0].id);
+  const initialAmenityCategory = getInitialAmenityCategoryState(amenitiesInfo);
+  const [activeCategoryId, setActiveCategoryId] = useState(initialAmenityCategory.activeCategoryId);
+  const [amenityUnlockedIndex, setAmenityUnlockedIndex] = useState(initialAmenityCategory.unlockedIndex);
   const [amenitiesErrors, setAmenitiesErrors] = useState({});
   const [amenitiesComplete, setAmenitiesComplete] = useState(() => Object.keys(validateAmenitiesInfo(amenitiesInfo)).length === 0);
 
@@ -369,13 +396,15 @@ export function PropertyInfoPage({ type }) {
     );
     return { ...EMPTY_ROOMS_INFO, ...saved, amenities };
   });
-  const [activeRoomCategoryId, setActiveRoomCategoryId] = useState(ROOM_CATEGORIES[0].id);
+  const initialRoomCategory = getInitialRoomCategoryState(roomsInfo);
+  const [activeRoomCategoryId, setActiveRoomCategoryId] = useState(initialRoomCategory.activeCategoryId);
+  const [roomUnlockedIndex, setRoomUnlockedIndex] = useState(initialRoomCategory.unlockedIndex);
   const [roomErrors, setRoomErrors] = useState({});
   const [roomsComplete, setRoomsComplete] = useState(() => Object.keys(validateRoomsInfo(roomsInfo)).length === 0);
 
   const activeRoomCategoryIndex = ROOM_CATEGORIES.findIndex((category) => category.id === activeRoomCategoryId);
   const activeRoomCategory = ROOM_CATEGORIES[activeRoomCategoryIndex] ?? ROOM_CATEGORIES[0];
-  const isLastRoomCategory = activeRoomCategoryIndex === ROOM_CATEGORIES.length - 1;
+  const isRoomSaveStep = activeRoomCategoryIndex >= ROOM_LAST_INPUT_INDEX;
   const countRoomFieldsDone = (category) => category.fields.filter((field) => {
     if (field === 'amenities') {
       return ROOM_AMENITY_ITEMS.every((item) => ['yes', 'no'].includes(roomsInfo.amenities?.[item.id]));
@@ -477,6 +506,7 @@ export function PropertyInfoPage({ type }) {
 
   useEffect(() => () => {
     objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    currentLocationRequestRef.current += 1;
   }, []);
 
   const setValue = (key, value) => {
@@ -526,12 +556,32 @@ export function PropertyInfoPage({ type }) {
     setNotice(null);
   };
 
+  const changeAmenityCategory = (categoryId) => {
+    if (categoryId === activeCategoryId) return;
+    setActiveCategoryId(categoryId);
+    setNotice(null);
+  };
+
   const goToNextCategory = () => {
     if (isLastCategory) return;
+    const missing = validateAmenitiesInfo(amenitiesInfo)[activeCategory.id];
+    if (missing?.length) {
+      setAmenitiesErrors((current) => ({ ...current, [activeCategory.id]: missing }));
+      requestAnimationFrame(() => {
+        const form = formRef.current;
+        form?.querySelector(`[data-amenity-tab="${activeCategory.id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
+        form?.querySelector('.pi-amenity-row.has-error input')?.focus();
+      });
+      return;
+    }
     const nextIndex = activeCategoryIndex + 1;
     const nextCategory = AMENITY_CATEGORIES[nextIndex];
-    setActiveCategoryId(nextCategory.id);
-    setNotice(null);
+    setAmenitiesErrors((current) => {
+      const { [activeCategory.id]: _cleared, [nextCategory.id]: _nextCleared, ...rest } = current;
+      return rest;
+    });
+    setAmenityUnlockedIndex((current) => Math.max(current, nextIndex));
+    changeAmenityCategory(nextCategory.id);
     requestAnimationFrame(() => {
       formRef.current?.querySelector(`[data-amenity-tab="${nextCategory.id}"]`)
         ?.scrollIntoView({ block: 'nearest', inline: 'center' });
@@ -540,15 +590,14 @@ export function PropertyInfoPage({ type }) {
 
   const onAmenityTabKeyDown = (event, index) => {
     let nextIndex = null;
-    const lastIndex = AMENITY_CATEGORIES.length - 1;
-    if (event.key === 'ArrowRight') nextIndex = index === lastIndex ? 0 : index + 1;
-    else if (event.key === 'ArrowLeft') nextIndex = index === 0 ? lastIndex : index - 1;
+    if (event.key === 'ArrowRight') nextIndex = index >= amenityUnlockedIndex ? 0 : index + 1;
+    else if (event.key === 'ArrowLeft') nextIndex = index <= 0 ? amenityUnlockedIndex : index - 1;
     else if (event.key === 'Home') nextIndex = 0;
-    else if (event.key === 'End') nextIndex = lastIndex;
-    if (nextIndex === null) return;
+    else if (event.key === 'End') nextIndex = amenityUnlockedIndex;
+    if (nextIndex === null || nextIndex < 0 || nextIndex > amenityUnlockedIndex) return;
     event.preventDefault();
     const nextCategory = AMENITY_CATEGORIES[nextIndex];
-    setActiveCategoryId(nextCategory.id);
+    changeAmenityCategory(nextCategory.id);
     formRef.current?.querySelector(`[data-amenity-tab="${nextCategory.id}"]`)?.focus();
   };
 
@@ -625,29 +674,44 @@ export function PropertyInfoPage({ type }) {
     setNotice(null);
   };
 
+  const changeRoomCategory = (categoryId) => {
+    if (categoryId === activeRoomCategoryId) return;
+    setActiveRoomCategoryId(categoryId);
+    setRoomErrors({});
+    setNotice(null);
+  };
+
   const goToNextRoomCategory = () => {
-    if (isLastRoomCategory) return;
+    if (isRoomSaveStep) return;
     const nextIndex = activeRoomCategoryIndex + 1;
     const nextCategory = ROOM_CATEGORIES[nextIndex];
-    setActiveRoomCategoryId(nextCategory.id);
-    setNotice(null);
+    setRoomUnlockedIndex((current) => Math.max(current, nextIndex));
+    changeRoomCategory(nextCategory.id);
     requestAnimationFrame(() => {
       formRef.current?.querySelector(`[data-room-tab="${nextCategory.id}"]`)
         ?.scrollIntoView({ block: 'nearest', inline: 'center' });
     });
   };
 
+  const onRoomFormKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.defaultPrevented || isRoomSaveStep) return;
+    const tagName = event.target?.tagName;
+    if (tagName === 'BUTTON' || tagName === 'TEXTAREA') return;
+    event.preventDefault();
+    goToNextRoomCategory();
+  };
+
   const onRoomTabKeyDown = (event, index) => {
     let nextIndex = null;
-    const lastIndex = ROOM_CATEGORIES.length - 1;
-    if (event.key === 'ArrowRight') nextIndex = index === lastIndex ? 0 : index + 1;
-    else if (event.key === 'ArrowLeft') nextIndex = index === 0 ? lastIndex : index - 1;
+    const lastIndex = roomUnlockedIndex;
+    if (event.key === 'ArrowRight') nextIndex = index >= lastIndex ? 0 : index + 1;
+    else if (event.key === 'ArrowLeft') nextIndex = index <= 0 ? lastIndex : index - 1;
     else if (event.key === 'Home') nextIndex = 0;
     else if (event.key === 'End') nextIndex = lastIndex;
     if (nextIndex === null) return;
     event.preventDefault();
     const nextCategory = ROOM_CATEGORIES[nextIndex];
-    setActiveRoomCategoryId(nextCategory.id);
+    changeRoomCategory(nextCategory.id);
     formRef.current?.querySelector(`[data-room-tab="${nextCategory.id}"]`)?.focus();
   };
 
@@ -666,29 +730,44 @@ export function PropertyInfoPage({ type }) {
   };
 
   const useCurrentLocation = async () => {
+    const requestId = ++currentLocationRequestRef.current;
+    ++autoGeocodeRequestRef.current;
     setMapError('');
+    setGeocodingAddress(false);
     setLocating(true);
     try {
       const coordinates = await getCurrentCoordinates();
-      setLocationInfo((current) => ({
-        ...current,
+      if (requestId !== currentLocationRequestRef.current) return;
+      const result = await reverseGeocode(coordinates);
+      if (requestId !== currentLocationRequestRef.current) return;
+      const fields = addressToLocationFields(result);
+      const approximate = Number.isFinite(coordinates.accuracy) && coordinates.accuracy > GPS_GOOD_ACCURACY_METERS;
+      const accuracyMeters = Number.isFinite(coordinates.accuracy) ? Math.max(1, Math.round(coordinates.accuracy)) : null;
+      const accuracyLabel = accuracyMeters ? `about ${accuracyMeters} m` : 'unknown accuracy';
+      const next = {
+        ...locationInfo,
+        ...fields,
         latitude: String(coordinates.latitude),
         longitude: String(coordinates.longitude),
-      }));
-      const result = await reverseGeocode(coordinates);
-      const fields = addressToLocationFields(result);
-      setLocationInfo((current) => {
-        const next = { ...current, ...fields };
-        lastAutoGeocodedQueryRef.current = buildAddressQuery(next).toLowerCase();
-        return next;
-      });
+        addressConfirmed: false,
+      };
+      lastAutoGeocodedQueryRef.current = buildAddressQuery(next).toLowerCase();
+      setLocationInfo(next);
       setLocationErrors({});
       setLocationComplete(false);
-      setNotice({ kind: 'success', text: 'Location detected. Check the autofilled details and save.' });
+      setNotice({
+        kind: approximate ? 'info' : 'success',
+        text: approximate
+          ? `Approximate location (${accuracyLabel}). Check the autofilled details and save.`
+          : accuracyMeters
+            ? `Location detected within ${accuracyLabel}. Check the autofilled details and save.`
+            : 'Location detected. Check the autofilled details and save.',
+      });
     } catch (error) {
+      if (requestId !== currentLocationRequestRef.current) return;
       setMapError(error instanceof Error ? error.message : 'We could not detect your location. Please try again or enter the address manually.');
     } finally {
-      setLocating(false);
+      if (requestId === currentLocationRequestRef.current) setLocating(false);
     }
   };
 
@@ -740,7 +819,6 @@ export function PropertyInfoPage({ type }) {
     const firstCategory = AMENITY_CATEGORIES.find((category) => nextErrors[category.id]?.length);
     if (firstCategory) {
       setActiveCategoryId(firstCategory.id);
-      setNotice({ kind: 'error', text: `Answer Yes or No for every amenity in ${firstCategory.label}.` });
       requestAnimationFrame(() => {
         const form = formRef.current;
         form?.querySelector(`[data-amenity-tab="${firstCategory.id}"]`)?.scrollIntoView({ block: 'nearest', inline: 'center' });
@@ -764,8 +842,12 @@ export function PropertyInfoPage({ type }) {
     setRoomErrors(nextErrors);
     const firstField = Object.keys(nextErrors)[0];
     if (firstField) {
-      const category = ROOM_CATEGORIES.find(({ fields }) => fields.includes(firstField));
-      if (category) setActiveRoomCategoryId(category.id);
+      const categoryIndex = ROOM_CATEGORIES.findIndex(({ fields }) => fields.includes(firstField));
+      const category = ROOM_CATEGORIES[categoryIndex];
+      if (category) {
+        setRoomUnlockedIndex((current) => Math.max(current, categoryIndex));
+        setActiveRoomCategoryId(category.id);
+      }
       setNotice({ kind: 'error', text: 'Complete the highlighted room details before saving.' });
       requestAnimationFrame(() => {
         const form = formRef.current;
@@ -1160,6 +1242,7 @@ export function PropertyInfoPage({ type }) {
                     error={locationErrors.apartmentName}
                     autoComplete="address-line1"
                     placeholder="e.g. Casa Azul Tower"
+                    disabled={locating}
                   />
                   <TextField
                     full
@@ -1169,6 +1252,7 @@ export function PropertyInfoPage({ type }) {
                     error={locationErrors.area}
                     autoComplete="address-line2"
                     placeholder="e.g. Bandra West"
+                    disabled={locating}
                   />
                   <TextField
                     label="Pincode"
@@ -1178,13 +1262,14 @@ export function PropertyInfoPage({ type }) {
                     inputMode="numeric"
                     maxLength={6}
                     placeholder="6-digit pincode"
+                    disabled={locating}
                   />
-                  <TextField label="Country" value={locationInfo.country} onChange={setLocation('country')} error={locationErrors.country} autoComplete="country-name" placeholder="India" />
-                  <TextField label="State" value={locationInfo.state} onChange={setLocation('state')} error={locationErrors.state} autoComplete="address-level1" placeholder="Maharashtra" />
-                  <TextField label="City" value={locationInfo.city} onChange={setLocation('city')} error={locationErrors.city} autoComplete="address-level2" placeholder="Mumbai" />
+                  <TextField label="Country" value={locationInfo.country} onChange={setLocation('country')} error={locationErrors.country} autoComplete="country-name" placeholder="India" disabled={locating} />
+                  <TextField label="State" value={locationInfo.state} onChange={setLocation('state')} error={locationErrors.state} autoComplete="address-level1" placeholder="Maharashtra" disabled={locating} />
+                  <TextField label="City" value={locationInfo.city} onChange={setLocation('city')} error={locationErrors.city} autoComplete="address-level2" placeholder="Mumbai" disabled={locating} />
                 </div>
                 <label className={`pi-consent ${locationErrors.addressConfirmed ? 'has-error' : ''}`}>
-                  <input type="checkbox" checked={locationInfo.addressConfirmed} onChange={toggleLocationConsent} aria-invalid={Boolean(locationErrors.addressConfirmed)} />
+                  <input type="checkbox" checked={locationInfo.addressConfirmed} onChange={toggleLocationConsent} aria-invalid={Boolean(locationErrors.addressConfirmed)} disabled={locating} />
                   <span>I agree to the terms and conditions and confirm that the address provided here is as per the registration or lease document.</span>
                 </label>
                 {locationErrors.addressConfirmed && <p className="field-error" role="alert">{locationErrors.addressConfirmed}</p>}
@@ -1204,6 +1289,7 @@ export function PropertyInfoPage({ type }) {
                   {AMENITY_CATEGORIES.map((category, index) => {
                     const selected = category.id === activeCategory.id;
                     const hasError = Boolean(amenitiesErrors[category.id]?.length);
+                    const locked = index > amenityUnlockedIndex;
                     return (
                       <button
                         key={category.id}
@@ -1213,11 +1299,14 @@ export function PropertyInfoPage({ type }) {
                         data-amenity-tab={category.id}
                         aria-selected={selected}
                         aria-controls="pi-amenity-panel"
-                        tabIndex={selected ? 0 : -1}
-                        className={`pi-amenity-tab ${selected ? 'is-on' : ''} ${hasError ? 'has-error' : ''}`}
-                        onClick={() => { setActiveCategoryId(category.id); setNotice(null); }}
+                        aria-disabled={locked || undefined}
+                        disabled={locked}
+                        tabIndex={locked ? -1 : selected ? 0 : -1}
+                        className={`pi-amenity-tab ${selected ? 'is-on' : ''} ${hasError ? 'has-error' : ''} ${locked ? 'is-locked' : ''}`}
+                        onClick={() => changeAmenityCategory(category.id)}
                         onKeyDown={(event) => onAmenityTabKeyDown(event, index)}
                       >
+                        {locked && <Lock size={12} aria-hidden="true" />}
                         <span>{category.label}</span>
                         <span className="pi-amenity-tab-count">{countAmenityAnswers(category)}/{category.items.length}</span>
                       </button>
@@ -1243,6 +1332,7 @@ export function PropertyInfoPage({ type }) {
                           key={item.id}
                           className={`pi-amenity-row ${invalid ? 'has-error' : ''}`}
                           aria-labelledby={`pi-amenity-label-${activeCategory.id}-${item.id}`}
+                          aria-describedby={invalid ? `pi-amenity-error-${activeCategory.id}-${item.id}` : undefined}
                         >
                           <div className="pi-amenity-name" id={`pi-amenity-label-${activeCategory.id}-${item.id}`}>{item.label}</div>
                           <div className="pi-segments pi-amenity-segments">
@@ -1255,11 +1345,15 @@ export function PropertyInfoPage({ type }) {
                                   checked={value === option}
                                   onChange={() => setAmenityValue(activeCategory.id, item.id, option)}
                                   className="sr-only"
+                                  aria-invalid={Boolean(invalid)}
                                 />
                                 {label}
                               </label>
                             ))}
                           </div>
+                          {invalid && (
+                            <span id={`pi-amenity-error-${activeCategory.id}-${item.id}`} className="field-error" role="alert">Choose Yes or No.</span>
+                          )}
                         </fieldset>
                       );
                     })}
@@ -1279,12 +1373,13 @@ export function PropertyInfoPage({ type }) {
         ) : activeSection === 'rooms' ? (
           <>
             {noticeMarkup}
-            <form ref={formRef} noValidate onSubmit={onRoomsSubmit}>
+            <form ref={formRef} noValidate onSubmit={onRoomsSubmit} onKeyDown={onRoomFormKeyDown}>
               <SectionCard icon={Building2} title="Rooms & inventory" subtitle="Add the room type, occupancy and in-room details guests need before booking.">
                 <div className="pi-amenity-tabs" role="tablist" aria-label="Room categories">
                   {ROOM_CATEGORIES.map((category, index) => {
                     const selected = category.id === activeRoomCategory.id;
                     const hasError = category.fields.some((field) => roomErrors[field]);
+                    const locked = index > roomUnlockedIndex;
                     return (
                       <button
                         key={category.id}
@@ -1294,11 +1389,14 @@ export function PropertyInfoPage({ type }) {
                         data-room-tab={category.id}
                         aria-selected={selected}
                         aria-controls="pi-room-panel"
-                        tabIndex={selected ? 0 : -1}
-                        className={`pi-amenity-tab ${selected ? 'is-on' : ''} ${hasError ? 'has-error' : ''}`}
-                        onClick={() => { setActiveRoomCategoryId(category.id); setNotice(null); }}
+                        aria-disabled={locked || undefined}
+                        disabled={locked}
+                        tabIndex={locked ? -1 : selected ? 0 : -1}
+                        className={`pi-amenity-tab ${selected ? 'is-on' : ''} ${hasError ? 'has-error' : ''} ${locked ? 'is-locked' : ''}`}
+                        onClick={() => changeRoomCategory(category.id)}
                         onKeyDown={(event) => onRoomTabKeyDown(event, index)}
                       >
+                        {locked && <Lock size={12} aria-hidden="true" />}
                         <span>{category.label}</span>
                         <span className="pi-amenity-tab-count">{countRoomFieldsDone(category)}/{category.fields.length}</span>
                       </button>
@@ -1381,7 +1479,7 @@ export function PropertyInfoPage({ type }) {
               </SectionCard>
               <div className="pi-actions pi-amenity-actions">
                 <button type="button" className="btn btn-light" onClick={() => selectSection('amenities')}>Back to Amenities</button>
-                {isLastRoomCategory ? (
+                {isRoomSaveStep ? (
                   <button type="submit" className="btn btn-primary">Save rooms<CheckCircle2 size={16} aria-hidden="true" /></button>
                 ) : (
                   <button type="button" className="btn btn-primary" onClick={goToNextRoomCategory}>Next<ArrowRight size={16} aria-hidden="true" /></button>
