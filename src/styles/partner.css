@@ -744,6 +744,9 @@
   box-shadow: 0 10px 20px -14px rgba(28, 43, 45, 0.9);
 }
 .pi-amenity-tab.has-error:not(.is-on) { border-color: #B3412F; background: #FBEDEA; color: #A13A2A; }
+.pi-amenity-tab.is-locked { cursor: not-allowed; opacity: .55; color: var(--muted); background: rgba(244, 246, 243, 0.7); }
+.pi-amenity-tab.is-locked:hover { border-color: var(--line); }
+.pi-amenity-tab.is-locked .pi-amenity-tab-count { background: rgba(255, 255, 255, 0.5); }
 .pi-amenity-tab-count {
   display: inline-flex; align-items: center; justify-content: center; min-width: 28px; padding: 2px 5px;
   border-radius: 999px; background: rgba(255, 255, 255, 0.75); color: var(--muted);
@@ -756,10 +759,11 @@
 .pi-amenity-panel-head span { font-size: 11px; font-weight: 700; color: var(--muted); }
 .pi-amenity-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 14px; }
 .pi-amenity-row {
-  display: grid; grid-template-rows: auto 1fr; align-content: start; min-width: 0; margin: 0;
+  display: grid; grid-template-rows: auto 1fr auto; align-content: start; min-width: 0; margin: 0;
   padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #fff;
 }
 .pi-amenity-row.has-error { border-color: #B3412F; background: #FBEDEA; }
+.pi-amenity-row > .field-error { display: block; margin-top: 6px; }
 .pi-amenity-name { font-size: 12px; font-weight: 700; line-height: 1.35; color: var(--ink-2); overflow-wrap: anywhere; }
 .pi-amenity-segments { align-self: start; margin-top: 8px; padding: 3px; }
 .pi-amenity-segments .pi-segment {
