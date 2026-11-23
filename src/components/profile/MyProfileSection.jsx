@@ -1,8 +1,8 @@
 // My profile form — fields & behaviour from pms-ota (MyProfileSection.tsx); TriponX two-column card layout.
-import { Camera, Check, FileText, Upload } from 'lucide-react';
+import { Camera, Check } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {
-  countryOptions, documentTypeOptions, genderOptions, maritalStatusOptions, nationalityOptions,
+  countryOptions, genderOptions, maritalStatusOptions, nationalityOptions,
 } from '../../lib/data/profile.js';
 import { SelectField, TextField } from '../Layout.jsx';
 import { SectionCard } from './SectionCard.jsx';
@@ -11,13 +11,11 @@ const dialCodes = Array.from(new Set(countryOptions.map((c) => c.code)));
 const opts = (list) => list.map((o) => [o, o]);
 const initials = (f, l) => `${f.charAt(0)}${l.charAt(0)}`.toUpperCase() || 'TX';
 
-export function MyProfileSection({ profile, onChange, onDocumentChange, onPhotoChange }) {
+export function MyProfileSection({ profile, onChange, onPhotoChange }) {
   const photoInputRef = useRef(null);
-  const documentInputRef = useRef(null);
   const [saved, setSaved] = useState(false);
 
   const handlePhoto = (e) => { const f = e.target.files?.[0]; if (f) { onPhotoChange(f); setSaved(false); } e.target.value = ''; };
-  const handleDocument = (e) => { const f = e.target.files?.[0]; if (f) { onDocumentChange('fileName', f.name); setSaved(false); } e.target.value = ''; };
   const handleSubmit = (e) => { e.preventDefault(); setSaved(true); };
 
   return (
@@ -62,25 +60,6 @@ export function MyProfileSection({ profile, onChange, onDocumentChange, onPhotoC
             <SelectField label="Marital status" value={profile.maritalStatus} onChange={(e) => onChange('maritalStatus', e.target.value)} options={opts(maritalStatusOptions)} />
             <TextField label="City of residence" value={profile.cityOfResidence} onChange={(e) => onChange('cityOfResidence', e.target.value)} autoComplete="address-level2" placeholder="Mumbai" />
             <TextField label="State" value={profile.state} onChange={(e) => onChange('state', e.target.value)} autoComplete="address-level1" placeholder="Maharashtra" />
-          </div>
-        </SectionCard>
-
-        <SectionCard className="span-2" title="Document details" description="Add a valid travel document for faster check-in.">
-          <div className="form-grid">
-            <SelectField label="Document type" value={profile.document.type} onChange={(e) => onDocumentChange('type', e.target.value)} options={opts(documentTypeOptions)} />
-            <TextField label="Document number" value={profile.document.number} onChange={(e) => onDocumentChange('number', e.target.value.toUpperCase())} autoComplete="off" placeholder="M1234567" />
-            <TextField label="Expiry date" type="date" value={profile.document.expiry} onChange={(e) => onDocumentChange('expiry', e.target.value)} />
-          </div>
-          <div className="doc-drop">
-            <div className="row-gap-12 center" style={{ minWidth: 0 }}>
-              <span className="app-row-icon"><FileText size={16} aria-hidden="true" /></span>
-              <div style={{ minWidth: 0 }}>
-                <p className="text-sm"><strong>{profile.document.fileName || 'No document uploaded'}</strong></p>
-                <p className="muted-xs">PDF, JPG or PNG up to 10 MB.</p>
-              </div>
-            </div>
-            <button type="button" className="pill-btn" onClick={() => documentInputRef.current?.click()}><Upload size={14} aria-hidden="true" />Upload document</button>
-            <input ref={documentInputRef} type="file" accept="image/*,.pdf" className="sr-only" onChange={handleDocument} />
           </div>
         </SectionCard>
       </div>

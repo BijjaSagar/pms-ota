@@ -4146,6 +4146,17 @@ button.account-item {
 @media (max-width: 340px) {
   .site-header .glass-nav .brand { font-size: 18px; }
 }
+/* Narrow phones (320-380px): logo + wishlist + account + menu didn't fit, so "TriponX" ran under the heart.
+   Slightly smaller buttons/gaps keep everything on one line without touching each other. */
+@media (max-width: 380px) {
+  .site-header .glass-nav { padding-left: 12px; gap: 6px; }
+  .site-header .glass-nav .brand { gap: 7px; font-size: 17px; }
+  .site-header .glass-nav .brand svg { width: 30px; height: 30px; }
+  .site-header .brand-word { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .site-header .header-actions { gap: 6px; }
+  .site-header .header-actions .icon-btn { width: 40px; height: 40px; flex-basis: 40px; }
+  .site-header .header-actions .account-btn { height: 40px; padding: 0 10px; gap: 4px; }
+}
 /* Account dropdown: region row stays on one line */
 .account-menu { min-width: 248px; }
 .account-locale { white-space: nowrap; }
@@ -4162,6 +4173,13 @@ button.account-item {
 @media (max-width: 860px) and (min-width: 721px) {
   .primary-nav { font-size: 13.5px; padding: 3px; }
   .primary-nav a { padding: 8px 10px; }
+}
+/* Small tablets (721-980px, e.g. iPad Mini 768): the page links ran under "List your property".
+   Show that button as an icon only here (it keeps its aria-label), so every link has room. */
+@media (max-width: 980px) and (min-width: 721px) {
+  .site-header .list-property-btn { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 999px; flex: 0 0 44px; }
+  .site-header .list-property-btn .nav-two-line { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .site-header .glass-nav .primary-nav { overflow: hidden; }
 }
 
 /* Footer card on phones: the container's `padding: 0 20px` shorthand was wiping the grid's top/bottom padding */

@@ -30,7 +30,6 @@ function profileFromUser(user) {
     state: '',
     mobile: user?.phone ?? '',
     email: user?.email ?? '',
-    document: { ...sampleProfile.document, number: '', expiry: '' },
   };
 }
 
@@ -40,14 +39,32 @@ export default function ProfilePage() {
   const [activeSection, setActiveSection] = useState('profile');
   const [profile, setProfile] = useState(() => profileFromUser(user));
   const [travellers, setTravellers] = useState(initialCoTravellers);
-  const [devices] = useState(initialDevices);
+  // Demo devices, but logging one out is remembered for this account (until the backend tracks real sessions).
+  const devicesKey = `triponx.devices.v1.${user?.id ?? 'guest'}`;
+  const [devices, setDevices] = useState(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(devicesKey));
+      if (Array.isArray(saved)) return initialDevices.map((d) => ({ ...d, ...(saved.find((s) => s.id === d.id) ?? {}) }));
+    } catch {
+      // unreadable / blocked storage: fall back to the defaults
+    }
+    return initialDevices;
+  });
+  const saveDevices = (next) => {
+    setDevices(next);
+    try {
+      window.localStorage.setItem(devicesKey, JSON.stringify(next.map(({ id, loggedIn, signedOutAt }) => ({ id, loggedIn, signedOutAt }))));
+    } catch {
+      // storage blocked — change lasts until reload
+    }
+  };
+  const signedOutNow = () => `Signed out ${new Date().toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`;
   const [logoutOpen, setLogoutOpen] = useState(false);
   const photoUrlRef = useRef(null);
 
   useEffect(() => () => { if (photoUrlRef.current) URL.revokeObjectURL(photoUrlRef.current); }, []);
 
   const updateProfile = (key, value) => setProfile((c) => ({ ...c, [key]: value }));
-  const updateDocument = (key, value) => setProfile((c) => ({ ...c, document: { ...c.document, [key]: value } }));
   const handlePhotoChange = (file) => {
     if (photoUrlRef.current) URL.revokeObjectURL(photoUrlRef.current);
     const url = URL.createObjectURL(file);
@@ -60,6 +77,16 @@ export default function ProfilePage() {
   const removeTraveller = (id) => setTravellers((c) => c.filter((i) => i.id !== id));
   const closeLogout = useCallback(() => setLogoutOpen(false), []);
   const confirmLogout = () => { setLogoutOpen(false); navigate('/'); logout(); };
+  // Log out one device. "This device" = a real sign-out here (its row comes back as logged in on the next sign-in).
+  const logoutDevice = (device) => {
+    if (device.current) { confirmLogout(); return; }
+    const at = signedOutNow();
+    saveDevices(devices.map((d) => (d.id === device.id ? { ...d, loggedIn: false, signedOutAt: at } : d)));
+  };
+  const logoutOtherDevices = () => {
+    const at = signedOutNow();
+    saveDevices(devices.map((d) => (d.current || !d.loggedIn ? d : { ...d, loggedIn: false, signedOutAt: at })));
+  };
 
   return (
     <div className="container acct-page">
@@ -87,12 +114,12 @@ export default function ProfilePage() {
 
       <div key={activeSection} className="prof-body">
         {activeSection === 'profile' ? (
-          <MyProfileSection profile={profile} onChange={updateProfile} onDocumentChange={updateDocument} onPhotoChange={handlePhotoChange} />
+          <MyProfileSection profile={profile} onChange={updateProfile} onPhotoChange={handlePhotoChange} />
         ) : null}
         {activeSection === 'travellers' ? (
           <CoTravellersSection travellers={travellers} onSave={saveTraveller} onRemove={removeTraveller} />
         ) : null}
-        {activeSection === 'devices' ? <LoggedInDevicesSection devices={devices} /> : null}
+        {activeSection === 'devices' ? <LoggedInDevicesSection devices={devices} onLogoutDevice={logoutDevice} onLogoutOthers={logoutOtherDevices} /> : null}
         {activeSection === 'password' ? <ResetPasswordSection registeredEmail={profile.email} /> : null}
       </div>
 
