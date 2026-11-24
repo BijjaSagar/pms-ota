@@ -1,0 +1,77 @@
+/* Partner Hub "Your properties": view switch (pv-switch) + booking summary (bs-*). In-progress cards are pv-* in partner.css. */
+.pv-switch { display: inline-flex; gap: 4px; max-width: 100%; padding: 5px; margin-bottom: 24px; border-radius: 999px; background: #fff; border: 1px solid var(--line); }
+.pv-switch button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--muted); font-size: 14px; font-weight: 700; cursor: pointer; transition: background .2s, color .2s;
+}
+.pv-switch button:hover { color: var(--ink); }
+.pv-switch button.is-on { background: var(--ink); color: var(--bg); }
+.pv-switch-count { min-width: 24px; padding: 2px 7px; border-radius: 999px; background: var(--sage); color: var(--accent-dark); font-size: 12px; font-weight: 800; text-align: center; }
+.pv-switch button.is-on .pv-switch-count { background: rgba(255, 255, 255, 0.16); color: #fff; }
+
+.bs-control {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px;
+  border: 1px solid var(--line-input); background: #fff; color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.bs-control:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-dark); }
+.bs-control:disabled { opacity: .55; cursor: default; }
+.pv-switch button:focus-visible, .bs-control:focus-visible, .bs-task summary:focus-visible { outline: 3px solid rgba(63, 107, 92, 0.45); outline-offset: 2px; }
+/* One card per property */
+.bs-row dl, .bs-row dd { margin: 0; }
+.bs-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.bs-row { display: grid; grid-template-columns: minmax(250px, 1.4fr) 180px minmax(300px, 1.5fr) minmax(220px, 1fr); align-items: center; gap: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 22px; background: #fff; }
+.bs-id { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.bs-photo { flex: 0 0 84px; height: 84px; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 18px; background: var(--sage); color: var(--accent-dark); }
+.bs-photo > img { width: 100%; height: 100%; object-fit: cover; }
+.bs-photo small { font-size: 10px; text-align: center; }
+.bs-id-text { display: grid; gap: 4px; min-width: 0; }
+.bs-name { margin: 0; font-size: 16px; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; }
+.bs-id-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.bs-score { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.bs-ring { --tone: var(--accent); flex: 0 0 52px; height: 52px; padding: 5px; border-radius: 50%; background: conic-gradient(var(--tone) calc(var(--score) * 1%), var(--line) 0); }
+.bs-ring.is-low { --tone: #C58A2E; }
+.bs-ring > span { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #fff; color: var(--ink); font-size: 14px; font-weight: 800; }
+.bs-score-label { display: block; font-size: 12px; color: var(--muted); }
+.bs-task { font-size: 13px; font-weight: 700; color: #8A5A12; }
+.bs-task.is-done { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-dark); }
+.bs-task summary { display: flex; align-items: center; gap: 5px; padding: 4px 0; cursor: pointer; list-style: none; }
+.bs-task summary::-webkit-details-marker { display: none; }
+.bs-task ul { margin: 2px 0 0; padding-left: 18px; font-weight: 500; color: var(--ink-2); }
+.bs-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; text-align: center; }
+.bs-metrics dt { font-size: 12px; color: var(--muted); }
+.bs-row .bs-metrics dd { margin-top: 2px; font-size: 18px; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; }
+.bs-period { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; border-radius: 16px; background: var(--bg); }
+.bs-note { grid-column: 1 / -1; margin: 0; }
+
+/* Laptops and tablets: identity + score, then the numbers */
+@media (max-width: 1240px) {
+  .bs-row { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .pv-switch { display: flex; margin-bottom: 18px; }
+  .pv-switch button { flex: 1 1 0; padding: 0 8px; gap: 6px; }
+  .bs-row { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .bs-metrics:not(.bs-period) { padding-top: 14px; border-top: 1px dashed var(--line); }
+}
+@media (max-width: 380px) {
+  .bs-photo { flex-basis: 68px; height: 68px; }
+  .bs-metrics:not(.bs-period) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+}
+
+/* Links, ratings, review request, sample tag, property page */
+.bs-name a { color: inherit; }
+.bs-name a:hover, .bs-metrics a:hover { color: var(--accent-dark); text-decoration: underline; }
+.bs-metrics dd > * { display: inline-block; min-width: 44px; padding: 8px 4px; }
+.bs-metrics a { color: var(--accent-dark); }
+.bs-ratings { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.bs-ratings > span { display: inline-flex; align-items: center; gap: 4px; }
+.bs-ratings svg { color: #C58A2E; fill: currentColor; }
+.bs-ratings small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.bs-review { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 14px; border-radius: 14px; background: var(--sage); color: var(--accent-dark); font-size: 14px; font-weight: 700; }
+.bs-review svg { flex: 0 0 auto; }
+.bs-review svg:last-child { margin-left: auto; }
+.bs-sample { padding: 3px 9px; border-radius: 999px; background: var(--sand); color: var(--sand-ink); font-size: 11px; font-weight: 800; white-space: nowrap; }
+.bs-page-meta { margin: 6px 0 18px; }
+.bs-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.bs-control.is-on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.bs-control.is-on:hover:not(:disabled) { border-color: var(--ink); color: var(--bg); }

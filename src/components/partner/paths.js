@@ -11,5 +11,8 @@ export const moduleSoonPath = (id) => `/list-property/module/${id}`;
 export const IN_PROGRESS_TAB = 'in-progress';
 export const propertiesTab = (tab) => `${PARTNER_PATHS.properties}${tab ? `?tab=${tab}` : ''}`;
 
+/** One property; view = overview | bookings | check-ins | staying | check-outs | earnings | reviews */
+export const propertyDetailsPath = (id, view = 'overview') => `${PARTNER_PATHS.properties}/${encodeURIComponent(id)}?view=${view}`;
+
 /** The wizard for one property (draft or changes needed). */
 export const propertyPath = (id) => `${PARTNER_PATHS.newProperty}?property=${encodeURIComponent(id)}`;

@@ -1,9 +1,10 @@
 // Partner Hub home: "Your properties" (/list-property/properties), from the API.
-// Status cards (Live / Under review / Drafts) filter the grid; a "From request to live" guide sits beside it.
-// ?tab=live | in-progress | drafts. Without it, the first group that has something is shown.
+// Active (property cards with booking numbers) | In progress (drafts, under review, changes needed) with a "From request to live" guide.
+// ?tab=active | in-progress. Without it, Active is shown unless only in-progress properties exist.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowRight, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, FilePenLine, Info, MapPin, Plus, Rocket, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Info, MapPin, Plus, Rocket, Search, Trash2 } from 'lucide-react';
+import { BookingSummary } from '../components/partner/BookingSummary.jsx';
 import { PartnerShell } from '../components/partner/PartnerShell.jsx';
 import { PrivateImage } from '../components/partner/PrivateImage.jsx';
 import { PropertyIcon } from '../components/partner/PropertyIcons.jsx';
@@ -11,27 +12,26 @@ import { AuthLoading } from '../components/auth/RequireAuth.jsx';
 import { IN_PROGRESS_TAB, PARTNER_PATHS, propertyPath } from '../components/partner/paths.js';
 import { deleteProperty, listProperties } from '../lib/api/properties.js';
 import { PROPERTY_INFO_SECTIONS } from '../lib/data/partner.js';
+import { withSamples } from '../lib/data/sampleProperties.js';
 import { STATUS_INFO } from '../lib/data/propertyStatus.js';
+import { nameOf } from '../lib/utils/propertySummary.js';
 import '../styles/partner.css';
+import '../styles/partner-properties.css';
 
-const LIVE = 'live';
-const REVIEW = IN_PROGRESS_TAB;
-const DRAFTS = 'drafts';
+const ACTIVE = 'active';
 
+// Statuses of each view, in display order.
 const GROUPS = {
-  [LIVE]: ['LIVE', 'SUSPENDED'],
-  [REVIEW]: ['UNDER_REVIEW'],
-  [DRAFTS]: ['DRAFT', 'CHANGES_REQUESTED', 'REJECTED'],
+  [ACTIVE]: ['LIVE', 'SUSPENDED'],
+  [IN_PROGRESS_TAB]: ['CHANGES_REQUESTED', 'DRAFT', 'UNDER_REVIEW', 'REJECTED'],
 };
-const CARDS = [
-  { key: LIVE, label: 'Live', hint: 'Approved by our team', Icon: CheckCircle2 },
-  { key: REVIEW, label: 'Under review', hint: 'Being checked by our team', Icon: Clock3 },
-  { key: DRAFTS, label: 'Drafts', hint: 'Finish and submit', Icon: FilePenLine },
+const VIEWS = [
+  { key: ACTIVE, label: 'Active' },
+  { key: IN_PROGRESS_TAB, label: 'In progress' },
 ];
 const EMPTY = {
-  [LIVE]: { Icon: CheckCircle2, title: 'Nothing live yet', text: 'Once a property is approved it appears here.' },
-  [REVIEW]: { Icon: ClipboardCheck, title: 'Nothing under review', text: 'Submit a property and it will wait here while our team checks it.' },
-  [DRAFTS]: { Icon: FilePenLine, title: 'No drafts', text: 'Properties you have started but not submitted appear here.' },
+  [ACTIVE]: { Icon: CheckCircle2, title: 'No active properties yet', text: 'Once a property is approved, it appears here with its bookings and earnings.' },
+  [IN_PROGRESS_TAB]: { Icon: ClipboardCheck, title: 'Nothing in progress', text: 'Drafts and properties waiting for our review appear here.' },
 };
 const STEPS = [
   { Icon: Plus, title: 'Add your property', text: 'Pick the type and fill in the details.' },
@@ -71,7 +71,7 @@ function PropertyCard({ property: p, deleting, onDelete }) {
           {status.tone === 'good' ? <CheckCircle2 size={13} aria-hidden="true" /> : <Clock3 size={13} aria-hidden="true" />}{status.label}
         </span>
       </div>
-      <strong className="pv-card-name">{p.propertyName ?? `New ${p.typeLabel.toLowerCase()}`}</strong>
+      <strong className="pv-card-name">{nameOf(p)}</strong>
       <span className="pv-card-meta">
         {p.typeLabel}
         {p.city && <><span aria-hidden="true">·</span><MapPin size={13} aria-hidden="true" />{p.city}</>}
@@ -112,7 +112,7 @@ function Properties() {
     setError('');
     try {
       const found = await listProperties();
-      if (request === latest.current) setItems(found);
+      if (request === latest.current) setItems(withSamples(found));
     } catch (problem) {
       if (request === latest.current) setError(problem.message);
     }
@@ -124,8 +124,10 @@ function Properties() {
 
   const inGroup = (key) => (items ?? []).filter((p) => GROUPS[key].includes(p.status));
   const asked = params.get('tab');
-  const view = Object.hasOwn(GROUPS, asked ?? '') ? asked : [LIVE, REVIEW, DRAFTS].find((key) => inGroup(key).length) ?? LIVE;
-  const shown = inGroup(view);
+  const fallback = !inGroup(ACTIVE).length && inGroup(IN_PROGRESS_TAB).length ? IN_PROGRESS_TAB : ACTIVE;
+  const view = Object.hasOwn(GROUPS, asked ?? '') ? asked : fallback;
+  const shown = inGroup(view).sort((a, b) => GROUPS[view].indexOf(a.status) - GROUPS[view].indexOf(b.status));
+  const showSummary = view === ACTIVE && shown.length > 0;
 
   const onDelete = async (property) => {
     const name = property.propertyName ?? `this ${property.typeLabel.toLowerCase()} draft`;
@@ -147,21 +149,16 @@ function Properties() {
       <header className="pv-head">
         <div>
           <h1 className="pp-title">Your properties</h1>
-          <p className="muted-sm pv-sub">Add new places and follow each one from draft to live.</p>
+          <p className="muted-sm pv-sub">Track bookings, finish pending listings and add new places.</p>
         </div>
         <AddButton className="pv-head-cta" />
       </header>
 
-      <div className="pv-stats pv-stats-3" role="tablist" aria-label="Filter properties">
-        {CARDS.map(({ key, label, hint, Icon }) => (
-          <button key={key} type="button" role="tab" id={`pv-tab-${key}`} aria-selected={view === key} aria-controls="pv-panel"
-            className={`pv-stat pv-stat-${key} ${view === key ? 'is-on' : ''}`} onClick={() => setParams({ tab: key }, { replace: true })}>
-            <span className="pv-stat-top">
-              <span className="pv-stat-icon"><Icon size={18} aria-hidden="true" /></span>
-              <span className="pv-stat-count">{items ? inGroup(key).length : '–'}</span>
-            </span>
-            <span className="pv-stat-label">{label}</span>
-            <span className="pv-stat-hint">{hint}</span>
+      <div className="pv-switch" role="group" aria-label="Show properties">
+        {VIEWS.map(({ key, label }) => (
+          <button key={key} type="button" aria-pressed={view === key} className={view === key ? 'is-on' : ''}
+            onClick={() => setParams({ tab: key }, { replace: true })}>
+            {label}<span className="pv-switch-count">{items ? inGroup(key).length : '–'}</span>
           </button>
         ))}
       </div>
@@ -173,32 +170,36 @@ function Properties() {
         </div>
       )}
 
-      <div className="pv-layout">
-        <section id="pv-panel" role="tabpanel" aria-labelledby={`pv-tab-${view}`} className="pv-panel">
-          {!items && !error && <AuthLoading label="Loading your properties…" />}
-          {items && shown.length === 0 && <Empty {...EMPTY[view]}><AddButton className="pv-add-block" /></Empty>}
-          {shown.length > 0 && (
-            <ul className="pv-grid">
-              {shown.map((p) => <PropertyCard key={p.id} property={p} deleting={deleting === p.id} onDelete={onDelete} />)}
-            </ul>
-          )}
-        </section>
+      {showSummary ? (
+        <BookingSummary properties={shown} />
+      ) : (
+        <div className="pv-layout">
+          <section className="pv-panel" aria-label={view === ACTIVE ? 'Active properties' : 'Properties in progress'}>
+            {!items && !error && <AuthLoading label="Loading your properties…" />}
+            {items && shown.length === 0 && <Empty {...EMPTY[view]}><AddButton className="pv-add-block" /></Empty>}
+            {shown.length > 0 && (
+              <ul className="pv-grid">
+                {shown.map((p) => <PropertyCard key={p.id} property={p} deleting={deleting === p.id} onDelete={onDelete} />)}
+              </ul>
+            )}
+          </section>
 
-        <aside className="pv-guide" aria-labelledby="pv-guide-title">
-          <h2 id="pv-guide-title" className="pv-guide-title">From request to live</h2>
-          <ol className="pv-steps">
-            {STEPS.map(({ Icon, title, text }, i) => (
-              <li key={title}>
-                <span className="pv-step-icon"><Icon size={16} aria-hidden="true" /></span>
-                <div>
-                  <strong><span className="sr-only">Step {i + 1}: </span>{title}</strong>
-                  <p>{text}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </aside>
-      </div>
+          <aside className="pv-guide" aria-labelledby="pv-guide-title">
+            <h2 id="pv-guide-title" className="pv-guide-title">From request to live</h2>
+            <ol className="pv-steps">
+              {STEPS.map(({ Icon, title, text }, i) => (
+                <li key={title}>
+                  <span className="pv-step-icon"><Icon size={16} aria-hidden="true" /></span>
+                  <div>
+                    <strong><span className="sr-only">Step {i + 1}: </span>{title}</strong>
+                    <p>{text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </aside>
+        </div>
+      )}
     </>
   );
 }
