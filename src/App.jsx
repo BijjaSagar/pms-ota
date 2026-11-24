@@ -15,6 +15,7 @@ import ProfilePage from './pages/ProfilePage.jsx';
 import MakeAPaymentPage from './pages/MakeAPaymentPage.jsx';
 import ListPropertyPage from './pages/ListPropertyPage.jsx';
 import PartnerPropertiesPage from './pages/PartnerPropertiesPage.jsx';
+import PartnerPropertyPage from './pages/PartnerPropertyPage.jsx';
 import PartnerNewPropertyPage from './pages/PartnerNewPropertyPage.jsx';
 import PartnerModuleSoonPage from './pages/PartnerModuleSoonPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
@@ -102,6 +103,7 @@ export default function App() {
         <Route path="list-property" element={<ListPropertyPage />} />
         {/* Partner Hub signed-in pages (PartnerShell checks sign-in and sends visitors back to /list-property) */}
         <Route path="list-property/properties" element={<PartnerPropertiesPage />} />
+        <Route path="list-property/properties/:propertyId" element={<PartnerPropertyPage />} />
         <Route path="list-property/new" element={<PartnerNewPropertyPage />} />
         {/* Modules not built yet (Bookings, Payments, …) show "Coming soon" */}
         <Route path="list-property/module/:moduleId" element={<PartnerModuleSoonPage />} />
