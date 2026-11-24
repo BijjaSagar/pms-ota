@@ -1,31 +1,49 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
-import { ArrowRight, Building2, CheckCircle2, ChevronDown, ClipboardList, Image as ImageIcon, Info, LocateFixed, Lock, MapPin, Sparkles, Star, Trash2, Video, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, BedDouble, Building2, CheckCircle2, ChevronDown, ClipboardList, Image as ImageIcon, Info, LocateFixed, Lock, MapPin, Pencil, Plus, Sparkles, Star, Trash2, Video, X } from 'lucide-react';
 import { TextField } from '../Layout.jsx';
 import { PortalModal } from '../profile/PortalModal.jsx';
 import { OtpInput, emptyOtp } from '../auth/OtpInput.jsx';
-import { PARTNER_PATHS } from './paths.js';
+import { IN_PROGRESS_TAB, PARTNER_PATHS, propertiesTab } from './paths.js';
+import { PrivateImage } from './PrivateImage.jsx';
+import { PropertyLegalForm } from './PropertyLegalForm.jsx';
 import { useAuth } from '../../lib/context/useAuth.js';
 import {
-  AMENITY_CATEGORIES, BED_TYPE_OPTIONS, CANCELLATION_OPTIONS, EMPTY_BASIC_INFO, EMPTY_LOCATION_INFO,
-  EMPTY_ROOMS_INFO, EXTRA_BED_TYPE_OPTIONS, IDENTITY_PROOF_OPTIONS, MEAL_OPTIONS, PHOTO_TAG_OPTIONS,
-  POLICY_CATEGORIES, POLICY_CONDITIONAL_FIELDS, POLICY_TIME_OPTIONS, POLICY_YES_NO_OPTIONS, PROPERTY_INFO_SECTIONS,
-  PROPERTY_RATINGS, ROOM_AMENITY_ITEMS, ROOM_CATEGORIES, ROOM_SIZE_UNITS, ROOM_TYPE_OPTIONS,
-  ROOM_VIEW_OPTIONS, createEmptyAmenitiesInfo, createEmptyPhotosInfo, createEmptyPoliciesInfo,
-  getPropertyDraft, normalizePhotosDraft, normalizePoliciesDraft, sanitizePhotosForDraft, savePropertyDraft,
-  validateAmenitiesInfo, validateBasicInfo, validateLocationInfo, validatePhotosInfo, validatePoliciesInfo,
-  validateRoomsInfo, MOBILE_LENGTH, PROPERTY_NAME_MAX, mobileError, sanitizeMobile,
+  AMENITY_CATEGORIES, BED_TYPE_OPTIONS, CANCELLATION_OPTIONS, EMPTY_ROOMS_INFO, EXTRA_BED_TYPE_OPTIONS,
+  IDENTITY_PROOF_OPTIONS, MEAL_OPTIONS, PHOTO_TAG_OPTIONS, POLICY_CATEGORIES, POLICY_CONDITIONAL_FIELDS,
+  POLICY_TIME_OPTIONS, POLICY_YES_NO_OPTIONS, PROPERTY_INFO_SECTIONS, PROPERTY_RATINGS, ROOM_AMENITY_ITEMS,
+  ROOM_CATEGORIES, ROOM_SIZE_UNITS, ROOM_TYPE_OPTIONS, ROOM_VIEW_OPTIONS, validateAmenitiesInfo, validateBasicInfo,
+  validateLocationInfo, validatePhotosInfo, validatePoliciesInfo, validateRoomsInfo, MOBILE_LENGTH, PROPERTY_NAME_MAX,
+  mobileError, sanitizeMobile,
 } from '../../lib/data/partner.js';
+import {
+  IMAGE_ACCEPT, IMAGE_MAX_BYTES, IMAGE_TYPES, VIDEO_ACCEPT, VIDEO_MAX_BYTES, amenitiesFromApi, basicFromApi, deleteMedia,
+  deleteRoom, formErrors, locationFromApi, photosFromApi, policiesFromApi, requestContactOtp, roomFromApi, sameEmail,
+  sameMobile, saveAmenities, saveBasic, saveLocation, savePolicies, saveRoom, setCover, setImageTag as saveImageTag,
+  uploadImage, uploadVideo, usePrivateUrl, verifyContactOtp,
+} from '../../lib/api/properties.js';
 import { isValidEmail } from '../../lib/utils/validation.js';
-import { OTP_LENGTH, todayOtp, verifyOtp } from '../../lib/utils/otp.js';
+import { OTP_LENGTH, todayOtp } from '../../lib/utils/otp.js';
 import { LocationMap } from './LocationMap.jsx';
 import { ERROR_FIELD, revealFirstError as revealError } from '../../lib/utils/revealError.js';
 import { addressToLocationFields, buildAddressQuery, forwardGeocodeAddressInfo, getCurrentCoordinates, GPS_GOOD_ACCURACY_METERS, isAddressMapReady, reverseGeocode } from '../../lib/utils/location.js';
 import '../../styles/auth.css';
 import '../../styles/partner.css';
 
-const RESEND_SECONDS = 30;
+const RESEND_SECONDS = 60;
+// Names used in messages from the API ("Email must be verified first.").
+const FIELD_LABELS = {
+  propertyName: 'Property name', rating: 'Rating', builtYear: 'Built year', bookingSince: 'Booking year',
+  channelManager: 'Channel manager', providerName: 'Provider name', email: 'Email', mobile: 'Mobile number', landline: 'Landline',
+  apartmentName: 'Building name', area: 'Area', pincode: 'Pincode', country: 'Country', state: 'State', city: 'City',
+  addressConfirmed: 'Address', roomType: 'Room type', roomView: 'Room view', roomSize: 'Room size', roomSizeUnit: 'Size unit',
+  roomName: 'Room name', roomCount: 'Number of rooms', bedType: 'Bed type', maxGuests: 'Max guests',
+  bathroomCount: 'Number of bathrooms', mealOption: 'Meal option', pricePerGuest: 'Price', checkInTime: 'Check-in time',
+  checkOutTime: 'Check-out time', cancellationPolicy: 'Cancellation policy', identityProofs: 'Identity proof',
+  infantFoodItems: 'Food items', adultExtraBedType: 'Extra bed type', breakfastPrice: 'Breakfast price',
+  lunchPrice: 'Lunch price', dinnerPrice: 'Dinner price', coverImage: 'Cover image',
+};
 
 // The "place" a pin belongs to. Building name and locality are left out on purpose (see pinFixedForRef).
 const placeKey = (info) => ['pincode', 'city', 'state', 'country']
@@ -199,10 +217,11 @@ function getInitialRoomCategoryState(info) {
   };
 }
 
-function OtpModal({ field, value, onClose, onVerified }) {
+function OtpModal({ field, value, resendAfter, initialError, onClose, onResend, onVerify }) {
   const [code, setCode] = useState(emptyOtp);
-  const [error, setError] = useState('');
-  const [resendIn, setResendIn] = useState(RESEND_SECONDS);
+  const [error, setError] = useState(initialError);
+  const [busy, setBusy] = useState(false);
+  const [resendIn, setResendIn] = useState(resendAfter);
   const [otpKey, setOtpKey] = useState(0);
   const label = field === 'email' ? 'email address' : 'mobile number';
 
@@ -212,19 +231,35 @@ function OtpModal({ field, value, onClose, onVerified }) {
     return () => clearTimeout(timer);
   }, [resendIn]);
 
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault();
+    if (busy) return;
     const entered = code.join('');
     if (entered.length !== OTP_LENGTH) { setError(`Enter the ${OTP_LENGTH}-digit code.`); return; }
-    if (!verifyOtp(entered)) { setError('That code is not correct. Please try again.'); return; }
-    onVerified();
+    setBusy(true);
+    try {
+      await onVerify(entered); // closes this popup
+    } catch (problem) {
+      setError(problem.message);
+      setBusy(false);
+    }
   };
 
-  const resend = () => {
-    setCode(emptyOtp());
+  const resend = async () => {
+    if (busy) return;
+    setBusy(true);
     setError('');
-    setResendIn(RESEND_SECONDS);
-    setOtpKey((key) => key + 1);
+    try {
+      const sent = await onResend();
+      setCode(emptyOtp());
+      setResendIn(sent.resendAfterSeconds ?? RESEND_SECONDS);
+      setOtpKey((key) => key + 1);
+    } catch (problem) {
+      setError(problem.message);
+      if (problem.retryAfterSeconds) setResendIn(problem.retryAfterSeconds);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -232,18 +267,18 @@ function OtpModal({ field, value, onClose, onVerified }) {
       <span className="auth pi-otp-auth-marker" aria-hidden="true" />
       <div className="pi-otp">
         <p className="pi-otp-text">Enter the {OTP_LENGTH}-digit code sent to <strong>{value}</strong>.</p>
-        <p className="pi-otp-demo">Demo code: <strong>{todayOtp()}</strong></p>
+        {import.meta.env.DEV && <p className="pi-otp-demo">Development code: <strong>{todayOtp()}</strong></p>}
         <form onSubmit={submit} noValidate>
           <OtpInput key={otpKey} value={code} onChange={(next) => { setCode(next); setError(''); }} invalid={Boolean(error)} />
           {error && <p className="field-error pi-otp-error" role="alert">{error}</p>}
           <div className="pi-otp-actions">
             <button type="button" className="btn btn-light" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary">Verify</button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Please wait…' : 'Verify'}</button>
           </div>
           <div className="pi-otp-resend">
             {resendIn > 0
               ? <span className="muted-xs">Resend code in {resendIn}s</span>
-              : <button type="button" className="pi-otp-link" onClick={resend}>Resend code</button>}
+              : <button type="button" className="pi-otp-link" onClick={resend} disabled={busy}>Resend code</button>}
           </div>
         </form>
       </div>
@@ -327,13 +362,14 @@ function PolicyRadioList({ name, options, value, onChange, error }) {
   );
 }
 
-function ProgressRail({ basicComplete, locationComplete, amenitiesComplete, roomsComplete, photosComplete, policiesComplete, activeSection, onSelect }) {
+function ProgressRail({ basicComplete, locationComplete, amenitiesComplete, roomsComplete, photosComplete, policiesComplete, legalComplete, activeSection, onSelect }) {
   const completed = Number(basicComplete)
     + Number(basicComplete && locationComplete)
     + Number(basicComplete && locationComplete && amenitiesComplete)
     + Number(basicComplete && locationComplete && amenitiesComplete && roomsComplete)
     + Number(basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete)
-    + Number(basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete && policiesComplete);
+    + Number(basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete && policiesComplete)
+    + Number(basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete && policiesComplete && legalComplete);
   const total = PROPERTY_INFO_SECTIONS.length;
   const stepsRef = useRef(null);
 
@@ -372,7 +408,8 @@ function ProgressRail({ basicComplete, locationComplete, amenitiesComplete, room
             || (isAmenities && basicComplete && locationComplete && amenitiesComplete)
             || (isRooms && basicComplete && locationComplete && amenitiesComplete && roomsComplete)
             || (isPhotos && basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete)
-            || (isPolicies && basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete && policiesComplete);
+            || (isPolicies && basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete && policiesComplete)
+            || (isLegal && basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete && policiesComplete && legalComplete);
           const locked = !isBasic
             && !(isLocation && basicComplete)
             && !(isAmenities && basicComplete && locationComplete)
@@ -419,8 +456,26 @@ function SectionCard({ icon: Icon, title, subtitle, children }) {
   );
 }
 
-export function PropertyInfoPage({ type }) {
+function VideoPreview({ path, type }) {
+  const [wanted, setWanted] = useState(false);
+  const { url, failed } = usePrivateUrl(wanted ? path : '');
+  if (url) return <video className="pi-video-preview" src={url} controls preload="metadata" />;
+  return (
+    <button type="button" className="btn btn-light" onClick={() => setWanted(true)} disabled={wanted && !failed} data-type={type}>
+      {failed ? 'Could not load' : wanted ? 'Loading…' : 'Preview'}
+    </button>
+  );
+}
+
+export function PropertyInfoPage({ property, onPropertyChange }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const propertyId = property.id;
+  const saved = (section) => property.completedSections.includes(section);
+  const mountedRef = useRef(true);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   const formRef = useRef(null);
   const autoGeocodeRequestRef = useRef(0);
   const currentLocationRequestRef = useRef(0);
@@ -428,56 +483,37 @@ export function PropertyInfoPage({ type }) {
   const coverInputRef = useRef(null);
   const galleryInputRef = useRef(null);
   const videoInputRef = useRef(null);
-  const objectUrlsRef = useRef([]);
-  const [info, setInfo] = useState(() => {
-    const saved = getPropertyDraft(user?.id, type).basic;
-    const normalized = { ...EMPTY_BASIC_INFO, email: user?.email ?? '', mobile: user?.phone ?? '', ...saved };
-    // Older drafts / profiles may hold "+91 98765 43210": keep the 10-digit number only.
-    normalized.mobile = sanitizeMobile(normalized.mobile, { keepLast: true });
-    if (/^\d{4}-\d{2}-\d{2}$/.test(normalized.bookingSince)) {
-      normalized.bookingSince = normalized.bookingSince.slice(0, 4);
-    }
-    return normalized;
-  });
+  const [info, setInfo] = useState(() => basicFromApi(property.basic, user));
   const [errors, setErrors] = useState({});
   const [notice, setNotice] = useState(null);
-  const [basicComplete, setBasicComplete] = useState(() => Object.keys(validateBasicInfo(info)).length === 0);
-  const [activeSection, setActiveSection] = useState('basic');
-  const [otpField, setOtpField] = useState(null);
+  const [basicComplete, setBasicComplete] = useState(saved('basic'));
+  // Continue at the first unfinished step.
+  const [activeSection, setActiveSection] = useState(() => PROPERTY_INFO_SECTIONS.find(({ id }) => !saved(id))?.id ?? 'legal');
+  const [otp, setOtp] = useState(null); // { field, value, resendAfter, error }
+  const otpBusyRef = useRef(false);
   // Pin placed by hand (drag / tap / GPS / saved draft): remember which place (pincode, city, state, country) it
   // belongs to. While those stay the same, edits to the other fields (building name, locality) never move the pin
   // back to the address's rough geocode point. Changing the place itself re-places the pin.
   const pinFixedForRef = useRef(null);
   const [locationInfo, setLocationInfo] = useState(() => {
-    const saved = { ...EMPTY_LOCATION_INFO, ...(getPropertyDraft(user?.id, type).location ?? {}) };
-    if (saved.latitude && saved.longitude) pinFixedForRef.current = placeKey(saved); // saved pin is trusted
-    return saved;
+    const initial = locationFromApi(property.location);
+    if (initial.latitude && initial.longitude) pinFixedForRef.current = placeKey(initial); // saved pin is trusted
+    return initial;
   });
   const [pinAddress, setPinAddress] = useState(''); // full address of the pin, shown under the map
   const [locationErrors, setLocationErrors] = useState({});
-  const [locationComplete, setLocationComplete] = useState(() => Object.keys(validateLocationInfo(locationInfo)).length === 0);
+  const [locationComplete, setLocationComplete] = useState(saved('location'));
   const [mapError, setMapError] = useState('');
   const [locating, setLocating] = useState(false);
   const [geocodingAddress, setGeocodingAddress] = useState(false);
   const [pinLookup, setPinLookup] = useState(false); // pin moved -> looking up its address
   const pinLookupRequestRef = useRef(0);
-  const [amenitiesInfo, setAmenitiesInfo] = useState(() => {
-    const empty = createEmptyAmenitiesInfo();
-    const saved = getPropertyDraft(user?.id, type)?.amenities ?? {};
-    return Object.fromEntries(AMENITY_CATEGORIES.map(({ id, items }) => {
-      const answers = { ...empty[id], ...(saved[id] ?? {}) };
-      const validIds = new Set(items.map((item) => item.id));
-      const clean = Object.fromEntries(
-        Object.entries(answers).filter(([itemId, value]) => validIds.has(itemId) && (value === 'yes' || value === 'no')),
-      );
-      return [id, clean];
-    }));
-  });
+  const [amenitiesInfo, setAmenitiesInfo] = useState(() => amenitiesFromApi(property.amenities));
   const initialAmenityCategory = getInitialAmenityCategoryState(amenitiesInfo);
   const [activeCategoryId, setActiveCategoryId] = useState(initialAmenityCategory.activeCategoryId);
   const [amenityUnlockedIndex, setAmenityUnlockedIndex] = useState(initialAmenityCategory.unlockedIndex);
   const [amenitiesErrors, setAmenitiesErrors] = useState({});
-  const [amenitiesComplete, setAmenitiesComplete] = useState(() => Object.keys(validateAmenitiesInfo(amenitiesInfo)).length === 0);
+  const [amenitiesComplete, setAmenitiesComplete] = useState(saved('amenities'));
 
   const activeCategoryIndex = AMENITY_CATEGORIES.findIndex((category) => category.id === activeCategoryId);
   const activeCategory = AMENITY_CATEGORIES[activeCategoryIndex] ?? AMENITY_CATEGORIES[0];
@@ -485,20 +521,26 @@ export function PropertyInfoPage({ type }) {
   const countAmenityAnswers = (category) => category.items.filter(
     (item) => amenitiesInfo[category.id]?.[item.id] === 'yes' || amenitiesInfo[category.id]?.[item.id] === 'no',
   ).length;
-  const [roomsInfo, setRoomsInfo] = useState(() => {
-    const saved = getPropertyDraft(user?.id, type)?.rooms ?? {};
-    const savedAmenities = saved.amenities ?? {};
-    const validIds = new Set(ROOM_AMENITY_ITEMS.map((item) => item.id));
-    const amenities = Object.fromEntries(
-      Object.entries(savedAmenities).filter(([itemId, value]) => validIds.has(itemId) && (value === 'yes' || value === 'no')),
-    );
-    return { ...EMPTY_ROOMS_INFO, ...saved, amenities };
-  });
-  const initialRoomCategory = getInitialRoomCategoryState(roomsInfo);
-  const [activeRoomCategoryId, setActiveRoomCategoryId] = useState(initialRoomCategory.activeCategoryId);
-  const [roomUnlockedIndex, setRoomUnlockedIndex] = useState(initialRoomCategory.unlockedIndex);
+  // Rooms: a list of saved room types; `editingRoom` is null (the list), 'new', or the id being changed.
+  const rooms = property.rooms;
+  const [editingRoom, setEditingRoom] = useState(() => (rooms.length ? null : 'new'));
+  const [roomsInfo, setRoomsInfo] = useState(() => ({ ...EMPTY_ROOMS_INFO }));
+  const [activeRoomCategoryId, setActiveRoomCategoryId] = useState(ROOM_CATEGORIES[0].id);
+  const [roomUnlockedIndex, setRoomUnlockedIndex] = useState(0);
   const [roomErrors, setRoomErrors] = useState({});
-  const [roomsComplete, setRoomsComplete] = useState(() => Object.keys(validateRoomsInfo(roomsInfo)).length === 0);
+  const roomsComplete = rooms.length > 0;
+
+  const openRoom = (room) => {
+    const next = room ? roomFromApi(room) : { ...EMPTY_ROOMS_INFO, amenities: {} };
+    const start = room ? { activeCategoryId: ROOM_CATEGORIES[0].id, unlockedIndex: ROOM_LAST_INPUT_INDEX } : getInitialRoomCategoryState(next);
+    setRoomsInfo(next);
+    setActiveRoomCategoryId(start.activeCategoryId);
+    setRoomUnlockedIndex(start.unlockedIndex);
+    setRoomErrors({});
+    setEditingRoom(room ? room.id : 'new');
+    setNotice(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const activeRoomCategoryIndex = ROOM_CATEGORIES.findIndex((category) => category.id === activeRoomCategoryId);
   const activeRoomCategory = ROOM_CATEGORIES[activeRoomCategoryIndex] ?? ROOM_CATEGORIES[0];
@@ -509,19 +551,17 @@ export function PropertyInfoPage({ type }) {
     }
     return String(roomsInfo[field] ?? '').trim().length > 0;
   }).length;
-  const [photosInfo, setPhotosInfo] = useState(() => normalizePhotosDraft(
-    getPropertyDraft(user?.id, type)?.photos ?? createEmptyPhotosInfo(),
-  ));
+  const photosInfo = useMemo(() => photosFromApi(property.photos), [property.photos]);
   const [photoErrors, setPhotoErrors] = useState({});
-  const [photosComplete, setPhotosComplete] = useState(() => Object.keys(validatePhotosInfo(photosInfo)).length === 0);
+  const photosComplete = saved('photos'); // photos are saved as they are added
+  const legalComplete = saved('legal');
   const [coverBusy, setCoverBusy] = useState(false);
   const [galleryBusy, setGalleryBusy] = useState(false);
-  const [policiesInfo, setPoliciesInfo] = useState(() => normalizePoliciesDraft(
-    getPropertyDraft(user?.id, type)?.policies ?? createEmptyPoliciesInfo(),
-  ));
+  const [videoBusy, setVideoBusy] = useState(false);
+  const [policiesInfo, setPoliciesInfo] = useState(() => policiesFromApi(property.policies));
   const [activePolicyCategoryId, setActivePolicyCategoryId] = useState(POLICY_CATEGORIES[0].id);
   const [policyErrors, setPolicyErrors] = useState({});
-  const [policiesComplete, setPoliciesComplete] = useState(() => Object.keys(validatePoliciesInfo(policiesInfo)).length === 0);
+  const [policiesComplete, setPoliciesComplete] = useState(saved('policies'));
 
   const activePolicyCategoryIndex = POLICY_CATEGORIES.findIndex((category) => category.id === activePolicyCategoryId);
   const activePolicyCategory = POLICY_CATEGORIES[activePolicyCategoryIndex] ?? POLICY_CATEGORIES[0];
@@ -607,16 +647,16 @@ export function PropertyInfoPage({ type }) {
   }, [activeSection, addressQuery, addressReady]);
 
   useEffect(() => () => {
-    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     currentLocationRequestRef.current += 1;
   }, []);
 
   const setValue = (key, value) => {
-    const verifiedKey = key === 'email' ? 'emailVerified' : key === 'mobile' ? 'mobileVerified' : null;
     setInfo((current) => ({
       ...current,
       [key]: value,
-      ...(verifiedKey ? { [verifiedKey]: false } : {}),
+      // Verified while it is the address / number last proven with a code.
+      ...(key === 'email' ? { emailVerified: sameEmail(value, property.basic.verifiedEmail) } : {}),
+      ...(key === 'mobile' ? { mobileVerified: sameMobile(value, property.basic.verifiedMobile) } : {}),
     }));
     setErrors((current) => {
       if (!current[key]) return current;
@@ -657,17 +697,17 @@ export function PropertyInfoPage({ type }) {
   const toggleLocationConsent = (event) => setLocationValue('addressConfirmed', event.target.checked);
 
   const setAmenityValue = (categoryId, itemId, value) => {
+    // Some amenities (e.g. WiFi) are listed in several categories: one answer counts for all of them.
+    const shared = AMENITY_CATEGORIES.filter(({ items }) => items.some((item) => item.id === itemId)).map(({ id }) => id);
     setAmenitiesInfo((current) => ({
       ...current,
-      [categoryId]: { ...(current[categoryId] ?? {}), [itemId]: value },
+      ...Object.fromEntries(shared.map((id) => [id, { ...(current[id] ?? {}), [itemId]: value }])),
     }));
-    setAmenitiesErrors((current) => {
-      const missing = current[categoryId];
-      if (!missing?.includes(itemId)) return current;
-      const remaining = missing.filter((id) => id !== itemId);
-      const { [categoryId]: _removed, ...rest } = current;
-      return remaining.length ? { ...rest, [categoryId]: remaining } : rest;
-    });
+    setAmenitiesErrors((current) => Object.fromEntries(
+      Object.entries(current)
+        .map(([id, missing]) => [id, shared.includes(id) ? missing.filter((missingId) => missingId !== itemId) : missing])
+        .filter(([, missing]) => missing.length),
+    ));
     setAmenitiesComplete(false);
     setNotice(null);
   };
@@ -754,7 +794,6 @@ export function PropertyInfoPage({ type }) {
       const { [key]: _removed, ...rest } = current;
       return rest;
     });
-    setRoomsComplete(false);
     setNotice(null);
   };
   const setRoom = (key) => (event) => setRoomValue(key, event.target.value);
@@ -816,7 +855,6 @@ export function PropertyInfoPage({ type }) {
       const { amenities: _removed, ...rest } = current;
       return remaining.length ? { ...rest, amenities: remaining } : rest;
     });
-    setRoomsComplete(false);
     setNotice(null);
   };
 
@@ -1032,6 +1070,33 @@ export function PropertyInfoPage({ type }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // One save at a time. Field problems found by the server are shown under their inputs.
+  const save = async (request, showErrors, onSaved) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setNotice(null);
+    try {
+      const next = await request();
+      if (!mountedRef.current) return;
+      onPropertyChange(next);
+      onSaved(next);
+    } catch (error) {
+      if (!mountedRef.current) return;
+      const found = formErrors(error, FIELD_LABELS);
+      setNotice({ kind: 'error', text: error.message });
+      if (showErrors && Object.keys(found).length) {
+        showErrors(found);
+        revealFirstError();
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } finally {
+      savingRef.current = false;
+      if (mountedRef.current) setSaving(false);
+    }
+  };
+
   const onSubmit = (event) => {
     event.preventDefault();
     const nextErrors = validateBasicInfo(info);
@@ -1040,14 +1105,11 @@ export function PropertyInfoPage({ type }) {
       revealFirstError();
       return;
     }
-    try {
-      savePropertyDraft(user?.id, type, { ...getPropertyDraft(user?.id, type), basic: info });
+    save(() => saveBasic(propertyId, info), setErrors, (next) => {
+      setInfo(basicFromApi(next.basic, user));
       setBasicComplete(true);
-      setNotice(null);
       goToSection('location');
-    } catch {
-      setNotice({ kind: 'error', text: 'Could not save this draft in your browser. Check your storage settings and try again.' });
-    }
+    });
   };
 
   const onLocationSubmit = (event) => {
@@ -1058,14 +1120,10 @@ export function PropertyInfoPage({ type }) {
       revealFirstError();
       return;
     }
-    try {
-      savePropertyDraft(user?.id, type, { ...getPropertyDraft(user?.id, type), location: locationInfo });
+    save(() => saveLocation(propertyId, locationInfo), setLocationErrors, () => {
       setLocationComplete(true);
-      setNotice(null);
       goToSection('amenities');
-    } catch {
-      setNotice({ kind: 'error', text: 'Could not save this draft in your browser. Check your storage settings and try again.' });
-    }
+    });
   };
 
   const onAmenitiesSubmit = (event) => {
@@ -1078,14 +1136,10 @@ export function PropertyInfoPage({ type }) {
       revealFirstError('.pi-amenity-row.has-error input', `[data-amenity-tab="${firstCategory.id}"]`);
       return;
     }
-    try {
-      savePropertyDraft(user?.id, type, { ...getPropertyDraft(user?.id, type), amenities: amenitiesInfo });
+    save(() => saveAmenities(propertyId, amenitiesInfo), null, () => {
       setAmenitiesComplete(true);
-      setNotice({ kind: 'success', text: 'Amenities saved to your draft.' });
       goToSection('rooms');
-    } catch {
-      setNotice({ kind: 'error', text: 'Could not save this draft in your browser. Check your storage settings and try again.' });
-    }
+    });
   };
 
   const onRoomsSubmit = (event) => {
@@ -1104,207 +1158,135 @@ export function PropertyInfoPage({ type }) {
       revealFirstError(`.pi-room-amenity-row.has-error input, ${DEFAULT_ERROR_TARGET}`, category ? `[data-room-tab="${category.id}"]` : null);
       return;
     }
-    try {
-      savePropertyDraft(user?.id, type, { ...getPropertyDraft(user?.id, type), rooms: roomsInfo });
-      setRoomsComplete(true);
-      setNotice({ kind: 'success', text: 'Rooms saved to your draft.' });
-      goToSection('photos');
-    } catch {
-      setNotice({ kind: 'error', text: 'Could not save this draft in your browser. Check your storage settings and try again.' });
-    }
+    const roomId = editingRoom === 'new' ? null : editingRoom;
+    save(() => saveRoom(propertyId, roomId, roomsInfo), (found) => {
+      setRoomErrors(found);
+      const category = ROOM_CATEGORIES.find(({ fields }) => fields.some((field) => found[field]));
+      if (category) setActiveRoomCategoryId(category.id);
+    }, () => {
+      setEditingRoom(null);
+      setNotice({ kind: 'success', text: `${roomsInfo.roomName.trim()} saved. Add another room type or continue.` });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
   };
 
-  const makeUploadId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const trackObjectUrl = (file) => {
-    const url = URL.createObjectURL(file);
-    objectUrlsRef.current.push(url);
-    return url;
+  const onRemoveRoom = (room) => {
+    if (!window.confirm(`Remove ${room.roomName}?`)) return;
+    save(() => deleteRoom(propertyId, room.id), null, (next) => {
+      if (!next.rooms.length) openRoom(null);
+    });
   };
-  const revokeObjectUrl = (url) => {
-    if (typeof url !== 'string' || !url.startsWith('blob:')) return;
-    URL.revokeObjectURL(url);
-    objectUrlsRef.current = objectUrlsRef.current.filter((item) => item !== url);
-  };
+
   const clearPhotoError = (key) => setPhotoErrors((current) => {
     if (!current[key]) return current;
     const { [key]: _removed, ...rest } = current;
     return rest;
   });
-  const readImageDimensions = (url) => new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
-    image.onerror = () => reject(new Error('Could not read image.'));
-    image.src = url;
-  });
-  const isUrlUsedByGallery = (url, ignoreImageId = null) => photosInfo.images.some(
-    (image) => image.id !== ignoreImageId && image.url === url,
-  );
-  const revokeImageUrlIfUnused = (url, ignoreImageId = null, includeCover = false) => {
-    if (!url) return;
-    if (isUrlUsedByGallery(url, ignoreImageId)) return;
-    if (includeCover && photosInfo.coverImage?.url === url) return;
-    revokeObjectUrl(url);
+
+  // Photo changes are saved one after another, so a slow upload can't overwrite a newer result.
+  const photoQueueRef = useRef(Promise.resolve());
+  const queuePhoto = (work) => {
+    const result = photoQueueRef.current.then(async () => {
+      const next = await work();
+      if (mountedRef.current) onPropertyChange(next);
+      return next;
+    });
+    photoQueueRef.current = result.catch(() => {});
+    return result;
+  };
+  const photoProblem = (error) => {
+    if (!mountedRef.current) return;
+    const found = formErrors(error, FIELD_LABELS);
+    if (found.coverImage) setPhotoErrors((current) => ({ ...current, coverImage: found.coverImage }));
+    setNotice({ kind: 'error', text: found.coverImage ?? error.message });
   };
 
   const onCoverSelected = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setNotice({ kind: 'error', text: 'Choose an image file for the cover.' });
+    if (!IMAGE_TYPES.includes(file.type) || file.size > IMAGE_MAX_BYTES) {
+      setNotice({ kind: 'error', text: 'Choose a JPG, PNG or WebP image up to 10 MB for the cover.' });
       return;
     }
     setCoverBusy(true);
-    const url = URL.createObjectURL(file);
+    setNotice(null);
     try {
-      const dimensions = await readImageDimensions(url);
-      if (!(dimensions.width > dimensions.height)) {
-        URL.revokeObjectURL(url);
-        setPhotoErrors((current) => ({ ...current, coverImage: 'Cover image must be landscape — wider than it is tall.' }));
-        setNotice({ kind: 'error', text: 'Cover image must be landscape — wider than it is tall.' });
-        return;
-      }
-      revokeImageUrlIfUnused(photosInfo.coverImage?.url);
-      objectUrlsRef.current.push(url);
-      setPhotosInfo((current) => ({
-        ...current,
-        coverImage: {
-          id: 'cover', name: file.name, url, width: dimensions.width, height: dimensions.height, type: file.type, sourceId: '',
-        },
-      }));
+      await queuePhoto(() => uploadImage(propertyId, file, 'cover'));
       clearPhotoError('coverImage');
-      setPhotosComplete(false);
-      setNotice(null);
-    } catch {
-      URL.revokeObjectURL(url);
-      setNotice({ kind: 'error', text: 'Could not read this image. Try another file.' });
+    } catch (error) {
+      photoProblem(error);
     } finally {
       setCoverBusy(false);
     }
   };
 
-  const onGallerySelected = async (event) => {
+  // Uploads several files; keeps going when one is refused and says which.
+  const uploadAll = async (files, { accepts, upload, setBusy, rule }) => {
+    const valid = files.filter(accepts);
+    const problems = valid.length === files.length ? [] : [rule];
+    setBusy(true);
+    setNotice(null);
+    try {
+      for (const file of valid) {
+        try {
+          await queuePhoto(() => upload(file));
+        } catch (error) {
+          problems.push(`${file.name}: ${error.message}`);
+          if (error.status === 0 || error.status === 401 || error.status === 409 || error.status === 429) break;
+        }
+        if (!mountedRef.current) return;
+      }
+      setPhotoErrors({});
+      if (problems.length) setNotice({ kind: 'error', text: problems.join(' ') });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onGallerySelected = (event) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
     if (!files.length) return;
-    const valid = files.filter((file) => file.type.startsWith('image/'));
-    if (!valid.length) {
-      setNotice({ kind: 'error', text: 'Only image files were added to the gallery.' });
-      return;
-    }
-    setGalleryBusy(true);
-    try {
-      const additions = await Promise.all(valid.map(async (file) => {
-        const id = makeUploadId('image');
-        const url = trackObjectUrl(file);
-        try {
-          const dimensions = await readImageDimensions(url);
-          return { id, name: file.name, url, tag: '', width: dimensions.width, height: dimensions.height, type: file.type };
-        } catch {
-          return { id, name: file.name, url, tag: '', width: 0, height: 0, type: file.type };
-        }
-      }));
-      setPhotosInfo((current) => ({ ...current, images: [...current.images, ...additions] }));
-      setPhotoErrors({});
-      setPhotosComplete(false);
-      setNotice(valid.length === files.length ? null : { kind: 'error', text: 'Only image files were added to the gallery.' });
-    } finally {
-      setGalleryBusy(false);
-    }
+    uploadAll(files, {
+      accepts: (file) => IMAGE_TYPES.includes(file.type) && file.size <= IMAGE_MAX_BYTES,
+      upload: (file) => uploadImage(propertyId, file, 'gallery'),
+      setBusy: setGalleryBusy,
+      rule: 'Only JPG, PNG or WebP images up to 10 MB were added.',
+    });
   };
 
   const onVideosSelected = (event) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
     if (!files.length) return;
-    const valid = files.filter((file) => file.type.startsWith('video/'));
-    const additions = valid.map((file) => ({
-      id: makeUploadId('video'), name: file.name, url: trackObjectUrl(file), type: file.type,
-    }));
-    setPhotosInfo((current) => ({ ...current, videos: [...current.videos, ...additions] }));
-    setPhotoErrors({});
-    setPhotosComplete(false);
-    setNotice(valid.length === files.length ? null : { kind: 'error', text: 'Only video files were added.' });
-  };
-
-  const setImageTag = (id, tag) => {
-    setPhotosInfo((current) => ({
-      ...current,
-      images: current.images.map((image) => (image.id === id ? { ...image, tag } : image)),
-    }));
-    const index = photosInfo.images.findIndex((image) => image.id === id);
-    if (index >= 0) clearPhotoError(`image-${index}`);
-    setPhotosComplete(false);
-    setNotice(null);
-  };
-
-  const setAsCover = async (id) => {
-    const image = photosInfo.images.find((item) => item.id === id);
-    if (!image || photosInfo.coverImage?.sourceId === id) return;
-    let width = Number(image.width) || 0;
-    let height = Number(image.height) || 0;
-    if ((!width || !height) && image.url) {
-      try {
-        const dimensions = await readImageDimensions(image.url);
-        width = dimensions.width;
-        height = dimensions.height;
-      } catch {
-        setNotice({ kind: 'error', text: 'Could not read this image. Re-upload it to set it as cover.' });
-        return;
-      }
-    }
-    if (!(width > height)) {
-      setNotice({ kind: 'error', text: 'This image is not landscape — wider than it is tall.' });
-      return;
-    }
-    const oldUrl = photosInfo.coverImage?.url;
-    setPhotosInfo((current) => {
-      const source = current.images.find((item) => item.id === id);
-      if (!source) return current;
-      return {
-        ...current,
-        coverImage: {
-          id: 'cover', sourceId: id, name: source.name, url: source.url,
-          width, height, type: source.type ?? '',
-        },
-      };
+    uploadAll(files, {
+      accepts: (file) => file.type.startsWith('video/') && file.size <= VIDEO_MAX_BYTES,
+      upload: (file) => uploadVideo(propertyId, file),
+      setBusy: setVideoBusy,
+      rule: 'Only MP4, MOV or WebM videos up to 100 MB were added.',
     });
-    if (oldUrl && oldUrl !== image.url) revokeImageUrlIfUnused(oldUrl);
-    clearPhotoError('coverImage');
-    setPhotosComplete(false);
-    setNotice({ kind: 'success', text: `${image.name} set as cover.` });
   };
 
-  const removeCover = () => {
-    revokeImageUrlIfUnused(photosInfo.coverImage?.url);
-    setPhotosInfo((current) => ({ ...current, coverImage: null }));
-    clearPhotoError('coverImage');
-    setPhotosComplete(false);
+  const changePhoto = (work, after) => {
     setNotice(null);
+    queuePhoto(work).then(() => { if (mountedRef.current) after?.(); }).catch(photoProblem);
   };
-
-  const removeImage = (id) => {
+  const setImageTag = (id, tag) => {
+    if (!tag) return; // the placeholder
+    changePhoto(() => saveImageTag(propertyId, id, tag), () => setPhotoErrors({}));
+  };
+  const setAsCover = (id) => {
     const image = photosInfo.images.find((item) => item.id === id);
-    const isCoverSource = photosInfo.coverImage?.sourceId === id;
-    revokeImageUrlIfUnused(image?.url, id, !isCoverSource);
-    setPhotosInfo((current) => ({
-      ...current,
-      images: current.images.filter((item) => item.id !== id),
-      coverImage: isCoverSource ? null : current.coverImage,
-    }));
-    setPhotoErrors({});
-    setPhotosComplete(false);
-    setNotice(null);
+    if (!image || photosInfo.coverImage?.id === id) return;
+    changePhoto(() => setCover(propertyId, id), () => {
+      clearPhotoError('coverImage');
+      setNotice({ kind: 'success', text: `${image.name} set as cover.` });
+    });
   };
-
-  const removeVideo = (id) => {
-    const video = photosInfo.videos.find((item) => item.id === id);
-    revokeObjectUrl(video?.url);
-    setPhotosInfo((current) => ({ ...current, videos: current.videos.filter((item) => item.id !== id) }));
-    setPhotoErrors({});
-    setPhotosComplete(false);
-    setNotice(null);
-  };
+  const removeCover = () => changePhoto(() => setCover(propertyId, null), () => clearPhotoError('coverImage'));
+  const removeImage = (id) => changePhoto(() => deleteMedia(propertyId, id), () => setPhotoErrors({}));
+  const removeVideo = removeImage;
 
   const onPhotosSubmit = (event) => {
     event.preventDefault();
@@ -1315,17 +1297,9 @@ export function PropertyInfoPage({ type }) {
       revealFirstError('.pi-photo-block.has-error .pi-upload-zone, .pi-photo-block.has-error select, .pi-photo-card.has-error select, .pi-video-row.has-error input');
       return;
     }
-    try {
-      savePropertyDraft(user?.id, type, {
-        ...getPropertyDraft(user?.id, type),
-        photos: sanitizePhotosForDraft(photosInfo),
-      });
-      setPhotosComplete(true);
-      setNotice({ kind: 'success', text: 'Photos & videos saved to your draft.' });
-      goToSection('policies');
-    } catch {
-      setNotice({ kind: 'error', text: 'Could not save this draft in your browser. Check your storage settings and try again.' });
-    }
+    // Already on the server; nothing more to send.
+    setNotice(null);
+    goToSection('policies');
   };
 
   const onPoliciesSubmit = (event) => {
@@ -1339,16 +1313,15 @@ export function PropertyInfoPage({ type }) {
       revealFirstError(`.pi-policy-yesno.has-error input, .pi-policy-radio-list.has-error input, .pi-policy-check-field.has-error input, ${DEFAULT_ERROR_TARGET}`, category ? `[data-policy-tab="${category.id}"]` : null);
       return;
     }
-    try {
-      savePropertyDraft(user?.id, type, {
-        ...getPropertyDraft(user?.id, type),
-        policies: normalizePoliciesDraft(policiesInfo),
-      });
+    save(() => savePolicies(propertyId, policiesInfo), (found) => {
+      setPolicyErrors(found);
+      const category = POLICY_CATEGORIES.find(({ fields }) => fields.some((field) => found[field]));
+      if (category) setActivePolicyCategoryId(category.id);
+    }, (next) => {
+      setPoliciesInfo(policiesFromApi(next.policies));
       setPoliciesComplete(true);
       goToSection('legal');
-    } catch {
-      setNotice({ kind: 'error', text: 'Could not save this draft in your browser. Check your storage settings and try again.' });
-    }
+    });
   };
 
   const selectSection = (sectionId) => {
@@ -1399,22 +1372,46 @@ export function PropertyInfoPage({ type }) {
       return;
     }
     setNotice(null);
-    setOtpField(field);
+    sendOtp(field, info[field]);
   };
 
-  const markVerified = () => {
-    if (!otpField) return;
-    const verifiedKey = `${otpField}Verified`;
-    setInfo((current) => ({ ...current, [verifiedKey]: true }));
+  const sendOtp = async (field, value) => {
+    if (otpBusyRef.current) return;
+    otpBusyRef.current = true;
+    try {
+      const sent = await requestContactOtp(propertyId, field, value);
+      if (mountedRef.current) setOtp({ field, value, resendAfter: sent.resendAfterSeconds ?? RESEND_SECONDS, error: '' });
+    } catch (error) {
+      if (!mountedRef.current) return;
+      const found = formErrors(error, FIELD_LABELS);
+      if (error.status === 429) {
+        // A code was sent a moment ago and still works: let them enter it.
+        setOtp({ field, value, resendAfter: error.retryAfterSeconds ?? RESEND_SECONDS, error: error.message });
+      } else {
+        setErrors((current) => ({ ...current, [field]: found[field] ?? error.message }));
+        revealFirstError(`#pi-verify-${field}`);
+      }
+    } finally {
+      otpBusyRef.current = false;
+    }
+  };
+
+  const verifyOtpCode = async (code) => {
+    const { field, value } = otp;
+    const next = await verifyContactOtp(propertyId, field, value, code);
+    if (!mountedRef.current) return;
+    onPropertyChange(next);
+    setInfo((current) => ({ ...current, [`${field}Verified`]: current[field] === value }));
     setErrors((current) => {
-      const { [otpField]: _removed, ...rest } = current;
+      const { [field]: _removed, ...rest } = current;
       return rest;
     });
     setBasicComplete(false);
-    setNotice({ kind: 'success', text: `${otpField === 'email' ? 'Email' : 'Mobile number'} verified. Save again to update your draft.` });
-    setOtpField(null);
+    setNotice({ kind: 'success', text: `${field === 'email' ? 'Email' : 'Mobile number'} verified.` });
+    setOtp(null);
   };
 
+  const photoBusy = activeSection === 'photos' && (coverBusy || galleryBusy || videoBusy);
   const noticeMarkup = notice && (
     <div className={`pi-notice is-${notice.kind}`} role={notice.kind === 'error' ? 'alert' : 'status'}>
       {notice.kind === 'success' ? <CheckCircle2 size={18} aria-hidden="true" /> : <Info size={18} aria-hidden="true" />}
@@ -1432,11 +1429,18 @@ export function PropertyInfoPage({ type }) {
           roomsComplete={roomsComplete}
           photosComplete={photosComplete}
           policiesComplete={policiesComplete}
+          legalComplete={legalComplete}
           activeSection={activeSection}
           onSelect={selectSection}
         />
       </div>
       <div className="pi-content">
+        {property.status === 'CHANGES_REQUESTED' && property.reviewNote && (
+          <div className="pi-notice is-error" role="status">
+            <Info size={18} aria-hidden="true" />
+            <span><strong>Changes needed:</strong> {property.reviewNote}</span>
+          </div>
+        )}
         {activeSection === 'location' ? (
           <>
             {noticeMarkup}
@@ -1516,7 +1520,7 @@ export function PropertyInfoPage({ type }) {
               </SectionCard>
               <div className="pi-actions">
                 <button type="button" className="btn btn-light" onClick={() => selectSection('basic')}>Back to Basic info</button>
-                <button type="submit" className="btn btn-primary">Save &amp; continue<ArrowRight size={16} aria-hidden="true" /></button>
+                <button type="submit" className="btn btn-primary" disabled={saving || photoBusy}>{saving ? 'Saving…' : <>Save &amp; continue<ArrowRight size={16} aria-hidden="true" /></>}</button>
               </div>
             </form>
           </>
@@ -1606,12 +1610,41 @@ export function PropertyInfoPage({ type }) {
                     flips type to "submit" during the click, so the browser then submits the form and the last tab
                     opens already full of "Choose Yes or No" errors. Same for Rooms and Policies below. */}
                 {isLastCategory ? (
-                  <button key="save" type="submit" className="btn btn-primary">Save amenities<CheckCircle2 size={16} aria-hidden="true" /></button>
+                  <button key="save" type="submit" className="btn btn-primary" disabled={saving || photoBusy}>{saving ? 'Saving…' : <>Save amenities<CheckCircle2 size={16} aria-hidden="true" /></>}</button>
                 ) : (
                   <button key="next" type="button" className="btn btn-primary" onClick={goToNextCategory}>Next<ArrowRight size={16} aria-hidden="true" /></button>
                 )}
               </div>
             </form>
+          </>
+        ) : activeSection === 'rooms' && editingRoom === null ? (
+          <>
+            {noticeMarkup}
+            <SectionCard icon={Building2} title="Rooms & inventory" subtitle="Every room type guests can book. Add as many as you have.">
+              <ul className="pi-room-list">
+                {rooms.map((room) => (
+                  <li key={room.id} className="pi-video-row">
+                    <span className="pi-video-icon"><BedDouble size={18} aria-hidden="true" /></span>
+                    <div className="pi-video-meta">
+                      <strong>{room.roomName}</strong>
+                      <small>
+                        {ROOM_TYPE_OPTIONS.find(([v]) => v === room.roomType)?.[1] ?? room.roomType}
+                        {` · ${room.roomCount} room${room.roomCount === 1 ? '' : 's'} · up to ${room.maxGuests} guest${room.maxGuests === 1 ? '' : 's'} · ₹${room.pricePerGuest.toLocaleString('en-IN')} per guest`}
+                      </small>
+                    </div>
+                    <button type="button" className="btn btn-light" onClick={() => openRoom(room)} disabled={saving}><Pencil size={14} aria-hidden="true" />Edit</button>
+                    <button type="button" className="pi-photo-remove" onClick={() => onRemoveRoom(room)} disabled={saving} aria-label={`Remove ${room.roomName}`}>
+                      <Trash2 size={14} aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="btn btn-light" onClick={() => openRoom(null)} disabled={saving}><Plus size={16} aria-hidden="true" />Add another room type</button>
+            </SectionCard>
+            <div className="pi-actions pi-amenity-actions">
+              <button type="button" className="btn btn-light" onClick={() => selectSection('amenities')}>Back to Amenities</button>
+              <button type="button" className="btn btn-primary" onClick={() => { setNotice(null); goToSection('photos'); }} disabled={saving || !rooms.length}>Continue<ArrowRight size={16} aria-hidden="true" /></button>
+            </div>
           </>
         ) : activeSection === 'rooms' ? (
           <>
@@ -1721,9 +1754,11 @@ export function PropertyInfoPage({ type }) {
                 </div>
               </SectionCard>
               <div className="pi-actions pi-amenity-actions">
-                <button type="button" className="btn btn-light" onClick={() => selectSection('amenities')}>Back to Amenities</button>
+                {rooms.length > 0
+                  ? <button type="button" className="btn btn-light" onClick={() => { setEditingRoom(null); setNotice(null); }}>Back to rooms</button>
+                  : <button type="button" className="btn btn-light" onClick={() => selectSection('amenities')}>Back to Amenities</button>}
                 {isRoomSaveStep ? (
-                  <button key="save" type="submit" className="btn btn-primary">Save rooms<CheckCircle2 size={16} aria-hidden="true" /></button>
+                  <button key="save" type="submit" className="btn btn-primary" disabled={saving || photoBusy}>{saving ? 'Saving…' : <>Save room<CheckCircle2 size={16} aria-hidden="true" /></>}</button>
                 ) : (
                   <button key="next" type="button" className="btn btn-primary" onClick={goToNextRoomCategory}>Next<ArrowRight size={16} aria-hidden="true" /></button>
                 )}
@@ -1735,7 +1770,7 @@ export function PropertyInfoPage({ type }) {
             {noticeMarkup}
             <form ref={formRef} noValidate onSubmit={onPhotosSubmit}>
               <SectionCard icon={ImageIcon} title="Photos & videos" subtitle="Add a landscape cover, tag gallery images and include optional videos.">
-                <input ref={coverInputRef} type="file" accept="image/*" className="sr-only" aria-label="Choose cover image" onChange={onCoverSelected} />
+                <input ref={coverInputRef} type="file" accept={IMAGE_ACCEPT} className="sr-only" aria-label="Choose cover image" onChange={onCoverSelected} />
                 <div className={`pi-photo-block ${photoErrors.coverImage ? 'has-error' : ''}`}>
                   <div className="pi-photo-block-head">
                     <div>
@@ -1746,24 +1781,16 @@ export function PropertyInfoPage({ type }) {
                   </div>
                   {photosInfo.coverImage ? (
                     <div className="pi-cover-preview">
-                      {photosInfo.coverImage.url ? (
-                        <img src={photosInfo.coverImage.url} alt="Selected cover preview" />
-                      ) : (
-                        <div className="pi-photo-file-only">
-                          <ImageIcon size={26} aria-hidden="true" />
-                          <strong>{photosInfo.coverImage.name}</strong>
-                          <small>Preview unavailable after refresh — upload again to replace.</small>
-                        </div>
-                      )}
+                      <PrivateImage path={photosInfo.coverImage.url} alt="Cover preview" />
                       <div className="pi-cover-actions">
                         <button type="button" className="btn btn-light" onClick={() => coverInputRef.current?.click()} disabled={coverBusy}>Replace</button>
-                        <button type="button" className="btn btn-light" onClick={removeCover}><Trash2 size={15} aria-hidden="true" />Remove</button>
+                        <button type="button" className="btn btn-light" onClick={removeCover} disabled={coverBusy}><Trash2 size={15} aria-hidden="true" />Remove</button>
                       </div>
                     </div>
                   ) : (
                     <button type="button" className="pi-upload-zone" onClick={() => coverInputRef.current?.click()} disabled={coverBusy}>
                       <ImageIcon size={26} aria-hidden="true" />
-                      <span>{coverBusy ? 'Checking image…' : 'Upload landscape cover image'}</span>
+                      <span>{coverBusy ? 'Uploading…' : 'Upload landscape cover image'}</span>
                       <small>JPG, PNG or WebP · wider than it is tall</small>
                     </button>
                   )}
@@ -1771,15 +1798,15 @@ export function PropertyInfoPage({ type }) {
                 </div>
 
                 <div className="pi-photo-block">
-                  <input ref={galleryInputRef} type="file" accept="image/*" multiple className="sr-only" aria-label="Add gallery images" onChange={onGallerySelected} />
+                  <input ref={galleryInputRef} type="file" accept={IMAGE_ACCEPT} multiple className="sr-only" aria-label="Add gallery images" onChange={onGallerySelected} />
                   <div className="pi-photo-block-head">
                     <div>
                       <h4>Gallery images</h4>
-                      <p>Optional. Choose a default tag, then add images and adjust tags individually.</p>
+                      <p>Optional. Add images, then choose a tag for each one.</p>
                     </div>
                     <div className="pi-photo-head-actions">
                       <button type="button" className="btn btn-light" onClick={() => galleryInputRef.current?.click()} disabled={galleryBusy}>
-                        <ImageIcon size={15} aria-hidden="true" />{galleryBusy ? 'Reading images…' : 'Add images'}
+                        <ImageIcon size={15} aria-hidden="true" />{galleryBusy ? 'Uploading…' : 'Add images'}
                       </button>
                     </div>
                   </div>
@@ -1791,14 +1818,7 @@ export function PropertyInfoPage({ type }) {
                         return (
                           <div key={image.id} className={`pi-photo-card ${error ? 'has-error' : ''}`}>
                             <div className="pi-photo-thumb">
-                              {image.url ? (
-                                <img src={image.url} alt={image.name} />
-                              ) : (
-                                <div className="pi-photo-file-only">
-                                  <ImageIcon size={22} aria-hidden="true" />
-                                  <small>Preview unavailable</small>
-                                </div>
-                              )}
+                              <PrivateImage path={image.url} alt={image.name} />
                               {isCover && <span className="pi-photo-cover-badge"><CheckCircle2 size={12} aria-hidden="true" />Cover</span>}
                               <button type="button" className="pi-photo-remove" onClick={() => removeImage(image.id)} aria-label={`Remove ${image.name}`}>
                                 <Trash2 size={14} aria-hidden="true" />
@@ -1832,13 +1852,13 @@ export function PropertyInfoPage({ type }) {
                 </div>
 
                 <div className="pi-photo-block">
-                  <input ref={videoInputRef} type="file" accept="video/*" multiple className="sr-only" aria-label="Add videos" onChange={onVideosSelected} />
+                  <input ref={videoInputRef} type="file" accept={VIDEO_ACCEPT} multiple className="sr-only" aria-label="Add videos" onChange={onVideosSelected} />
                   <div className="pi-photo-block-head">
                     <div>
                       <h4>Videos</h4>
                       <p>Optional. Show guests a quick tour of your property.</p>
                     </div>
-                    <button type="button" className="btn btn-light" onClick={() => videoInputRef.current?.click()}><Video size={15} aria-hidden="true" />Add videos</button>
+                    <button type="button" className="btn btn-light" onClick={() => videoInputRef.current?.click()} disabled={videoBusy}><Video size={15} aria-hidden="true" />{videoBusy ? 'Uploading…' : 'Add videos'}</button>
                   </div>
                   {photosInfo.videos.length ? (
                     <div className="pi-video-list">
@@ -1847,9 +1867,9 @@ export function PropertyInfoPage({ type }) {
                           <span className="pi-video-icon"><Video size={18} aria-hidden="true" /></span>
                           <div className="pi-video-meta">
                             <strong title={video.name}>{video.name}</strong>
-                            <small>{video.url ? 'Ready to preview' : 'File details saved'}</small>
+                            <small>{(video.sizeBytes / 1048576).toFixed(1)} MB</small>
                           </div>
-                          {video.url && <video className="pi-video-preview" src={video.url} controls preload="metadata" />}
+                          <VideoPreview path={video.url} type={video.type} />
                           <button type="button" className="pi-photo-remove" onClick={() => removeVideo(video.id)} aria-label={`Remove ${video.name}`}>
                             <Trash2 size={14} aria-hidden="true" />
                           </button>
@@ -1863,7 +1883,7 @@ export function PropertyInfoPage({ type }) {
               </SectionCard>
               <div className="pi-actions pi-amenity-actions">
                 <button type="button" className="btn btn-light" onClick={() => selectSection('rooms')}>Back to Rooms</button>
-                <button type="submit" className="btn btn-primary">Save &amp; continue<ArrowRight size={16} aria-hidden="true" /></button>
+                <button type="submit" className="btn btn-primary" disabled={saving || photoBusy}>{saving ? 'Saving…' : <>Save &amp; continue<ArrowRight size={16} aria-hidden="true" /></>}</button>
               </div>
             </form>
           </>
@@ -2022,7 +2042,7 @@ export function PropertyInfoPage({ type }) {
               <div className="pi-actions pi-amenity-actions">
                 <button type="button" className="btn btn-light" onClick={() => selectSection('photos')}>Back to Photos &amp; videos</button>
                 {isLastPolicyCategory ? (
-                  <button key="save" type="submit" className="btn btn-primary">Save &amp; continue<ArrowRight size={16} aria-hidden="true" /></button>
+                  <button key="save" type="submit" className="btn btn-primary" disabled={saving || photoBusy}>{saving ? 'Saving…' : <>Save &amp; continue<ArrowRight size={16} aria-hidden="true" /></>}</button>
                 ) : (
                   <button
                     key="next"
@@ -2037,15 +2057,16 @@ export function PropertyInfoPage({ type }) {
             </form>
           </>
         ) : activeSection === 'legal' ? (
-          <>
-            {noticeMarkup}
-            <SectionCard icon={Info} title="Financial & legal" subtitle="This section is coming soon.">
-              <p className="pi-photo-empty">Your policies are saved. Bank, tax and legal details will be added here next.</p>
-            </SectionCard>
-            <div className="pi-actions">
-              <button type="button" className="btn btn-light" onClick={() => selectSection('policies')}>Back to Policies</button>
-            </div>
-          </>
+          <PropertyLegalForm
+            property={property}
+            SectionCard={SectionCard}
+            allOtherComplete={basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete && policiesComplete}
+            onSaved={onPropertyChange}
+            onSubmitted={() => navigate(propertiesTab(IN_PROGRESS_TAB), { replace: true })}
+            onBack={() => selectSection('policies')}
+            notify={setNotice}
+            noticeMarkup={noticeMarkup}
+          />
         ) : (
           <>
             {noticeMarkup}
@@ -2132,18 +2153,21 @@ export function PropertyInfoPage({ type }) {
 
               <div className="pi-actions">
                 <Link to={PARTNER_PATHS.properties} className="btn btn-light">Back to Your properties</Link>
-                <button type="submit" className="btn btn-primary">Save &amp; continue<ArrowRight size={16} aria-hidden="true" /></button>
+                <button type="submit" className="btn btn-primary" disabled={saving || photoBusy}>{saving ? 'Saving…' : <>Save &amp; continue<ArrowRight size={16} aria-hidden="true" /></>}</button>
               </div>
             </form>
           </>
         )}
       </div>
-      {otpField && (
+      {otp && (
         <OtpModal
-          field={otpField}
-          value={otpField === 'email' ? info.email : info.mobile}
-          onClose={() => setOtpField(null)}
-          onVerified={markVerified}
+          field={otp.field}
+          value={otp.value}
+          resendAfter={otp.resendAfter}
+          initialError={otp.error}
+          onClose={() => setOtp(null)}
+          onResend={() => requestContactOtp(propertyId, otp.field, otp.value)}
+          onVerify={verifyOtpCode}
         />
       )}
     </div>

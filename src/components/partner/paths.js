@@ -10,3 +10,6 @@ export const moduleSoonPath = (id) => `/list-property/module/${id}`;
 
 export const IN_PROGRESS_TAB = 'in-progress';
 export const propertiesTab = (tab) => `${PARTNER_PATHS.properties}${tab ? `?tab=${tab}` : ''}`;
+
+/** The wizard for one property (draft or changes needed). */
+export const propertyPath = (id) => `${PARTNER_PATHS.newProperty}?property=${encodeURIComponent(id)}`;
