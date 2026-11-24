@@ -102,6 +102,8 @@ export function validateBasicInfo(info) {
   }
   if (!info.bookingSince || Number(info.bookingSince) < 1800 || Number(info.bookingSince) > year) {
     errors.bookingSince = 'Choose a valid booking year.';
+  } else if (!errors.builtYear && Number(info.bookingSince) < Number(info.builtYear)) {
+    errors.bookingSince = 'This cannot be before the built year.';
   }
   if (info.channelManager !== 'yes' && info.channelManager !== 'no') {
     errors.channelManager = 'Tell us whether you use a channel manager.';
@@ -132,233 +134,46 @@ export function validateLocationInfo(info) {
   return errors;
 }
 
-const amenityCategory = (id, label, items) => ({
-  id,
-  label,
-  items: items.map(([itemId, itemLabel]) => ({ id: itemId, label: itemLabel })),
-});
+// ---------- Lists from the API (GET /partner/masters) ----------
+// Filled by applyMasters() before the wizard renders (see loadMasters in lib/api/properties.js).
+// [value, label]; select lists start with a '' placeholder.
+export let AMENITY_CATEGORIES = [];   // [{ id, label, items: [{ id, label }] }]
+export let ROOM_AMENITY_ITEMS = [];   // [{ id, label }]
+export let ROOM_TYPE_OPTIONS = [];
+export let ROOM_VIEW_OPTIONS = [];
+export let ROOM_SIZE_UNITS = [];
+export let BED_TYPE_OPTIONS = [];
+export let MEAL_OPTIONS = [];
+export let PHOTO_TAG_OPTIONS = [];
+export let CANCELLATION_OPTIONS = [];
+export let IDENTITY_PROOF_OPTIONS = [];
+export let EXTRA_BED_TYPE_OPTIONS = [];
+let PHOTO_TAG_VALUES = new Set();
+let POLICY_CANCELLATION_VALUES = new Set();
+let POLICY_IDENTITY_PROOF_VALUES = new Set();
+let POLICY_EXTRA_BED_TYPE_VALUES = new Set();
 
-export const AMENITY_CATEGORIES = [
-  amenityCategory('mandatory', 'Mandatory', [
-    ['front-desk', '24-hour front desk'],
-    ['wifi', 'Free WiFi'],
-    ['air-conditioning', 'Air conditioning'],
-    ['parking', 'Parking'],
-    ['housekeeping', 'Housekeeping'],
-    ['cctv', 'CCTV surveillance'],
-    ['fire-safety', 'Fire safety equipment'],
-    ['power-backup', 'Power backup'],
-  ]),
-  amenityCategory('generalServices', 'General services', [
-    ['laundry', 'Laundry'],
-    ['dry-cleaning', 'Dry cleaning'],
-    ['concierge', 'Concierge'],
-    ['room-service', 'Room service'],
-    ['wake-up-call', 'Wake-up call'],
-    ['luggage-storage', 'Luggage storage'],
-    ['currency-exchange', 'Currency exchange'],
-    ['travel-desk', 'Travel desk'],
-  ]),
-  amenityCategory('security', 'Security', [
-    ['security-guards', 'Security guards'],
-    ['cctv', 'CCTV surveillance'],
-    ['smoke-detectors', 'Smoke detectors'],
-    ['first-aid', 'First aid kit'],
-    ['safe-deposit', 'Safe deposit box'],
-    ['access-control', 'Controlled access'],
-    ['emergency-exit', 'Emergency exits'],
-  ]),
-  amenityCategory('basicFacilities', 'Basic facilities', [
-    ['wifi', 'Free WiFi'],
-    ['hot-water', 'Hot water'],
-    ['elevator', 'Elevator'],
-    ['power-backup', 'Power backup'],
-    ['tea-coffee', 'Tea & coffee maker'],
-    ['mini-fridge', 'Mini fridge'],
-    ['work-desk', 'Work desk'],
-    ['hair-dryer', 'Hair dryer'],
-  ]),
-  amenityCategory('outdoorSportsActivities', 'Outdoor sports & activities', [
-    ['swimming-pool', 'Swimming pool'],
-    ['tennis-court', 'Tennis court'],
-    ['badminton-court', 'Badminton court'],
-    ['basketball-court', 'Basketball court'],
-    ['cricket-ground', 'Cricket ground'],
-    ['cycling', 'Cycling'],
-    ['jogging-track', 'Jogging track'],
-  ]),
-  amenityCategory('commonArea', 'Common area', [
-    ['lobby', 'Lobby'],
-    ['lounge', 'Lounge'],
-    ['garden', 'Garden'],
-    ['terrace', 'Terrace'],
-    ['bbq-area', 'BBQ area'],
-    ['shared-kitchen', 'Shared kitchen'],
-    ['library', 'Library'],
-  ]),
-  amenityCategory('foodDrink', 'Food & drink', [
-    ['restaurant', 'Restaurant'],
-    ['bar', 'Bar'],
-    ['cafe', 'Cafe'],
-    ['breakfast', 'Breakfast included'],
-    ['room-service', 'Room service'],
-    ['banquet-hall', 'Banquet hall'],
-    ['rooftop-dining', 'Rooftop dining'],
-  ]),
-  amenityCategory('businessCenterConference', 'Business center & conference', [
-    ['business-center', 'Business center'],
-    ['conference-room', 'Conference room'],
-    ['meeting-rooms', 'Meeting rooms'],
-    ['auditorium', 'Auditorium'],
-    ['projector', 'Projector'],
-    ['video-conferencing', 'Video conferencing'],
-    ['printing', 'Printing & scanning'],
-  ]),
-  amenityCategory('transfer', 'Transfer', [
-    ['airport-transfer', 'Airport transfer'],
-    ['railway-transfer', 'Railway station transfer'],
-    ['car-rental', 'Car rental'],
-    ['taxi-service', 'Taxi service'],
-    ['valet-parking', 'Valet parking'],
-    ['shuttle-service', 'Shuttle service'],
-    ['bike-rental', 'Bike rental'],
-  ]),
-  amenityCategory('entertainment', 'Entertainment', [
-    ['live-music', 'Live music'],
-    ['karaoke', 'Karaoke'],
-    ['movie-night', 'Movie night'],
-    ['game-room', 'Game room'],
-    ['cultural-shows', 'Cultural shows'],
-    ['stand-up-comedy', 'Stand-up comedy'],
-    ['dj-nights', 'DJ nights'],
-  ]),
-  amenityCategory('shopping', 'Shopping', [
-    ['gift-shop', 'Gift shop'],
-    ['convenience-store', 'Convenience store'],
-    ['souvenir-shop', 'Souvenir shop'],
-    ['boutique', 'Boutique'],
-    ['supermarket', 'Supermarket'],
-    ['book-store', 'Book store'],
-    ['shopping-arcade', 'Shopping arcade'],
-  ]),
-  amenityCategory('mediaTechnology', 'Media & technology', [
-    ['wifi', 'Free WiFi'],
-    ['smart-tv', 'Smart TV'],
-    ['cable-tv', 'Cable TV'],
-    ['streaming', 'Streaming services'],
-    ['home-theater', 'Home theater'],
-    ['sound-system', 'Sound system'],
-    ['charging-stations', 'Charging stations'],
-  ]),
-  amenityCategory('paymentServices', 'Payment services', [
-    ['credit-cards', 'Credit cards'],
-    ['debit-cards', 'Debit cards'],
-    ['upi', 'UPI'],
-    ['net-banking', 'Net banking'],
-    ['digital-wallets', 'Digital wallets'],
-    ['cash', 'Cash'],
-    ['contactless', 'Contactless payment'],
-  ]),
-  amenityCategory('familyKids', 'Family & kids', [
-    ['kids-pool', "Kids' pool"],
-    ['play-area', 'Kids play area'],
-    ['kids-club', 'Kids club'],
-    ['babysitting', 'Babysitting'],
-    ['children-menu', "Children's menu"],
-    ['cots-cribs', 'Cots & cribs'],
-    ['family-rooms', 'Family rooms'],
-  ]),
-  amenityCategory('petEssentials', 'Pet essentials', [
-    ['pet-friendly', 'Pet friendly'],
-    ['pet-beds', 'Pet beds'],
-    ['pet-bowls', 'Pet bowls'],
-    ['pet-grooming', 'Pet grooming'],
-    ['pet-sitting', 'Pet sitting'],
-    ['pet-park', 'Pet park'],
-    ['pet-first-aid', 'Pet first aid'],
-  ]),
-  amenityCategory('spaWellness', 'Spa & wellness', [
-    ['spa', 'Spa'],
-    ['massage', 'Massage'],
-    ['sauna', 'Sauna'],
-    ['steam-room', 'Steam room'],
-    ['jacuzzi', 'Jacuzzi'],
-    ['yoga-studio', 'Yoga studio'],
-    ['fitness-center', 'Fitness center'],
-  ]),
-  amenityCategory('accessibility', 'Accessibility', [
-    ['wheelchair-accessible', 'Wheelchair accessible'],
-    ['accessible-rooms', 'Accessible rooms'],
-    ['ramps', 'Ramps'],
-    ['accessible-parking', 'Accessible parking'],
-    ['accessible-bathrooms', 'Accessible bathrooms'],
-    ['hearing-assistance', 'Hearing assistance'],
-    ['grab-bars', 'Grab bars'],
-  ]),
-  amenityCategory('waterSportsActivities', 'Water sports & activities', [
-    ['swimming-pool', 'Swimming pool'],
-    ['water-park', 'Water park'],
-    ['water-slides', 'Water slides'],
-    ['snorkeling', 'Snorkeling'],
-    ['kayaking', 'Kayaking'],
-    ['jet-skiing', 'Jet skiing'],
-    ['boat-rides', 'Boat rides'],
-  ]),
-  amenityCategory('indoorSportsActivities', 'Indoor sports & activities', [
-    ['table-tennis', 'Table tennis'],
-    ['badminton', 'Badminton'],
-    ['squash', 'Squash court'],
-    ['bowling', 'Bowling alley'],
-    ['billiards', 'Billiards'],
-    ['board-games', 'Board games'],
-    ['indoor-gym', 'Indoor gym'],
-  ]),
-  amenityCategory('liveShowsMusicEntertainmentActivities', "Live shows, music & entertainment activities", [
-    ['live-music', 'Live music'],
-    ['dj-nights', 'DJ nights'],
-    ['dance-shows', 'Dance shows'],
-    ['theatre', 'Theatre'],
-    ['stand-up-comedy', 'Stand-up comedy'],
-    ['magic-shows', 'Magic shows'],
-    ['open-mic', 'Open mic nights'],
-  ]),
-  amenityCategory('wildlifeSafariExploration', "Wildlife safari & wildlife exploration", [
-    ['wildlife-safari', 'Wildlife safari'],
-    ['jeep-safari', 'Jeep safari'],
-    ['bird-watching', 'Bird watching'],
-    ['nature-trails', 'Nature trails'],
-    ['zoo-visits', 'Zoo visits'],
-    ['aquarium', 'Aquarium'],
-    ['forest-walks', 'Forest walks'],
-  ]),
-  amenityCategory('ridesSafariExcursionTours', "Rides, safari, excursion & tours", [
-    ['guided-tours', 'Guided tours'],
-    ['city-tours', 'City tours'],
-    ['adventure-tours', 'Adventure tours'],
-    ['jeep-rides', 'Jeep rides'],
-    ['boat-rides', 'Boat rides'],
-    ['cable-car', 'Cable car'],
-    ['horse-riding', 'Horse riding'],
-  ]),
-  amenityCategory('natureWalksTreks', "Nature activities, walks & treks", [
-    ['nature-walks', 'Nature walks'],
-    ['guided-treks', 'Guided treks'],
-    ['hiking-trails', 'Hiking trails'],
-    ['sunrise-treks', 'Sunrise treks'],
-    ['camping', 'Camping'],
-    ['picnic-spots', 'Picnic spots'],
-    ['stargazing', 'Stargazing'],
-  ]),
-  amenityCategory('handsOnWorkshopsInteractiveActivities', "Hands-on workshops & interactive activities", [
-    ['cooking-classes', 'Cooking classes'],
-    ['pottery', 'Pottery workshops'],
-    ['painting', 'Painting classes'],
-    ['crafts', 'Craft workshops'],
-    ['photography', 'Photography workshops'],
-    ['dance-classes', 'Dance classes'],
-    ['cultural-workshops', 'Cultural workshops'],
-  ]),
-];
+export function applyMasters({ amenityCategories, roomAmenities, options }) {
+  const list = (group) => (options[group] ?? []).map(({ code, label }) => [code, label]);
+  const select = (group, placeholder) => [['', placeholder], ...list(group)];
+  const values = (group) => new Set(list(group).map(([value]) => value));
+  const item = ({ code, label }) => ({ id: code, label });
+  AMENITY_CATEGORIES = amenityCategories.map((c) => ({ ...item(c), items: c.items.map(item) }));
+  ROOM_AMENITY_ITEMS = roomAmenities.map(item);
+  ROOM_TYPE_OPTIONS = select('roomType', 'Select room type');
+  ROOM_VIEW_OPTIONS = select('roomView', 'Select room view');
+  ROOM_SIZE_UNITS = select('roomSizeUnit', 'Select unit');
+  BED_TYPE_OPTIONS = select('bedType', 'Select bed type');
+  MEAL_OPTIONS = select('mealOption', 'Select meal option');
+  PHOTO_TAG_OPTIONS = select('photoTag', 'Select tag');
+  CANCELLATION_OPTIONS = list('cancellationPolicy');
+  IDENTITY_PROOF_OPTIONS = list('identityProof');
+  EXTRA_BED_TYPE_OPTIONS = select('extraBedType', 'Select extra bed type');
+  PHOTO_TAG_VALUES = values('photoTag');
+  POLICY_CANCELLATION_VALUES = values('cancellationPolicy');
+  POLICY_IDENTITY_PROOF_VALUES = values('identityProof');
+  POLICY_EXTRA_BED_TYPE_VALUES = values('extraBedType');
+}
 
 export function createEmptyAmenitiesInfo() {
   return Object.fromEntries(AMENITY_CATEGORIES.map(({ id }) => [id, {}]));
@@ -375,81 +190,6 @@ export function validateAmenitiesInfo(info = {}) {
   });
   return errors;
 }
-
-export const ROOM_TYPE_OPTIONS = [
-  ['', 'Select room type'],
-  ['apartment', 'Apartment'],
-  ['standalone', 'Standalone'],
-  ['deluxe', 'Deluxe'],
-  ['hotel-room', 'Hotel room'],
-  ['suite', 'Suite'],
-  ['villa', 'Villa'],
-  ['studio', 'Studio'],
-  ['cottage', 'Cottage'],
-  ['dormitory', 'Dormitory'],
-  ['penthouse', 'Penthouse'],
-];
-
-export const ROOM_VIEW_OPTIONS = [
-  ['', 'Select room view'],
-  ['airport', 'Airport view'],
-  ['beach', 'Beach view'],
-  ['sea', 'Sea view'],
-  ['lake', 'Lake view'],
-  ['river', 'River view'],
-  ['garden', 'Garden view'],
-  ['city', 'City view'],
-  ['mountain', 'Mountain view'],
-  ['valley', 'Valley view'],
-  ['courtyard', 'Courtyard view'],
-  ['interior', 'Interior / no view'],
-];
-
-export const ROOM_SIZE_UNITS = [
-  ['', 'Select unit'],
-  ['sqft', 'Square feet'],
-  ['sqm', 'Square meter'],
-];
-
-export const BED_TYPE_OPTIONS = [
-  ['', 'Select bed type'],
-  ['king', 'King bed'],
-  ['queen', 'Queen bed'],
-  ['twin', 'Twin beds'],
-  ['single', 'Single bed'],
-  ['double', 'Double bed'],
-  ['sofa', 'Sofa bed'],
-  ['bunk', 'Bunk bed'],
-  ['king-sofa', 'King bed + sofa bed'],
-];
-
-export const MEAL_OPTIONS = [
-  ['', 'Select meal option'],
-  ['free-breakfast', 'Free breakfast'],
-  ['free-lunch', 'Free lunch'],
-  ['breakfast-lunch', 'Breakfast & lunch'],
-  ['paid-breakfast', 'Paid breakfast'],
-  ['no-meal', 'No meal included'],
-];
-
-export const ROOM_AMENITY_ITEMS = [
-  ['private-balcony', 'Private balcony'],
-  ['bathtub', 'Bathtub'],
-  ['tea-coffee', 'Tea & coffee'],
-  ['mini-bar', 'Mini bar'],
-  ['private-terrace', 'Private terrace'],
-  ['butler-service', 'Butler service'],
-  ['lounge', 'Lounge'],
-  ['rain-shower', 'Rain shower'],
-  ['private-pool', 'Private pool'],
-  ['kitchenette', 'Kitchenette'],
-  ['full-kitchen', 'Full kitchen'],
-  ['living-room', 'Living room'],
-  ['bbq', 'BBQ'],
-  ['balcony', 'Balcony'],
-  ['yoga-mat', 'Yoga mat'],
-  ['fireplace', 'Fireplace'],
-].map(([id, label]) => ({ id, label }));
 
 export const ROOM_CATEGORIES = [
   { id: 'roomType', label: 'Room type', fields: ['roomType', 'roomView', 'roomSize', 'roomSizeUnit', 'roomName', 'roomCount'] },
@@ -492,69 +232,6 @@ export function validateRoomsInfo(info = {}) {
     .map(({ id }) => id);
   if (missing.length) errors.amenities = missing;
   return errors;
-}
-
-export const PHOTO_TAG_OPTIONS = [
-  ['', 'Select tag'],
-  ['exterior', 'Exterior'],
-  ['lobby', 'Lobby'],
-  ['bedroom', 'Bedroom'],
-  ['bathroom', 'Bathroom'],
-  ['pool', 'Pool'],
-  ['restaurant', 'Restaurant'],
-  ['view', 'View'],
-  ['common-area', 'Common area'],
-  ['activities', 'Activities'],
-  ['other', 'Other'],
-];
-
-const PHOTO_TAG_VALUES = new Set(PHOTO_TAG_OPTIONS.map(([value]) => value).filter(Boolean));
-
-export function createEmptyPhotosInfo() {
-  return { coverImage: null, images: [], videos: [] };
-}
-
-export function normalizePhotosDraft(draft = {}) {
-  const coverImage = draft.coverImage && typeof draft.coverImage === 'object'
-    ? {
-      id: draft.coverImage.id ?? 'cover',
-      name: String(draft.coverImage.name ?? ''),
-      url: typeof draft.coverImage.url === 'string' ? draft.coverImage.url : '',
-      width: Number(draft.coverImage.width) || 0,
-      height: Number(draft.coverImage.height) || 0,
-      type: String(draft.coverImage.type ?? ''),
-      sourceId: typeof draft.coverImage.sourceId === 'string' ? draft.coverImage.sourceId : '',
-    }
-    : null;
-  const images = (Array.isArray(draft.images) ? draft.images : [])
-    .filter((item) => item && typeof item === 'object' && item.name)
-    .map((item, index) => ({
-      id: item.id ?? `image-${index}`,
-      name: String(item.name),
-      url: typeof item.url === 'string' ? item.url : '',
-      tag: PHOTO_TAG_VALUES.has(item.tag) ? item.tag : '',
-      width: Number(item.width) || 0,
-      height: Number(item.height) || 0,
-      type: String(item.type ?? ''),
-    }));
-  const videos = (Array.isArray(draft.videos) ? draft.videos : [])
-    .filter((item) => item && typeof item === 'object' && item.name)
-    .map((item, index) => ({
-      id: item.id ?? `video-${index}`,
-      name: String(item.name),
-      url: typeof item.url === 'string' ? item.url : '',
-      type: String(item.type ?? ''),
-    }));
-  return { coverImage, images, videos };
-}
-
-export function sanitizePhotosForDraft(info = {}) {
-  const withoutUrl = ({ url: _url, ...rest }) => rest;
-  return {
-    coverImage: info.coverImage ? withoutUrl(info.coverImage) : null,
-    images: (Array.isArray(info.images) ? info.images : []).map(withoutUrl),
-    videos: (Array.isArray(info.videos) ? info.videos : []).map(withoutUrl),
-  };
 }
 
 export function validatePhotosInfo(info = {}) {
@@ -608,31 +285,6 @@ export const POLICY_TIME_OPTIONS = [
   }),
 ];
 
-export const CANCELLATION_OPTIONS = [
-  ['before-checkin', 'Free cancellation before check-in'],
-  ['24-hours', 'Free cancellation till 24 hr before check-in'],
-  ['48-hours', 'Free cancellation till 48 hr before check-in'],
-  ['72-hours', 'Free cancellation till 72 hours before check-in'],
-];
-
-export const IDENTITY_PROOF_OPTIONS = [
-  ['aadhaar', 'Aadhaar card'],
-  ['pan', 'PAN card'],
-  ['passport', 'Passport'],
-  ['driving-licence', "Driver's licence"],
-  ['voter-id', 'Voter ID'],
-  ['other', 'Other'],
-];
-
-export const EXTRA_BED_TYPE_OPTIONS = [
-  ['', 'Select extra bed type'],
-  ['cot', 'Cot'],
-  ['mattress', 'Mattress'],
-  ['sofa-bed', 'Sofa bed'],
-  ['folding-bed', 'Folding bed'],
-  ['other', 'Other'],
-];
-
 export const EMPTY_POLICIES_INFO = {
   checkInTime: '',
   checkOutTime: '',
@@ -661,9 +313,6 @@ export const EMPTY_POLICIES_INFO = {
 };
 
 const POLICY_YES_NO_VALUES = new Set(POLICY_YES_NO_OPTIONS.map(([value]) => value));
-const POLICY_CANCELLATION_VALUES = new Set(CANCELLATION_OPTIONS.map(([value]) => value));
-const POLICY_IDENTITY_PROOF_VALUES = new Set(IDENTITY_PROOF_OPTIONS.map(([value]) => value));
-const POLICY_EXTRA_BED_TYPE_VALUES = new Set(EXTRA_BED_TYPE_OPTIONS.map(([value]) => value).filter(Boolean));
 const TIME_VALUE_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const asPolicyYesNo = (value) => (POLICY_YES_NO_VALUES.has(value) ? value : '');
@@ -674,7 +323,7 @@ const asPolicyPrice = (value) => {
   return Number.isFinite(Number(text)) && Number(text) >= 0 ? text : '';
 };
 
-const POLICY_YES_NO_FIELDS = [
+export const POLICY_YES_NO_FIELDS = [
   'unmarriedCouples', 'below18', 'maleGroupOnly', 'smokingAllowed', 'privateParties',
   'wheelchairAccess', 'outsideVisitors', 'petLivingOnProperty', 'petsAllowed', 'has24HourPolicy',
   'includeInfant', 'infantFoodProvided', 'extraBedIncluded', 'extraBedForAdults', 'extraBedForKids',
@@ -793,7 +442,6 @@ export function validateLead(lead) {
 }
 
 const STORE_KEY = 'triponx.partnerLeads';
-const DRAFT_KEY = 'triponx.propertyDrafts.v1';
 // Keep plenty: these records are the partner's "Under review" list, so dropping old ones would hide them.
 const STORE_LIMIT = 200;
 
@@ -836,31 +484,4 @@ export function getPartnerLeads(ownerId) {
   } catch {
     return [];
   }
-}
-
-const draftKey = (ownerId, type) => `${ownerId}::${type}`;
-
-export function getPropertyDraft(ownerId, type) {
-  if (!ownerId || !type) return { basic: {} };
-  try {
-    const all = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}');
-    if (!all || typeof all !== 'object' || Array.isArray(all)) return { basic: {} };
-    const saved = all[draftKey(ownerId, type)];
-    return saved?.basic && typeof saved.basic === 'object' && !Array.isArray(saved.basic) ? saved : { basic: {} };
-  } catch {
-    return { basic: {} };
-  }
-}
-
-export function savePropertyDraft(ownerId, type, draft) {
-  if (!ownerId || !type) throw new Error('Sign in required to save a draft.');
-  let all = {};
-  try {
-    const parsed = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}');
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) all = parsed;
-  } catch {
-    all = {};
-  }
-  all[draftKey(ownerId, type)] = draft;
-  localStorage.setItem(DRAFT_KEY, JSON.stringify(all));
 }
