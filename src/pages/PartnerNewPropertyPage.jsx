@@ -58,6 +58,11 @@ function ExistingProperty({ id }) {
     return () => { active = false; };
   }, [id, attempt]);
 
+  // Answers can arrive out of order (a slow upload, then a save): keep the newest.
+  const onPropertyChange = (next) => setProperty((current) => (
+    current && Date.parse(next.updatedAt) < Date.parse(current.updatedAt) ? current : next
+  ));
+
   if (error) {
     const missing = error.status === 404 || error.status === 400;
     return (
@@ -75,7 +80,7 @@ function ExistingProperty({ id }) {
         text={property.reviewNote || `${status?.hint ?? ''} Reference ${property.reference}.`} />
     );
   }
-  return <PropertyInfoPage property={property} onPropertyChange={setProperty} />;
+  return <PropertyInfoPage property={property} onPropertyChange={onPropertyChange} />;
 }
 
 export default function PartnerNewPropertyPage() {

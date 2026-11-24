@@ -10,7 +10,7 @@ import { PrivateImage } from './PrivateImage.jsx';
 import { PropertyLegalForm } from './PropertyLegalForm.jsx';
 import { useAuth } from '../../lib/context/useAuth.js';
 import {
-  AMENITY_CATEGORIES, BED_TYPE_OPTIONS, CANCELLATION_OPTIONS, EMPTY_ROOMS_INFO, EXTRA_BED_TYPE_OPTIONS,
+  AMENITY_CATEGORIES, BED_TYPE_OPTIONS, CANCELLATION_OPTIONS, EMPTY_ROOMS_INFO, TEXT_MAX, EXTRA_BED_TYPE_OPTIONS,
   IDENTITY_PROOF_OPTIONS, MEAL_OPTIONS, PHOTO_TAG_OPTIONS, POLICY_CATEGORIES, POLICY_CONDITIONAL_FIELDS,
   POLICY_TIME_OPTIONS, POLICY_YES_NO_OPTIONS, PROPERTY_INFO_SECTIONS, PROPERTY_RATINGS, ROOM_AMENITY_ITEMS,
   ROOM_CATEGORIES, ROOM_SIZE_UNITS, ROOM_TYPE_OPTIONS, ROOM_VIEW_OPTIONS, validateAmenitiesInfo, validateBasicInfo,
@@ -1481,7 +1481,7 @@ export function PropertyInfoPage({ property, onPropertyChange }) {
                   <TextField
                     full
                     label="Apartment / building name"
-                    value={locationInfo.apartmentName}
+                    value={locationInfo.apartmentName} maxLength={TEXT_MAX.place}
                     onChange={setLocation('apartmentName')}
                     error={locationErrors.apartmentName}
                     autoComplete="address-line1"
@@ -1491,7 +1491,7 @@ export function PropertyInfoPage({ property, onPropertyChange }) {
                   <TextField
                     full
                     label="Area / locality"
-                    value={locationInfo.area}
+                    value={locationInfo.area} maxLength={TEXT_MAX.place}
                     onChange={setLocation('area')}
                     error={locationErrors.area}
                     autoComplete="address-line2"
@@ -1508,9 +1508,9 @@ export function PropertyInfoPage({ property, onPropertyChange }) {
                     placeholder="6-digit pincode"
                     disabled={locating}
                   />
-                  <TextField label="Country" value={locationInfo.country} onChange={setLocation('country')} error={locationErrors.country} autoComplete="country-name" placeholder="India" disabled={locating} />
-                  <TextField label="State" value={locationInfo.state} onChange={setLocation('state')} error={locationErrors.state} autoComplete="address-level1" placeholder="Maharashtra" disabled={locating} />
-                  <TextField label="City" value={locationInfo.city} onChange={setLocation('city')} error={locationErrors.city} autoComplete="address-level2" placeholder="Mumbai" disabled={locating} />
+                  <TextField label="Country" value={locationInfo.country} maxLength={TEXT_MAX.region} onChange={setLocation('country')} error={locationErrors.country} autoComplete="country-name" placeholder="India" disabled={locating} />
+                  <TextField label="State" value={locationInfo.state} maxLength={TEXT_MAX.region} onChange={setLocation('state')} error={locationErrors.state} autoComplete="address-level1" placeholder="Maharashtra" disabled={locating} />
+                  <TextField label="City" value={locationInfo.city} maxLength={TEXT_MAX.region} onChange={setLocation('city')} error={locationErrors.city} autoComplete="address-level2" placeholder="Mumbai" disabled={locating} />
                 </div>
                 <label className={`pi-consent ${locationErrors.addressConfirmed ? 'has-error' : ''}`}>
                   <input type="checkbox" checked={locationInfo.addressConfirmed} onChange={toggleLocationConsent} aria-invalid={Boolean(locationErrors.addressConfirmed)} disabled={locating} />
@@ -1691,7 +1691,7 @@ export function PropertyInfoPage({ property, onPropertyChange }) {
                       <ResponsiveSelectField label="Room view" value={roomsInfo.roomView} onChange={setRoom('roomView')} options={ROOM_VIEW_OPTIONS} error={roomErrors.roomView} />
                       <TextField label="Room size" type="number" min="1" value={roomsInfo.roomSize} onChange={setRoom('roomSize')} placeholder="e.g. 350" error={roomErrors.roomSize} />
                       <ResponsiveSelectField label="Size unit" value={roomsInfo.roomSizeUnit} onChange={setRoom('roomSizeUnit')} options={ROOM_SIZE_UNITS} error={roomErrors.roomSizeUnit} />
-                      <TextField full label="Display room name" value={roomsInfo.roomName} onChange={setRoom('roomName')} placeholder="e.g. Sea View Deluxe" error={roomErrors.roomName} />
+                      <TextField full label="Display room name" value={roomsInfo.roomName} maxLength={TEXT_MAX.roomName} onChange={setRoom('roomName')} placeholder="e.g. Sea View Deluxe" error={roomErrors.roomName} />
                       <TextField label="No. of rooms" type="number" min="1" value={roomsInfo.roomCount} onChange={setRoom('roomCount')} placeholder="e.g. 12" error={roomErrors.roomCount} />
                     </div>
                   )}
@@ -1998,7 +1998,7 @@ export function PropertyInfoPage({ property, onPropertyChange }) {
                             <TextField
                               full
                               label="Complimentary food item(s)"
-                              value={policiesInfo.infantFoodItems}
+                              value={policiesInfo.infantFoodItems} maxLength={TEXT_MAX.infantFood}
                               onChange={setPolicy('infantFoodItems')}
                               placeholder="e.g. Warm milk, fruit puree"
                               error={policyErrors.infantFoodItems}
@@ -2115,7 +2115,7 @@ export function PropertyInfoPage({ property, onPropertyChange }) {
                     {errors.channelManager && <span className="field-error" role="alert">{errors.channelManager}</span>}
                   </fieldset>
                   {info.channelManager === 'yes' && (
-                    <TextField full label="Channel manager provider (optional)" value={info.providerName} onChange={set('providerName')} placeholder="e.g. SiteMinder" error={errors.providerName} />
+                    <TextField full label="Channel manager provider (optional)" value={info.providerName} maxLength={TEXT_MAX.provider} onChange={set('providerName')} placeholder="e.g. SiteMinder" error={errors.providerName} />
                   )}
                 </div>
               </SectionCard>
@@ -2146,7 +2146,7 @@ export function PropertyInfoPage({ property, onPropertyChange }) {
                     autoComplete="tel-national"
                     placeholder="10-digit mobile number"
                   />
-                  <TextField label="Landline no. (optional)" type="tel" value={info.landline} onChange={set('landline')} error={errors.landline} autoComplete="tel" placeholder="Include area code" />
+                  <TextField label="Landline no. (optional)" type="tel" value={info.landline} maxLength={25} onChange={set('landline')} error={errors.landline} autoComplete="tel" placeholder="Include area code" />
                 </div>
                 <p className="pi-hint"><Info size={16} aria-hidden="true" />These details are shared with guests on your property page after approval.</p>
               </SectionCard>
