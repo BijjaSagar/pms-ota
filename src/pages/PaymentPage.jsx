@@ -8,6 +8,7 @@ import { SelectField, Stepper, TextField } from '../components/Layout.jsx';
 import { EmptyBookingState } from '../components/booking/EmptyBookingState.jsx';
 import { StaySideCard } from '../components/booking/StaySideCard.jsx';
 import { computeCheckoutPrice } from '../components/checkout/useCheckoutPrice.js';
+import { saveBooking } from '../lib/api/bookings.js';
 import { useBooking } from '../lib/context/useBooking.js';
 import { useTrips } from '../lib/context/useTrips.js';
 import { createBooking } from '../lib/utils/booking.js';
@@ -32,6 +33,7 @@ export default function PaymentPage() {
   const [processing, setProcessing] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState('');
   const [form, setForm] = useState({
     cardName: '', cardNumber: '', expiry: '', cvc: '',
     billingAddress: '', billingCity: '', billingPostalCode: '',
@@ -77,18 +79,25 @@ export default function PaymentPage() {
     event.preventDefault();
     if (processing || !validate()) return;
     setProcessing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const booking = createBooking({
+    setSubmitError('');
+    const local = createBooking({
       hotel: selectedHotel, room: selectedRoom, search, guest, price,
       paymentLast4: method === 'card' ? cardDigits(form.cardNumber).slice(-4) : 'PayPal',
       addons: bookingAddons, earlyCheckIn: checkout.earlyCheckIn, lateCheckOut: checkout.lateCheckOut,
       couponCode: price.couponCode ?? '', paymentMode: 'now',
     });
-    setConfirmation(booking);
-    addBooking(booking);
-    navigate(`/confirmation/${booking.reference}`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setProcessing(false);
+    // No payment gateway yet: the server saves the booking as "pending payment" until one confirms it.
+    try {
+      const booking = await saveBooking(local);
+      setConfirmation(booking);
+      addBooking(booking);
+      navigate(`/confirmation/${booking.reference}`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (problem) {
+      setSubmitError(problem.message);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const methods = [
@@ -177,6 +186,7 @@ export default function PaymentPage() {
       <aside aria-label="Booking summary" className="booking-col">
         <StaySideCard hotel={selectedHotel} room={selectedRoom} search={search} price={price} addons={bookingAddons}
           totalLabel="Due today" totalNote={`For ${guest.title} ${guest.firstName} ${guest.lastName} · ${guest.email}`}>
+          {submitError && <p className="field-error mb-10" role="alert">{submitError}</p>}
           <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={processing}>
             {processing ? <><Loader2 size={16} className="co-spin" aria-hidden="true" />Processing…</> : <><LockKeyhole size={16} aria-hidden="true" />Pay {formatCurrency(price.total)}</>}
           </button>

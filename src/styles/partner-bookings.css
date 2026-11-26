@@ -131,7 +131,7 @@
 .bk-voucher-total { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px dashed var(--line); }
 .bk-voucher-total span { font-size: 12px; font-weight: 700; color: var(--ink-2); }
 .bk-voucher-total strong { font-size: 18px; font-weight: 800; color: var(--ink); }
-.bk-modal-actions { display: flex; justify-content: flex-end; }
+.bk-modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 .bk-hvoucher {
   display: grid; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 20px;
@@ -320,3 +320,14 @@
   .bk-voucher-calc > div strong { font-size: 14px !important; }
   .bk-voucher-room, .bk-voucher-total { break-inside: avoid; }
 }
+
+/* Stay actions (check in / out, no-show, cancel) and their confirmation */
+.bk-stay-actions { margin-top: 8px; }
+.bk-act-btn { display: inline-flex; align-items: center; gap: 4px; }
+.bk-act-btn.is-danger { color: #A13A2A; }
+.bk-act-btn.is-danger:hover { border-color: #A13A2A; background: #FBEDEA; }
+.bk-act-btn:disabled { opacity: .55; cursor: not-allowed; }
+.bk-reason { display: grid; gap: 6px; margin: 12px 0 4px; font-size: 13px; font-weight: 700; color: var(--ink); }
+.bk-reason textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line-input, var(--line)); border-radius: 12px; font: inherit; font-weight: 500; resize: vertical; }
+.bk-btn-danger { background: #B3412F; color: #fff; }
+.bk-btn-danger:hover { background: #962F20; color: #fff; }

@@ -1,5 +1,7 @@
-// Static Bookings tab: local search/filter/modal only — no API calls, no persistence.
-import { useEffect, useMemo, useState } from 'react';
+// Partner Hub > a property > Bookings: every booking made for the property on TriponX (from the API),
+// with arrivals / in-house / 30-day numbers, search & filters, payment details, the hotelier voucher,
+// and the stay actions: Check in, Check out, Mark no-show, Cancel (the server decides what is allowed).
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowRight,
@@ -12,18 +14,22 @@ import {
   CircleX,
   Clock3,
   Download,
+  LogIn,
+  LogOut,
   Printer,
   Receipt,
+  RefreshCw,
   Search,
+  UserX,
   SlidersHorizontal,
   Wallet,
   X,
 } from 'lucide-react';
+import { bookingAction, listPropertyBookings } from '../../lib/api/bookings.js';
 import {
-  BOOKINGS, BOOKING_SOURCES, BOOKING_STATUSES, BOOKING_TYPES, CHANNELS,
+  BOOKING_SOURCES, BOOKING_STATUSES, BOOKING_TYPES, CHANNELS,
   GST_INVOICE_STATUSES, PAYMENT_STATUSES, formatStayDate, inr,
 } from '../../lib/data/sampleBookings.js';
-import { metricOf, showMetric } from '../../lib/utils/propertySummary.js';
 import { buildVoucher } from '../../lib/utils/voucher.js';
 import { downloadVoucherPdf } from '../../lib/utils/voucherPdf.js';
 import '../../styles/partner-properties.css';
@@ -34,8 +40,21 @@ const STATUS_META = {
   'Checked-in': { tone: 'info', Icon: CalendarCheck },
   Pending: { tone: 'wait', Icon: Clock3 },
   Completed: { tone: 'done', Icon: CheckCircle2 },
+  'No-show': { tone: 'bad', Icon: UserX },
   Cancelled: { tone: 'bad', Icon: CircleX },
 };
+
+/** Buttons for the actions the server allows on a booking today. */
+const ACTIONS = {
+  'check-in': { label: 'Check in', Icon: LogIn, confirm: 'Check this guest in now?' },
+  'check-out': { label: 'Check out', Icon: LogOut, confirm: 'Check this guest out? Any amount still due is recorded as paid at the property.' },
+  'no-show': { label: 'No-show', Icon: UserX, confirm: 'Mark this booking as a no-show? The guest did not arrive.' },
+  cancel: { label: 'Cancel', Icon: CircleX, confirm: 'Cancel this booking? The guest will see it as cancelled.', reason: true },
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** Days from the hotel's today to the check-in day (0 = arriving today). */
+const offsetFrom = (today) => (iso) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / DAY_MS);
 
 const GROUPS = [
   { key: 'today', label: 'Arriving today', match: (b) => b.arrivalOffset === 0 },
@@ -52,11 +71,11 @@ const groupDateLabel = (group, bookings) => {
   return first === last ? first : `${first} – ${last}`;
 };
 
-const DATE_FILTERS = [
+const dateFiltersFor = (bookings) => [
   { key: 'all', label: 'All dates' },
   ...GROUPS.map((group) => ({
     key: group.key,
-    label: group.key === 'today' ? 'Today' : groupDateLabel(group, BOOKINGS.filter(group.match)),
+    label: group.key === 'today' ? 'Today' : groupDateLabel(group, bookings.filter(group.match)),
   })),
 ];
 
@@ -78,14 +97,13 @@ function Status({ status }) {
   return <span className={`bk-status is-${tone}`}><Icon size={12} aria-hidden="true" />{status}</span>;
 }
 
-function Kpis({ property }) {
-  const arriving = BOOKINGS.filter((b) => b.arrivalOffset === 0).length;
-  const inHouse = BOOKINGS.filter((b) => b.status === 'Checked-in').length;
+function Kpis({ stats }) {
+  const show = (value, money) => (stats ? (money ? inr(value) : value) : '–');
   const items = [
-    { label: 'Arrivals today', value: arriving, note: 'expected check-ins', Icon: CalendarDays },
-    { label: 'In house', value: inHouse, note: 'currently staying', Icon: BedDouble },
-    { label: 'Net bookings', value: showMetric(metricOf(property, 'netBookings')), note: 'last 30 days', Icon: Receipt },
-    { label: 'Net earnings', value: showMetric(metricOf(property, 'netEarnings'), true), note: 'last 30 days', Icon: Wallet },
+    { label: 'Arrivals today', value: show(stats?.arrivalsToday), note: 'expected check-ins', Icon: CalendarDays },
+    { label: 'In house', value: show(stats?.inHouse), note: stats?.departuresToday ? `${stats.departuresToday} leaving today` : 'currently staying', Icon: BedDouble },
+    { label: 'Net bookings', value: show(stats?.netBookings), note: 'last 30 days', Icon: Receipt },
+    { label: 'Net earnings', value: show(stats?.netEarnings, true), note: 'last 30 days', Icon: Wallet },
   ];
   return (
     <section className="bk-kpis" aria-label="Booking numbers">
@@ -103,7 +121,7 @@ function Kpis({ property }) {
   );
 }
 
-function BookingRow({ booking, onPaymentDetails, onVoucher }) {
+function BookingRow({ booking, onPaymentDetails, onVoucher, onAction, busy }) {
   return (
     <tr className="bk-row">
       <td data-label="Name"><span className="bk-cell-main"><strong>{booking.guest.name}</strong></span></td>
@@ -112,7 +130,7 @@ function BookingRow({ booking, onPaymentDetails, onVoucher }) {
           <CalendarDays size={13} aria-hidden="true" />
           {formatStayDate(booking.checkIn)} <ArrowRight size={12} aria-hidden="true" /> {formatStayDate(booking.checkOut)}
         </span>
-        <span className="bk-cell-sub">{booking.nights} nights</span>
+        <span className="bk-cell-sub">{booking.nights} {booking.nights === 1 ? 'night' : 'nights'} · {booking.adults + booking.kids} guests</span>
       </td>
       <td data-label="Room & meal plan">
         <span className="bk-cell-main">{booking.room}</span>
@@ -123,7 +141,22 @@ function BookingRow({ booking, onPaymentDetails, onVoucher }) {
         <span className="bk-cell-main">{booking.guest.email}</span>
         <span className="bk-cell-sub">{booking.guest.phone}</span>
       </td>
-      <td data-label="Status"><Status status={booking.status} /></td>
+      <td data-label="Status">
+        <Status status={booking.status} />
+        {booking.actions.length > 0 && (
+          <div className="bk-row-actions bk-stay-actions">
+            {booking.actions.map((action) => {
+              const { label, Icon } = ACTIONS[action];
+              return (
+                <button key={action} type="button" className={`bk-pay-btn bk-act-btn ${action === 'cancel' || action === 'no-show' ? 'is-danger' : ''}`}
+                  disabled={busy} onClick={() => onAction(booking, action)}>
+                  <Icon size={13} aria-hidden="true" />{label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </td>
       <td data-label="Amount">
         <span className="bk-cell-main"><strong>{inr(booking.amount)}</strong></span>
         <span className="bk-cell-sub">{booking.payment.state}</span>
@@ -155,7 +188,7 @@ function FilterChip({ label, active, onClick }) {
   );
 }
 
-function FilterPanel({ filters, setFilters, onClear, hasActive }) {
+function FilterPanel({ filters, setFilters, onClear, hasActive, dateFilters }) {
   const set = (key, value) => setFilters((previous) => ({ ...previous, [key]: value }));
   return (
     <aside className="bk-filters-panel" aria-label="Booking filters">
@@ -164,7 +197,7 @@ function FilterPanel({ filters, setFilters, onClear, hasActive }) {
         <button type="button" className="bk-clear" onClick={onClear} disabled={!hasActive}>Clear all</button>
       </div>
 
-      <FilterSection title="Channels" hint="By MyBiz & Q2T">
+      <FilterSection title="Channels" hint="Where the booking came from">
         <div className="bk-channel-list">
           {CHANNELS.map((channel) => (
             <label key={channel} className="bk-channel">
@@ -184,7 +217,7 @@ function FilterPanel({ filters, setFilters, onClear, hasActive }) {
       </FilterSection>
 
       <FilterSection title="Date Filters">
-        {DATE_FILTERS.map(({ key, label }) => (
+        {dateFilters.map(({ key, label }) => (
           <FilterChip key={key} label={label} active={filters.dateKey === key}
             onClick={() => set('dateKey', key)} />
         ))}
@@ -257,7 +290,7 @@ function PaymentModal({ booking, property, onClose }) {
             <div><dt>Guest</dt><dd>{booking.guest.name}</dd></div>
             <div><dt>Stay</dt><dd>{formatStayDate(booking.checkIn)} – {formatStayDate(booking.checkOut)}</dd></div>
             <div><dt>Room</dt><dd>{booking.room}</dd></div>
-            <div><dt>Payment mode</dt><dd>{booking.payment.mode} · ••{booking.payment.last4}</dd></div>
+            <div><dt>Payment mode</dt><dd>{booking.payment.mode}{booking.payment.last4 ? ` · ••${booking.payment.last4}` : ''}</dd></div>
             <div><dt>Status</dt><dd>{booking.payment.state}</dd></div>
           </dl>
           <div className="bk-voucher-total"><span>Total booking value</span><strong>{inr(booking.amount)}</strong></div>
@@ -437,11 +470,79 @@ function VoucherDrawer({ booking, property, onClose }) {
   );
 }
 
+function ActionModal({ booking, action, busy, error, onConfirm, onClose }) {
+  const { label, confirm, reason: needsReason } = ACTIONS[action];
+  const [reason, setReason] = useState('');
+  useEffect(() => {
+    const handleKeyDown = (event) => { if (event.key === 'Escape' && !busy) onClose(); };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [busy, onClose]);
+
+  if (typeof document === 'undefined') return null;
+  const tooShort = needsReason && reason.trim().length < 3;
+  return createPortal(
+    <div className="bk-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
+      <form className="bk-modal" role="dialog" aria-modal="true" aria-labelledby="bk-action-title"
+        onSubmit={(event) => { event.preventDefault(); if (!tooShort) onConfirm(reason.trim()); }}>
+        <div className="bk-modal-head">
+          <span className="bk-eyebrow">{booking.reference} · {booking.guest.name}</span>
+          <button type="button" className="bk-modal-close" aria-label="Close" onClick={onClose} disabled={busy}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
+        <h3 id="bk-action-title">{label}</h3>
+        <p className="muted-sm">{confirm}</p>
+        <p className="muted-sm">{booking.room} · {formatStayDate(booking.checkIn)} – {formatStayDate(booking.checkOut)} · {inr(booking.amount)}</p>
+        {needsReason && (
+          <label className="bk-reason">
+            <span>Reason (shown in the booking history)</span>
+            <textarea value={reason} maxLength={300} rows={3} required autoFocus
+              placeholder="e.g. Room under maintenance" onChange={(event) => setReason(event.target.value)} />
+          </label>
+        )}
+        {error && <p className="field-error" role="alert">{error}</p>}
+        <div className="bk-modal-actions">
+          <button type="button" className="btn btn-light btn-sm" onClick={onClose} disabled={busy}>Back</button>
+          <button type="submit" className={`btn btn-sm ${action === 'cancel' || action === 'no-show' ? 'bk-btn-danger' : 'btn-dark'}`}
+            disabled={busy || tooShort} aria-busy={busy}>
+            {busy ? 'Saving…' : label}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  );
+}
+
 export function PropertyBookings({ property }) {
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [paymentBooking, setPaymentBooking] = useState(null);
   const [voucherBooking, setVoucherBooking] = useState(null);
+  const [data, setData] = useState(null); // { bookings, stats } from the API
+  const [loadError, setLoadError] = useState('');
+  const [pending, setPending] = useState(null); // { booking, action } waiting for confirmation
+  const [acting, setActing] = useState(false);
+  const [actionError, setActionError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoadError('');
+    try {
+      setData(await listPropertyBookings(property.id));
+    } catch (problem) {
+      setLoadError(problem.message);
+    }
+  }, [property.id]);
+  useEffect(() => { setData(null); load(); }, [load]);
+
+  // Each booking with its day offset from the hotel's today (0 = arriving today).
+  const all = useMemo(() => {
+    if (!data) return [];
+    const offset = offsetFrom(data.stats.today);
+    return data.bookings.map((booking) => ({ ...booking, arrivalOffset: offset(booking.checkIn) }));
+  }, [data]);
+  const dateFilters = useMemo(() => dateFiltersFor(all), [all]);
 
   const hasActive = Boolean(query.trim()) || filters.channels.length > 0
     || Object.entries(filters).some(([key, value]) => key !== 'channels' && value !== INITIAL_FILTERS[key]);
@@ -453,7 +554,7 @@ export function PropertyBookings({ property }) {
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return BOOKINGS.filter((booking) => {
+    return all.filter((booking) => {
       if (filters.channels.length && !filters.channels.includes(booking.channel)) return false;
       if (filters.source !== 'All sources' && booking.source !== filters.source) return false;
       if (filters.dateKey !== 'all' && !GROUPS.find((group) => group.key === filters.dateKey)?.match(booking)) return false;
@@ -462,10 +563,27 @@ export function PropertyBookings({ property }) {
       if (filters.gst !== 'All' && booking.gstInvoice !== filters.gst) return false;
       if (filters.bookingType !== 'All' && booking.bookingType !== filters.bookingType) return false;
       if (!needle) return true;
-      return [booking.guest.name, booking.reference, booking.room, booking.payment.mode]
-        .some((value) => value.toLowerCase().includes(needle));
+      return [booking.guest.name, booking.reference, booking.room, booking.payment.mode, booking.guest.email, booking.guest.phone]
+        .some((value) => String(value ?? '').toLowerCase().includes(needle));
     });
-  }, [query, filters]);
+  }, [all, query, filters]);
+
+  const closeAction = useCallback(() => { setPending(null); setActionError(''); }, []);
+  const runAction = async (reason) => {
+    if (!pending) return;
+    setActing(true);
+    setActionError('');
+    try {
+      await bookingAction(property.id, pending.booking.reference, pending.action, reason);
+      setPending(null);
+      await load(); // fresh list, buttons and numbers
+    } catch (problem) {
+      setActionError(problem.message);
+      if (problem.status === 409) load(); // changed meanwhile: show the current state
+    } finally {
+      setActing(false);
+    }
+  };
 
   return (
     <div className="bk-page">
@@ -473,15 +591,17 @@ export function PropertyBookings({ property }) {
         <div>
           <span className="bk-eyebrow">Reservations</span>
           <h2 className="bk-title">Bookings for {property.propertyName ?? 'this property'}</h2>
-          <p className="bk-sub">A snapshot of arrivals, stays and recent reservations. Data on this screen is static.</p>
+          <p className="bk-sub">Arrivals, stays and reservations made on TriponX. Check guests in and out here.</p>
         </div>
-        {property.isSample && <span className="bs-sample">Sample data</span>}
+        <button type="button" className="btn btn-light btn-sm" onClick={load} aria-label="Refresh bookings">
+          <RefreshCw size={14} aria-hidden="true" />Refresh
+        </button>
       </div>
 
-      <Kpis property={property} />
+      <Kpis stats={data?.stats} />
 
       <div className="bk-workspace">
-        <FilterPanel filters={filters} setFilters={setFilters} onClear={clearAll} hasActive={hasActive} />
+        <FilterPanel filters={filters} setFilters={setFilters} onClear={clearAll} hasActive={hasActive} dateFilters={dateFilters} />
 
         <section className="bk-list-panel" aria-labelledby="bk-list-title">
           <div className="bk-toolbar">
@@ -492,19 +612,34 @@ export function PropertyBookings({ property }) {
             <label className="bk-search">
               <Search size={16} aria-hidden="true" />
               <span className="sr-only">Search bookings</span>
-              <input type="search" value={query} placeholder="Search guest, reference or room"
+              <input type="search" value={query} placeholder="Search guest, reference, room or phone"
                 onChange={(event) => setQuery(event.target.value)} />
             </label>
           </div>
 
-          {filtered.length === 0 ? (
+          {loadError && (
+            <div className="pi-notice is-error" role="alert">
+              <span>{loadError}</span>
+              <button type="button" className="btn btn-light btn-sm" onClick={load}>Try again</button>
+            </div>
+          )}
+
+          {!data && !loadError ? (
+            <div className="pv-empty bk-empty" role="status"><p className="muted-sm">Loading bookings…</p></div>
+          ) : data && all.length === 0 ? (
+            <div className="pv-empty bk-empty">
+              <span className="pv-empty-icon"><CalendarX2 size={24} aria-hidden="true" /></span>
+              <h4 className="pv-empty-title">No bookings yet</h4>
+              <p className="muted-sm">When guests book this property on TriponX, their reservations appear here.</p>
+            </div>
+          ) : data && filtered.length === 0 ? (
             <div className="pv-empty bk-empty">
               <span className="pv-empty-icon"><CalendarX2 size={24} aria-hidden="true" /></span>
               <h4 className="pv-empty-title">No bookings found</h4>
               <p className="muted-sm">Try another name, reference or status.</p>
               <button type="button" className="btn btn-light btn-sm" onClick={clearAll}>Clear filters</button>
             </div>
-          ) : (
+          ) : data ? (
             <div className="bk-groups">
               {GROUPS.map((group) => {
                 const bookings = filtered.filter(group.match);
@@ -525,8 +660,9 @@ export function PropertyBookings({ property }) {
                         </thead>
                         <tbody>
                           {bookings.map((booking) => (
-                            <BookingRow key={booking.id} booking={booking}
-                              onPaymentDetails={setPaymentBooking} onVoucher={setVoucherBooking} />
+                            <BookingRow key={booking.id} booking={booking} busy={acting}
+                              onPaymentDetails={setPaymentBooking} onVoucher={setVoucherBooking}
+                              onAction={(target, action) => { setActionError(''); setPending({ booking: target, action }); }} />
                           ))}
                         </tbody>
                       </table>
@@ -535,7 +671,7 @@ export function PropertyBookings({ property }) {
                 );
               })}
             </div>
-          )}
+          ) : null}
         </section>
       </div>
 
@@ -544,6 +680,10 @@ export function PropertyBookings({ property }) {
       )}
       {voucherBooking && (
         <VoucherDrawer booking={voucherBooking} property={property} onClose={() => setVoucherBooking(null)} />
+      )}
+      {pending && (
+        <ActionModal key={`${pending.booking.reference}-${pending.action}`} booking={pending.booking} action={pending.action}
+          busy={acting} error={actionError} onConfirm={runAction} onClose={closeAction} />
       )}
     </div>
   );

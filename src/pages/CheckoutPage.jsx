@@ -10,7 +10,9 @@ import { ExtrasCard } from '../components/checkout/ExtrasCard.jsx';
 import { GuestCard } from '../components/checkout/GuestCard.jsx';
 import { PolicyCard } from '../components/checkout/PolicyCard.jsx';
 import { computeCheckoutPrice } from '../components/checkout/useCheckoutPrice.js';
+import { saveBooking } from '../lib/api/bookings.js';
 import { useBooking } from '../lib/context/useBooking.js';
+import { useTrips } from '../lib/context/useTrips.js';
 import { findCoupon } from '../lib/data/offers.js';
 import { createBooking } from '../lib/utils/booking.js';
 import { formatCurrency } from '../lib/utils/pricing.js';
@@ -34,6 +36,9 @@ export default function CheckoutPage() {
   const [couponInput, setCouponInput] = useState(checkout.couponCode);
   const [appliedCouponCode, setAppliedCouponCode] = useState(checkout.couponCode);
   const [couponError, setCouponError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const { addBooking } = useTrips();
 
   if (!selectedHotel || !selectedRoom) return <EmptyBookingState />;
 
@@ -88,8 +93,10 @@ export default function CheckoutPage() {
     return Object.keys(next).length === 0;
   };
 
-  const submit = (event) => {
+  const submit = async (event) => {
     event?.preventDefault();
+    if (saving) return;
+    setSubmitError('');
     if (!validate()) {
       revealFirstError(document, { focus: '[aria-invalid="true"]' });
       return;
@@ -102,14 +109,24 @@ export default function CheckoutPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    const booking = createBooking({
+    const local = createBooking({
       hotel: selectedHotel, room: selectedRoom, search, guest: form, price,
       paymentLast4: 'Pay at property', addons: bookingAddons, earlyCheckIn, lateCheckOut,
       couponCode: price.couponCode ?? '', paymentMode: 'later',
     });
-    setConfirmation(booking);
-    navigate(`/confirmation/${booking.reference}`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Saved by the server (priced, availability checked); its reference replaces the local one.
+    setSaving(true);
+    try {
+      const booking = await saveBooking(local);
+      setConfirmation(booking);
+      addBooking(booking);
+      navigate(`/confirmation/${booking.reference}`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (problem) {
+      setSubmitError(problem.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const payOptions = [
@@ -180,8 +197,9 @@ export default function CheckoutPage() {
             )}
             {price.couponDiscount > 0 && <p className="co-saving">You save {formatCurrency(price.couponDiscount)} with {price.couponCode}</p>}
           </div>
-          <button type="submit" className="btn btn-primary btn-block btn-lg">
-            {isNow ? `Continue to payment · ${formatCurrency(price.total)}` : 'Confirm booking · pay at hotel'}
+          {submitError && <p className="field-error mb-10" role="alert">{submitError}</p>}
+          <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={saving} aria-busy={saving}>
+            {saving ? 'Confirming…' : isNow ? `Continue to payment · ${formatCurrency(price.total)}` : 'Confirm booking · pay at hotel'}
           </button>
           <p className="muted-xs center-text mt-14">
             {selectedRoom.refundable ? 'Free cancellation on this rate.' : 'Non-refundable rate.'} By continuing you agree to the hotel's house rules and TriponX's terms.

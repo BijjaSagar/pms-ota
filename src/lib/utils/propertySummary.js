@@ -1,8 +1,9 @@
 // Numbers on the Partner Hub property cards: metrics and content score.
 import { PROPERTY_INFO_SECTIONS } from '../data/partner.js';
 
-// The API has no bookings per partner property yet. Once it sends `stats: { todayBookings, … }` with each
-// property (same keys as below), the numbers fill in. Until then a value is null and shows "–".
+// GET /partner/properties sends `stats` with each property (hotel calendar, India): todayBookings (made today),
+// todayCheckIns (arriving today), stayingToday (checked in now), todayCheckOuts (leaving today), and
+// netBookings / netEarnings (last 30 days, not cancelled). A missing value shows "–".
 export const TODAY_METRICS = [
   { key: 'todayBookings', label: 'Bookings', view: 'bookings' },
   { key: 'todayCheckIns', label: 'Check-ins', view: 'check-ins' },
