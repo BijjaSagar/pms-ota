@@ -20,6 +20,21 @@ export const propertyDetailsPath = (id, view = 'overview') => `${PARTNER_PATHS.p
 /** Overview of one property — the Home icon in the partner module row. */
 export const propertyOverviewPath = (id) => propertyDetailsPath(id, 'overview');
 
+// Pages without a property in the URL (Payments, More, …) link to the last property opened;
+// before any is opened they use CURRENT_PROPERTY, which the property page swaps for the first property.
+export const CURRENT_PROPERTY = 'current';
+const LAST_PROPERTY_KEY = 'triponx.partner.lastProperty';
+export function rememberProperty(id) {
+  try {
+    if (id) window.sessionStorage.setItem(LAST_PROPERTY_KEY, id);
+    else window.sessionStorage.removeItem(LAST_PROPERTY_KEY);
+  } catch { /* storage blocked */ }
+}
+export function currentPropertyId(id) {
+  if (id) return id;
+  try { return window.sessionStorage.getItem(LAST_PROPERTY_KEY) || CURRENT_PROPERTY; } catch { return CURRENT_PROPERTY; }
+}
+
 export const propertyRatesSectionPath = (id, section) => `${propertyDetailsPath(id, 'rates-inventory')}&section=${encodeURIComponent(section)}`;
 
 export const propertyAnalyticsSectionPath = (id, section) => `${propertyDetailsPath(id, 'analytics')}&section=${encodeURIComponent(section)}`;

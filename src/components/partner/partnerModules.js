@@ -15,7 +15,7 @@ import {
   Inbox,
   Star,
 } from 'lucide-react';
-import { PARTNER_PATHS, moduleSoonPath, propertyDetailsPath, propertyOverviewPath } from './paths.js';
+import { PARTNER_PATHS, currentPropertyId, moduleSoonPath, propertyDetailsPath, propertyOverviewPath } from './paths.js';
 
 export const MORE_MODULES = [
   { id: 'margin-offers', label: 'Margin Offers', to: PARTNER_PATHS.marginOffers },
@@ -26,29 +26,29 @@ export const MORE_MODULES = [
 export const PARTNER_MODULES = [
   {
     id: 'home', label: 'Home', Icon: House, to: PARTNER_PATHS.properties,
-    hrefFor: ({ propertyId }) => propertyOverviewPath(propertyId ?? 'sample'),
+    hrefFor: ({ propertyId }) => propertyOverviewPath(currentPropertyId(propertyId)),
     view: 'overview', also: [PARTNER_PATHS.properties],
   },
   {
     id: 'bookings', label: 'Bookings', Icon: CalendarCheck, to: PARTNER_PATHS.properties,
-    hrefFor: ({ propertyId }) => propertyDetailsPath(propertyId ?? 'sample', 'bookings'),
+    hrefFor: ({ propertyId }) => propertyDetailsPath(currentPropertyId(propertyId), 'bookings'),
     view: 'bookings',
   },
   {
     id: 'rates-inventory', label: 'Rates & Inventory', Icon: BedDouble, to: PARTNER_PATHS.properties,
-    hrefFor: ({ propertyId }) => propertyDetailsPath(propertyId ?? 'sample', 'rates-inventory'),
+    hrefFor: ({ propertyId }) => propertyDetailsPath(currentPropertyId(propertyId), 'rates-inventory'),
     view: 'rates-inventory',
   },
   { id: 'payments', label: 'Payments', Icon: CreditCard, to: PARTNER_PATHS.payments },
   { id: 'property-information', label: 'Property Information', Icon: ClipboardList },
   {
     id: 'ratings-reviews', label: 'Ratings & Reviews', Icon: Star, to: PARTNER_PATHS.properties,
-    hrefFor: ({ propertyId }) => propertyDetailsPath(propertyId ?? 'sample', 'reviews'),
+    hrefFor: ({ propertyId }) => propertyDetailsPath(currentPropertyId(propertyId), 'reviews'),
     view: 'reviews',
   },
   {
     id: 'analytics', label: 'Analytics', Icon: ChartNoAxesCombined, to: PARTNER_PATHS.properties,
-    hrefFor: ({ propertyId }) => propertyDetailsPath(propertyId ?? 'sample', 'analytics'),
+    hrefFor: ({ propertyId }) => propertyDetailsPath(currentPropertyId(propertyId), 'analytics'),
     view: 'analytics',
   },
   {

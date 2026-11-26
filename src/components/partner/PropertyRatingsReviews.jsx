@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Download, Info, QrCode } from 'lucide-react';
-import { propertyDetailsPath } from './paths.js';
+import { currentPropertyId, propertyDetailsPath } from './paths.js';
 import { RatingsOverview } from './RatingsOverview.jsx';
 import { ReviewsManagement } from './ReviewsManagement.jsx';
 import { QrCodeModal, RatingsInfoModal, ReplyModal } from './RatingsReviewsModals.jsx';
@@ -90,7 +90,7 @@ export function PropertyRatingsReviews({ property }) {
   const pages = Math.max(1, Math.ceil(filteredReviews.length / PAGE_SIZE));
   const safePage = Math.min(page, pages);
   const pagedReviews = filteredReviews.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const reviewUrl = typeof window === 'undefined' ? '' : `${window.location.origin}${propertyDetailsPath(propertyId ?? 'sample', 'reviews')}&collect=mmt`;
+  const reviewUrl = typeof window === 'undefined' ? '' : `${window.location.origin}${propertyDetailsPath(currentPropertyId(propertyId), 'reviews')}&collect=mmt`;
   const propertyName = property?.propertyName || property?.name || 'this property';
 
   const updateFilter = (key, value) => {
