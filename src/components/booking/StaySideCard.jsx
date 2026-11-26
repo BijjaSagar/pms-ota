@@ -19,7 +19,9 @@ export function StaySideCard({ hotel, room, search, price, addons, totalLabel, t
         <div className="co-min">
           <p className="h-room">{hotel.name}</p>
           <p className="muted-sm mb-6">{room.name}{room.breakfast ? ' · breakfast incl.' : ''}</p>
-          <span className="score">{hotel.rating.toFixed(1)} ★ {ratingWord(hotel.rating)}</span>
+          {hotel.reviewCount > 0
+            ? <span className="score">{hotel.rating.toFixed(1)} ★ {ratingWord(hotel.rating)}</span>
+            : <span className="muted-xs">New on TriponX</span>}
         </div>
       </div>
 

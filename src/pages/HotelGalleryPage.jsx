@@ -2,13 +2,17 @@
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft } from '../components/Icons.jsx';
 import { Gallery } from '../components/hotels/Gallery.jsx';
-import { getHotelBySlug } from '../lib/data/hotels.js';
+import { AuthLoading } from '../components/auth/RequireAuth.jsx';
+import { useCatalogue } from '../lib/context/useCatalogue.js';
 import NotFoundPage from './NotFoundPage.jsx';
 import '../styles/hotel-details.css';
 
 export default function HotelGalleryPage() {
   const { slug } = useParams();
+  // Approved partner properties (from the API) and the demo hotels.
+  const { getHotelBySlug, ready } = useCatalogue();
   const hotel = slug ? getHotelBySlug(slug) : undefined;
+  if (!hotel && !ready) return <AuthLoading label="Loading photos…" />;
   if (!hotel) return <NotFoundPage />;
 
   return (

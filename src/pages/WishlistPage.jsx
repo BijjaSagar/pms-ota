@@ -6,13 +6,13 @@ import { HotelCard } from '../components/hotels/HotelCard.jsx';
 import { TextField } from '../components/Layout.jsx';
 import { PortalModal as Modal } from '../components/profile/PortalModal.jsx';
 import { useWishlist } from '../lib/context/useWishlist.js';
-import { hotels } from '../lib/data/hotels.js';
+import { useCatalogue } from '../lib/context/useCatalogue.js';
 import { formatCurrency } from '../lib/utils/pricing.js';
 import '../styles/account.css';
 
-const byId = (id) => hotels.find((hotel) => hotel.id === id);
-
 function ListTile({ wishlist, onDelete }) {
+  // Saved stays can be approved partner properties or demo hotels.
+  const { getHotelById: byId } = useCatalogue();
   const items = wishlist.hotelIds.map(byId).filter(Boolean);
   const pics = items.slice(0, 3);
   return (
@@ -54,6 +54,7 @@ export default function WishlistPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [wishlistToDelete, setWishlistToDelete] = useState(null);
   const [name, setName] = useState('');
+  const { getHotelById: byId } = useCatalogue();
 
   const savedHotels = ids.map(byId).filter(Boolean);
 

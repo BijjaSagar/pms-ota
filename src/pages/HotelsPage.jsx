@@ -9,7 +9,8 @@ import { Photo } from '../components/Layout.jsx';
 import { Stars } from '../components/ui/Badge.jsx';
 import { useBooking } from '../lib/context/useBooking.js';
 import { useWishlist } from '../lib/context/useWishlist.js';
-import { destinations, hotels } from '../lib/data/hotels.js';
+import { useCatalogue } from '../lib/context/useCatalogue.js';
+import { destinations } from '../lib/data/hotels.js';
 import { PRICE_MAX } from '../components/hotels/FilterPanel.jsx';
 import { formatDate, nightsBetween } from '../lib/utils/date.js';
 import { formatCurrency } from '../lib/utils/pricing.js';
@@ -55,6 +56,8 @@ export default function HotelsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { search, updateSearch } = useBooking();
   const { isSaved, toggleWishlist } = useWishlist();
+  // Approved partner properties (from the API) first, then the demo hotels.
+  const { hotels } = useCatalogue();
   const [filters, setFilters] = useState(() => {
     const type = searchParams.get('type');
     return type ? { ...defaultFilters, propertyTypes: [type] } : defaultFilters;
@@ -123,10 +126,12 @@ export default function HotelsPage() {
         case 'price-asc': return a.pricePerNight - b.pricePerNight;
         case 'price-desc': return b.pricePerNight - a.pricePerNight;
         case 'rating': return b.rating - a.rating;
-        default: return Number(b.featured) - Number(a.featured) || b.rating - a.rating;
+        // Real (approved) properties first, then the demo hotels.
+        default: return Number(Boolean(b.isPartnerProperty)) - Number(Boolean(a.isPartnerProperty)) ||
+          Number(b.featured) - Number(a.featured) || b.rating - a.rating;
       }
     });
-  }, [filters, query.destination, sort]);
+  }, [hotels, filters, query.destination, sort]);
 
   const activeFilterCount =
     filters.propertyTypes.length + filters.amenities.length + filters.preferences.length + filters.starCategories.length +
@@ -255,9 +260,15 @@ export default function HotelsPage() {
                       </button>
                     </div>
                     <div className="row-gap-10 wrap center">
-                      <span className="score">{hotel.rating.toFixed(1)}</span>
-                      <strong className="text-sm">{ratingWord(hotel.rating)}</strong>
-                      <span className="muted-sm">· {hotel.reviewCount} reviews</span>
+                      {hotel.reviewCount > 0 ? (
+                        <>
+                          <span className="score">{hotel.rating.toFixed(1)}</span>
+                          <strong className="text-sm">{ratingWord(hotel.rating)}</strong>
+                          <span className="muted-sm">· {hotel.reviewCount} reviews</span>
+                        </>
+                      ) : (
+                        <strong className="text-sm">New on TriponX · no reviews yet</strong>
+                      )}
                     </div>
                     {hotel.reviews[0] && <p className="quote">“{hotel.reviews[0].body}”</p>}
                     <div className="tag-row">{hotel.tags.map((t) => <span key={t} className="tag">{t}</span>)}</div>

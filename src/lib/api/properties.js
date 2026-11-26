@@ -85,15 +85,26 @@ export function saveLocation(id, info) {
   });
 }
 
-// ---------- amenities: the API stores each amenity once; the form shows it in every category that lists it ----------
-export const amenitiesFromApi = (answers = {}) => Object.fromEntries(AMENITY_CATEGORIES.map(({ id, items }) => [
+// ---------- amenities ----------
+// The API sends and stores ONLY the amenities the property provides (a list of codes); "No" is never sent
+// or stored. The form still shows Yes/No per item: anything not in the saved list shows as "No".
+// null = the step was never saved (nothing answered yet).
+const providedToAnswers = (provided, items) => {
+  if (!Array.isArray(provided)) return {};
+  const yes = new Set(provided);
+  return Object.fromEntries(items.map((item) => [item.id, yes.has(item.id) ? 'yes' : 'no']));
+};
+/** Codes answered "Yes" (each once, even when it shows in several categories). */
+const providedCodes = (answers) => [...new Set(answers.filter(([, v]) => v === 'yes').map(([code]) => code))];
+
+export const amenitiesFromApi = (provided) => Object.fromEntries(AMENITY_CATEGORIES.map(({ id, items }) => [
   id,
-  Object.fromEntries(items.filter((item) => typeof answers[item.id] === 'boolean').map((item) => [item.id, yesNo(answers[item.id])])),
+  providedToAnswers(provided, items),
 ]));
 
 export const saveAmenities = (id, info) => partnerApi.put(`${base(id)}/amenities`, {
-  answers: Object.fromEntries(AMENITY_CATEGORIES.flatMap((category) => category.items.map(
-    (item) => [item.id, info[category.id]?.[item.id] === 'yes'],
+  amenities: providedCodes(AMENITY_CATEGORIES.flatMap((category) => category.items.map(
+    (item) => [item.id, info[category.id]?.[item.id]],
   ))),
 });
 
@@ -104,14 +115,15 @@ const ROOM_NUMBERS = ['roomSize', 'roomCount', 'maxGuests', 'bathroomCount', 'pr
 export const roomFromApi = (room) => ({
   ...EMPTY_ROOMS_INFO,
   ...Object.fromEntries([...ROOM_TEXT, ...ROOM_NUMBERS].map((k) => [k, text(room[k])])),
-  amenities: Object.fromEntries(ROOM_AMENITY_ITEMS.filter(({ id }) => typeof room.amenities?.[id] === 'boolean').map(({ id }) => [id, yesNo(room.amenities[id])])),
+  amenities: providedToAnswers(room.amenities, ROOM_AMENITY_ITEMS),
 });
 
 export function saveRoom(id, roomId, info) {
   const body = {
     ...Object.fromEntries(ROOM_TEXT.map((k) => [k, info[k]])),
     ...Object.fromEntries(ROOM_NUMBERS.map((k) => [k, Number(info[k])])),
-    amenities: Object.fromEntries(ROOM_AMENITY_ITEMS.map((item) => [item.id, info.amenities?.[item.id] === 'yes'])),
+    // Only the room amenities this room provides.
+    amenities: providedCodes(ROOM_AMENITY_ITEMS.map((item) => [item.id, info.amenities?.[item.id]])),
   };
   return roomId ? partnerApi.put(`${base(id)}/rooms/${roomId}`, body) : partnerApi.post(`${base(id)}/rooms`, body);
 }

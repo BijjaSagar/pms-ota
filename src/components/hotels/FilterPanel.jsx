@@ -1,8 +1,9 @@
 // Filters from pms-ota (FilterPanel.tsx): every filter and toggle kept, laid out as TriponX glass filter cards.
 // Props unchanged: { filters, onChange, destination, onDestinationChange, className }.
 import { Search } from 'lucide-react';
-import { useState } from 'react';
-import { amenityFilters, hotels, propertyTypeFilters } from '../../lib/data/hotels.js';
+import { useMemo, useState } from 'react';
+import { useCatalogue } from '../../lib/context/useCatalogue.js';
+import { amenityFilters, propertyTypeFilters } from '../../lib/data/hotels.js';
 import { formatCurrency } from '../../lib/utils/pricing.js';
 import '../../styles/hotels.css';
 
@@ -19,8 +20,8 @@ const businessOptions = ['WiFi', 'Breakfast included', 'All meals included', 'Br
 // Nightly-price histogram of the whole catalogue, for the budget card.
 const BUCKETS = 9;
 const bucketOf = (price) => Math.min(BUCKETS - 1, Math.floor(((price - PRICE_MIN) / (PRICE_MAX - PRICE_MIN)) * BUCKETS));
-const histogram = Array.from({ length: BUCKETS }, (_, i) => hotels.filter((h) => bucketOf(h.pricePerNight) === i).length);
-const histMax = Math.max(1, ...histogram);
+// Clamped, so a stay cheaper than PRICE_MIN counts in the first bar.
+const bucketIndex = (price) => Math.max(0, bucketOf(price));
 
 function CheckRow({ label, checked, onChange, count }) {
   return (
@@ -50,9 +51,19 @@ function ExpandableCheckRows({ options, selected, onToggle, counts }) {
   );
 }
 
-const amenityCounts = Object.fromEntries(amenityFilters.map((a) => [a, hotels.filter((h) => h.amenities.includes(a)).length]));
-
 export function FilterPanel({ filters, onChange, destination, onDestinationChange, className = '' }) {
+  // Counts over the whole catalogue: approved properties and the demo hotels.
+  const { hotels } = useCatalogue();
+  const { histogram, histMax, amenityCounts, propertyTypes } = useMemo(() => {
+    const bars = Array.from({ length: BUCKETS }, (_, i) => hotels.filter((h) => bucketIndex(h.pricePerNight) === i).length);
+    return {
+      histogram: bars,
+      histMax: Math.max(1, ...bars),
+      amenityCounts: Object.fromEntries(amenityFilters.map((a) => [a, hotels.filter((h) => h.amenities.includes(a)).length])),
+      // Demo types, plus the types of approved properties (e.g. "Hotel").
+      propertyTypes: [...new Set([...propertyTypeFilters, ...hotels.map((h) => h.propertyType)])],
+    };
+  }, [hotels]);
   const toggleIn = (key, value) => {
     const list = filters[key];
     onChange({ ...filters, [key]: list.includes(value) ? list.filter((x) => x !== value) : [...list, value] });
@@ -120,7 +131,7 @@ export function FilterPanel({ filters, onChange, destination, onDestinationChang
       <div className="card">
         <h2 className="h-filter">Property type</h2>
         <div className="row-gap-8 wrap">
-          {propertyTypeFilters.map((type) => (
+          {propertyTypes.map((type) => (
             <button key={type} type="button" aria-pressed={filters.propertyTypes.includes(type)}
               className={`chip chip-sm ${filters.propertyTypes.includes(type) ? 'is-active' : ''}`}
               onClick={() => toggleIn('propertyTypes', type)}>
