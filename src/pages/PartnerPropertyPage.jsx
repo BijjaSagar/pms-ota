@@ -6,6 +6,8 @@ import { ArrowLeft, Hammer, Info } from 'lucide-react';
 import { PartnerShell } from '../components/partner/PartnerShell.jsx';
 import { PropertyBookings } from '../components/partner/PropertyBookings.jsx';
 import { PropertyRatesInventory } from '../components/partner/PropertyRatesInventory.jsx';
+import { PropertyRatingsReviews } from '../components/partner/PropertyRatingsReviews.jsx';
+import { PropertyAnalytics } from '../components/partner/PropertyAnalytics.jsx';
 import { PARTNER_PATHS } from '../components/partner/paths.js';
 import { AuthLoading } from '../components/auth/RequireAuth.jsx';
 import { listProperties } from '../lib/api/properties.js';
@@ -21,7 +23,8 @@ const VIEWS = [
   { key: 'staying', label: 'Staying' },
   { key: 'check-outs', label: 'Check-outs' },
   { key: 'earnings', label: 'Earnings' },
-  { key: 'reviews', label: 'Reviews' },
+  { key: 'reviews', label: 'Ratings & Reviews' },
+  { key: 'analytics', label: 'Analytics' },
 ];
 
 function PropertyDetails() {
@@ -52,6 +55,10 @@ function PropertyDetails() {
         <PropertyBookings property={property} />
       ) : view.key === 'rates-inventory' ? (
         <PropertyRatesInventory property={property} />
+      ) : view.key === 'reviews' ? (
+        <PropertyRatingsReviews property={property} />
+      ) : view.key === 'analytics' ? (
+        <PropertyAnalytics property={property} />
       ) : (
         <section className="pp-soon" aria-labelledby="pd-soon-title">
           <span className="pp-soon-icon"><Hammer size={28} aria-hidden="true" /></span>
