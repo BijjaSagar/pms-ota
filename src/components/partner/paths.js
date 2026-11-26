@@ -6,6 +6,7 @@ export const PARTNER_PATHS = {
   payments: '/list-property/payments',       // Net earnings and payouts dashboard
   marginOffers: '/list-property/margin-offers',
   reports: '/list-property/reports',
+  actionCenter: '/list-property/action-center',
 };
 
 // Modules that are not built yet open /list-property/module/<id> ("Coming soon").

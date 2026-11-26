@@ -20,7 +20,7 @@ import { PARTNER_PATHS, currentPropertyId, moduleSoonPath, propertyDetailsPath, 
 export const MORE_MODULES = [
   { id: 'margin-offers', label: 'Margin Offers', to: PARTNER_PATHS.marginOffers },
   { id: 'reports', label: 'Reports', to: PARTNER_PATHS.reports },
-  { id: 'action-center', label: 'Action Center' },
+  { id: 'action-center', label: 'Action Center', to: PARTNER_PATHS.actionCenter },
 ].map((m) => ({ ...m, href: m.to ?? moduleSoonPath(m.id), soon: !m.to }));
 
 export const PARTNER_MODULES = [
