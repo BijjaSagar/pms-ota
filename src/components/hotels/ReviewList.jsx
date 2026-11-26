@@ -13,6 +13,15 @@ const ASPECTS = [
 const ratingWord = (r) => (r >= 4.8 ? 'Exceptional' : 'Excellent');
 
 export function ReviewList({ reviews, rating, reviewCount }) {
+  // A newly approved property has no guest reviews yet: say so instead of showing scores.
+  if (!reviewCount) {
+    return (
+      <div className="mb-20">
+        <h2 className="h2-sm">Guest reviews</h2>
+        <p className="section-sub">New on TriponX. Reviews appear here after guests complete a stay.</p>
+      </div>
+    );
+  }
   return (
     <>
       <div className="row-gap-20 center wrap mb-20">

@@ -5,7 +5,7 @@ import { ArrowRight, BedDouble, Building2, CheckCircle2, ChevronDown, ClipboardL
 import { TextField } from '../Layout.jsx';
 import { PortalModal } from '../profile/PortalModal.jsx';
 import { OtpInput, emptyOtp } from '../auth/OtpInput.jsx';
-import { IN_PROGRESS_TAB, PARTNER_PATHS, propertiesTab } from './paths.js';
+import { PARTNER_PATHS, propertiesTab } from './paths.js';
 import { PrivateImage } from './PrivateImage.jsx';
 import { PropertyLegalForm } from './PropertyLegalForm.jsx';
 import { useAuth } from '../../lib/context/useAuth.js';
@@ -2062,7 +2062,7 @@ export function PropertyInfoPage({ property, onPropertyChange }) {
             SectionCard={SectionCard}
             allOtherComplete={basicComplete && locationComplete && amenitiesComplete && roomsComplete && photosComplete && policiesComplete}
             onSaved={onPropertyChange}
-            onSubmitted={() => navigate(propertiesTab(IN_PROGRESS_TAB), { replace: true })}
+            onSubmitted={() => navigate(propertiesTab('active'), { replace: true })}
             onBack={() => selectSection('policies')}
             notify={setNotice}
             noticeMarkup={noticeMarkup}

@@ -1,7 +1,7 @@
 // Hotel details — TriponX stay-page layout, with pms-ota's data and features
 // (room selection -> booking context -> /checkout, lightbox, OpenStreetMap, reviews, policies,
 // capacity warning, rooms left, wishlist).
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { ArrowRight, ChatIcon, HeartIcon, InfoIcon, ShareIcon } from '../components/Icons.jsx';
@@ -13,20 +13,28 @@ import { Stars } from '../components/ui/Badge.jsx';
 import { useAuth } from '../lib/context/useAuth.js';
 import { useBooking } from '../lib/context/useBooking.js';
 import { useWishlist } from '../lib/context/useWishlist.js';
-import { getHotelBySlug } from '../lib/data/hotels.js';
+import { useCatalogue } from '../lib/context/useCatalogue.js';
+import { AuthLoading } from '../components/auth/RequireAuth.jsx';
 import { formatDate, nightsBetween } from '../lib/utils/date.js';
 import { calculatePrice, formatCurrency, SERVICE_FEE_RATE, TAX_RATE } from '../lib/utils/pricing.js';
+import { PortalModal } from '../components/profile/PortalModal.jsx';
 import NotFoundPage from './NotFoundPage.jsx';
 import '../styles/hotel-details.css';
 
 const pct = (r) => `${Math.round(r * 100)}%`;
+/** Key amenities shown on the page; the rest open in "Show all amenities". */
+const POPULAR_SHOWN = 8;
 
 export default function HotelDetailsPage() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { search, selectedHotel, selectedRoom, selectRoom } = useBooking();
   const { isSaved, toggleWishlist } = useWishlist();
+  // Approved partner properties (from the API) and the demo hotels.
+  const { getHotelBySlug, ready } = useCatalogue();
   const [shared, setShared] = useState(false);
+  const [allAmenities, setAllAmenities] = useState(false);
+  const closeAmenities = useCallback(() => setAllAmenities(false), []);
   const { isAuthenticated, authOpen, openAuth } = useAuth();
   // Set when a signed-out guest clicks Reserve: once they sign in, continue to checkout.
   const reservePending = useRef(false);
@@ -42,7 +50,9 @@ export default function HotelDetailsPage() {
   useEffect(() => { if (!authOpen && !isAuthenticated) reservePending.current = false; }, [authOpen, isAuthenticated]);
 
   const hotel = slug ? getHotelBySlug(slug) : undefined;
-  if (!hotel) return <NotFoundPage />;
+  // An approved property may still be loading from the API.
+  if (!hotel && !ready) return <AuthLoading label="Loading stay…" />;
+  if (!hotel || hotel.rooms.length === 0) return <NotFoundPage />;
 
   const isCurrentHotel = selectedHotel?.id === hotel.id;
   const defaultRoom = hotel.rooms.reduce(
@@ -59,8 +69,15 @@ export default function HotelDetailsPage() {
   });
   const saved = isSaved(hotel.id);
   const { policies } = hotel;
-  const { lat, lng } = hotel.coordinates;
-  const bbox = `${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}`;
+  // A new property may have no map pin.
+  const { lat, lng } = hotel.coordinates ?? {};
+  const hasMap = typeof lat === 'number' && typeof lng === 'number';
+  const bbox = hasMap ? `${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}` : '';
+  const hasReviews = hotel.reviewCount > 0;
+  // Approved properties send key amenities and category groups; demo hotels a short flat list.
+  const popularAmenities = (hotel.popularAmenities ?? hotel.amenities).slice(0, POPULAR_SHOWN);
+  const amenityGroups = hotel.amenityGroups ?? [{ category: 'Amenities', items: hotel.amenities }];
+  const amenityTotal = hotel.amenities.length;
 
   const handleSelectRoom = (room) => {
     selectRoom(hotel, room);
@@ -89,10 +106,11 @@ export default function HotelDetailsPage() {
   const facts = [
     ['Check-in', policies.checkIn],
     ['Check-out', policies.checkOut],
-    ['Guest rating', `${hotel.rating.toFixed(1)} / 5`],
+    ['Guest rating', hasReviews ? `${hotel.rating.toFixed(1)} / 5` : 'New · no reviews yet'],
     ['Location', hotel.distance],
-  ];
-  const goodToKnow = [policies.cancellation, policies.children, policies.pets, 'All major cards accepted. This demo simulates payment.'];
+  ].filter(([, value]) => value);
+  const goodToKnow = [policies.cancellation, policies.children, policies.pets, 'All major cards accepted. This demo simulates payment.']
+    .filter(Boolean);
 
   return (
     <div className="container stay-wrap">
@@ -105,7 +123,7 @@ export default function HotelDetailsPage() {
             {hotel.tags.map((t) => <span key={t} className="pill pill-outline">{t}</span>)}
           </div>
           <h1 className="display-md">{hotel.name}</h1>
-          <p className="section-sub">{hotel.address} · <a href="#map" className="link-strong">Show on map</a></p>
+          <p className="section-sub">{hotel.address}{hasMap && <> · <a href="#map" className="link-strong">Show on map</a></>}</p>
         </div>
         <div className="row-gap-10">
           <button type="button" className="btn btn-outline btn-sm" onClick={handleShare}><ShareIcon size={16} />{shared ? 'Link copied' : 'Share'}</button>
@@ -131,18 +149,20 @@ export default function HotelDetailsPage() {
             <p className="about hd-story">{hotel.story}</p>
           </section>
 
-          <section>
-            <h2 className="h2-sm mb-16">Why guests love it</h2>
-            <div className="grid-auto-200 gap-12">
-              {hotel.highlights.map((h) => (
-                <div key={h.title} className="card hd-highlight">
-                  <span className="amenity-icon hd-hl-icon"><AmenityIcon name={h.icon} size={18} /></span>
-                  <p className="h-card">{h.title}</p>
-                  <p className="muted-sm">{h.description}</p>
-                </div>
-              ))}
-            </div>
-          </section>
+          {hotel.highlights.length > 0 && (
+            <section>
+              <h2 className="h2-sm mb-16">Why guests love it</h2>
+              <div className="grid-auto-200 gap-12">
+                {hotel.highlights.map((h) => (
+                  <div key={h.title} className="card hd-highlight">
+                    <span className="amenity-icon hd-hl-icon"><AmenityIcon name={h.icon} size={18} /></span>
+                    <p className="h-card">{h.title}</p>
+                    <p className="muted-sm">{h.description}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           <section className="good-to-know">
             <h2 className="h-card-lg">Good to know before you book</h2>
@@ -173,13 +193,36 @@ export default function HotelDetailsPage() {
           <section>
             <h2 className="h2-sm mb-16">What's included</h2>
             <div className="grid-auto-200 gap-12">
-              {hotel.amenities.map((a) => (
+              {popularAmenities.map((a) => (
                 <div key={a} className="amenity"><span className="amenity-icon"><AmenityIcon name={a} size={16} /></span>{a}</div>
               ))}
             </div>
+            {amenityTotal > popularAmenities.length && (
+              <button type="button" className="btn btn-outline btn-sm mt-14" aria-haspopup="dialog"
+                onClick={() => setAllAmenities(true)}>
+                Show all {amenityTotal} amenities
+              </button>
+            )}
           </section>
 
-          <section id="map" className="hd-anchor">
+          {allAmenities && (
+            <PortalModal title={`All amenities · ${amenityTotal}`} onClose={closeAmenities} wide>
+              <div className="hd-amenity-modal">
+                {amenityGroups.map((group) => (
+                  <section key={group.category} className="hd-amenity-group">
+                    <h3 className="h-card">{group.category}</h3>
+                    <ul>
+                      {group.items.map((item) => (
+                        <li key={item}><span className="amenity-icon"><AmenityIcon name={item} size={14} /></span>{item}</li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            </PortalModal>
+          )}
+
+          {hasMap && <section id="map" className="hd-anchor">
             <h2 className="h2-sm mb-16">Where you'll be</h2>
             <div className="map map-short hd-map">
               <iframe title={`Map showing ${hotel.name}`} loading="lazy"
@@ -193,7 +236,7 @@ export default function HotelDetailsPage() {
                 Open in maps <ExternalLink size={12} aria-hidden="true" />
               </a>
             </div>
-          </section>
+          </section>}
         </div>
 
         {/* Tablets & phones: price + Reserve always within reach */}

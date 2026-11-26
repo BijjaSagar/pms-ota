@@ -7,6 +7,8 @@
 // The backend ends a session when an old refresh cookie is reused, so refreshes are single-flight.
 
 const BASE = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/, '');
+/** The API root, for building URLs of public files (e.g. hotel photos). */
+export const API_BASE = BASE;
 const REFRESH_EARLY_MS = 30 * 1000; // renew a little before expiry
 
 export class ApiError extends Error {

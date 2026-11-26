@@ -1,4 +1,4 @@
-// Last wizard step: tax and bank details, documents, then "Submit for review".
+// Last wizard step: tax and bank details, documents, then "Submit property" (approved at once until admins review listings).
 // PAN, GSTIN and account number are never sent back by the API (last 4 only): an empty box keeps the saved one.
 import { useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, FileText, Landmark, Send, Trash2 } from 'lucide-react';
@@ -180,7 +180,7 @@ export function PropertyLegalForm({ property, SectionCard, allOtherComplete, onS
         </SectionCard>
       </form>
 
-      <SectionCard icon={FileText} title="Documents" subtitle="Private. Only you and our review team can see them.">
+      <SectionCard icon={FileText} title="Documents" subtitle="Private. Only you and the TriponX team can see them.">
         <div className="pi-video-list">
           {documents.map(([type, label, hint]) => {
             const document = property.documents.find((item) => item.type === type);
@@ -195,7 +195,7 @@ export function PropertyLegalForm({ property, SectionCard, allOtherComplete, onS
       <div className="pi-actions pi-amenity-actions">
         <button type="button" className="btn btn-light" onClick={onBack}>Back to Policies</button>
         <button type="button" className="btn btn-primary" disabled={Boolean(busy) || !complete || !allOtherComplete} onClick={submit}>
-          {busy === 'submit' ? 'Submitting…' : 'Submit for review'}
+          {busy === 'submit' ? 'Submitting…' : 'Submit property'}
           {complete ? <Send size={16} aria-hidden="true" /> : <ArrowRight size={16} aria-hidden="true" />}
         </button>
       </div>
