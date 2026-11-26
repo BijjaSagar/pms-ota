@@ -23,7 +23,13 @@ export function loadMasters() {
 }
 
 // ---------- properties ----------
-export const listProperties = () => partnerApi.get('/partner/properties');
+// Last list per account, so moving between partner modules shows the property at once (then refreshes).
+let listCache = { account: null, items: null };
+export const cachedProperties = (account) => (account && listCache.account === account ? listCache.items : null);
+export const listProperties = (account) => partnerApi.get('/partner/properties').then((items) => {
+  if (account) listCache = { account, items };
+  return items;
+});
 export const createProperty = (type) => partnerApi.post('/partner/properties', { type });
 export const getProperty = (id) => partnerApi.get(base(id));
 export const deleteProperty = (id) => partnerApi.del(base(id));
