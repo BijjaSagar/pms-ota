@@ -44,17 +44,22 @@ export const collections = destinations.map((d) => ({
 }));
 
 const BADGES = ['Guest favourite', 'New on TriponX', 'Member rate', 'Top rated'];
-export const featured = hotels.filter((h) => h.featured).map((h, i) => ({
+const toFeatured = (h, i) => ({
   id: h.slug,
   name: h.name,
   place: `${placeOf(h)} · ${h.distance}`,
-  score: h.rating.toFixed(1),
-  badge: BADGES[i % BADGES.length],
+  // A newly approved property has no reviews yet.
+  score: h.reviewCount > 0 ? h.rating.toFixed(1) : 'New',
+  badge: h.isPartnerProperty ? 'New on TriponX' : BADGES[i % BADGES.length],
   tags: h.tags.slice(0, 2),
   total: hotelTotal(h),
   cancel: hasFreeCancellation(h) ? 'free cancellation on some rooms' : 'non-refundable',
   image: h.images[0],
-}));
+});
+/** Home's "featured" rail from a catalogue: approved properties first, then featured demo hotels. */
+export const featuredFrom = (catalogue) =>
+  catalogue.filter((h) => h.isPartnerProperty || h.featured).map(toFeatured);
+export const featured = featuredFrom(hotels);
 
 // [day of week, date, avg total in thousands, level] — sample price calendar
 export const flexDays = [

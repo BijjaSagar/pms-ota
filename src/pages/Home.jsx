@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Header, Footer, Photo, Chip } from '../components/Layout.jsx';
 import HeroSlider from '../components/HeroSlider.jsx';
@@ -11,8 +11,10 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { Counter } from '../components/hotels/SearchBar.jsx';
-import { intents, collections, featured, flexDays, formatINR } from '../data.js';
-import { hotels, getHotelBySlug } from '../lib/data/hotels.js';
+import { intents, collections, featuredFrom, flexDays, formatINR } from '../data.js';
+// Demo hotels: only for the static guest stories and photo collage below.
+import { hotels } from '../lib/data/hotels.js';
+import { useCatalogue } from '../lib/context/useCatalogue.js';
 import { coupons } from '../lib/data/offers.js';
 import { useBooking } from '../lib/context/useBooking.js';
 import { useWishlist } from '../lib/context/useWishlist.js';
@@ -51,6 +53,9 @@ export default function Home() {
   const navigate = useNavigate();
   const { search, updateSearch } = useBooking();
   const { isSaved, toggleWishlist } = useWishlist();
+  // Featured stays: approved partner properties (from the API) first, then the demo hotels.
+  const { hotels: catalogue, getHotelBySlug } = useCatalogue();
+  const featured = useMemo(() => featuredFrom(catalogue), [catalogue]);
   const [tab, setTab] = useState(0);
   const [where, setWhere] = useState(search.destination ?? '');
   const [checkIn, setCheckIn] = useState(search.checkIn);

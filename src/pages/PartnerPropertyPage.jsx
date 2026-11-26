@@ -11,7 +11,6 @@ import { PropertyAnalytics } from '../components/partner/PropertyAnalytics.jsx';
 import { PARTNER_PATHS } from '../components/partner/paths.js';
 import { AuthLoading } from '../components/auth/RequireAuth.jsx';
 import { listProperties } from '../lib/api/properties.js';
-import { withSamples } from '../lib/data/sampleProperties.js';
 import '../styles/partner.css';
 import '../styles/partner-properties.css';
 
@@ -36,7 +35,7 @@ function PropertyDetails() {
   useEffect(() => {
     let active = true;
     listProperties()
-      .then((found) => { if (active) setItems(withSamples(found)); })
+      .then((found) => { if (active) setItems(found); })
       .catch((problem) => { if (active) setError(problem.message); });
     return () => { active = false; };
   }, []);

@@ -1,9 +1,10 @@
 // Partner Hub home: "Your properties" (/list-property/properties), from the API.
-// Active (property cards with booking numbers) | In progress (drafts, under review, changes needed) with a "From request to live" guide.
+// Active (approved properties, from the API) | In progress (drafts, changes needed) with a "From request to live" guide.
+// A submitted property is approved at once (until the super admin module exists), so it moves straight to Active.
 // ?tab=active | in-progress. Without it, Active is shown unless only in-progress properties exist.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowRight, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Info, MapPin, Plus, Rocket, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, CalendarDays, CheckCircle2, ClipboardCheck, Clock3, Info, MapPin, Plus, Rocket, Send, Trash2 } from 'lucide-react';
 import { BookingSummary } from '../components/partner/BookingSummary.jsx';
 import { PartnerShell } from '../components/partner/PartnerShell.jsx';
 import { PrivateImage } from '../components/partner/PrivateImage.jsx';
@@ -12,7 +13,6 @@ import { AuthLoading } from '../components/auth/RequireAuth.jsx';
 import { IN_PROGRESS_TAB, PARTNER_PATHS, propertyPath } from '../components/partner/paths.js';
 import { deleteProperty, listProperties } from '../lib/api/properties.js';
 import { PROPERTY_INFO_SECTIONS } from '../lib/data/partner.js';
-import { withSamples } from '../lib/data/sampleProperties.js';
 import { STATUS_INFO } from '../lib/data/propertyStatus.js';
 import { nameOf } from '../lib/utils/propertySummary.js';
 import '../styles/partner.css';
@@ -23,20 +23,20 @@ const ACTIVE = 'active';
 // Statuses of each view, in display order.
 const GROUPS = {
   [ACTIVE]: ['LIVE', 'SUSPENDED'],
-  [IN_PROGRESS_TAB]: ['CHANGES_REQUESTED', 'DRAFT', 'UNDER_REVIEW', 'REJECTED'],
+  [IN_PROGRESS_TAB]: ['CHANGES_REQUESTED', 'DRAFT', 'REJECTED'],
 };
 const VIEWS = [
   { key: ACTIVE, label: 'Active' },
   { key: IN_PROGRESS_TAB, label: 'In progress' },
 ];
 const EMPTY = {
-  [ACTIVE]: { Icon: CheckCircle2, title: 'No active properties yet', text: 'Once a property is approved, it appears here with its bookings and earnings.' },
-  [IN_PROGRESS_TAB]: { Icon: ClipboardCheck, title: 'Nothing in progress', text: 'Drafts and properties waiting for our review appear here.' },
+  [ACTIVE]: { Icon: CheckCircle2, title: 'No active properties yet', text: 'Once you submit a property, it appears here with its bookings and earnings.' },
+  [IN_PROGRESS_TAB]: { Icon: ClipboardCheck, title: 'Nothing in progress', text: 'Drafts and properties that still need details appear here.' },
 };
 const STEPS = [
   { Icon: Plus, title: 'Add your property', text: 'Pick the type and fill in the details.' },
-  { Icon: Search, title: 'We review it', text: 'Our team checks the details, usually within 48 hours.' },
-  { Icon: Rocket, title: 'Go live', text: 'Guests can find and book it on TriponX.' },
+  { Icon: Send, title: 'Submit it', text: 'Complete every step and submit your property.' },
+  { Icon: Rocket, title: 'Go live', text: 'It is approved right away, and guests can find and book it on TriponX.' },
 ];
 
 const dateOf = (iso) => new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
@@ -112,7 +112,7 @@ function Properties() {
     setError('');
     try {
       const found = await listProperties();
-      if (request === latest.current) setItems(withSamples(found));
+      if (request === latest.current) setItems(found);
     } catch (problem) {
       if (request === latest.current) setError(problem.message);
     }

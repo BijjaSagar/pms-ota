@@ -1,5 +1,6 @@
-// Confirmation — TriponX's calm, centred confirmation, with pms-ota's booking details,
-// reference copy, add-to-calendar (.ics), print, directions and My trips hand-off.
+// Confirmation: the property card (photo, name, room, dates, directions) on the left and the
+// confirmation (message, reference, actions) on the right; booking details, price and next steps below.
+// Also: reference copy, add-to-calendar (.ics), print and My trips hand-off.
 import { CalendarPlus, Check, Copy, Mail, MapPin, Phone, Printer, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -40,7 +41,10 @@ export default function ConfirmationPage() {
   const additional = guest.additionalGuests ?? [];
   const addons = booking.addons ?? [];
   const travelDay = [booking.earlyCheckIn ? 'Early check-in' : '', booking.lateCheckOut ? 'Late check-out' : ''].filter(Boolean).join(' · ');
-  const directionsUrl = `https://www.openstreetmap.org/?mlat=${hotel.coordinates.lat}&mlon=${hotel.coordinates.lng}#map=16/${hotel.coordinates.lat}/${hotel.coordinates.lng}`;
+  // A newly approved property may have no map pin: then search by address.
+  const directionsUrl = hotel.coordinates
+    ? `https://www.openstreetmap.org/?mlat=${hotel.coordinates.lat}&mlon=${hotel.coordinates.lng}#map=16/${hotel.coordinates.lat}/${hotel.coordinates.lng}`
+    : `https://www.openstreetmap.org/search?query=${encodeURIComponent(hotel.address ?? hotel.name)}`;
 
   const copyReference = async () => {
     try {
@@ -52,12 +56,8 @@ export default function ConfirmationPage() {
     }
   };
 
+  // Stay, room, dates, guests and check-in times are on the property card at the top.
   const details = [
-    ['Stay', `${hotel.name}, ${hotel.location.city}`],
-    ['Room', room.name],
-    ['Dates', `${formatDate(search.checkIn, 'short')} – ${formatDate(search.checkOut, 'short')} · ${nightsLabel(price.nights)}`],
-    ['Guests', guestsLabel(search.guests, search.rooms)],
-    ['Check-in / out', `${hotel.policies.checkIn} · ${hotel.policies.checkOut}`],
     ['Lead guest', `${guest.title} ${guest.firstName} ${guest.lastName}`],
     ['Arriving', guest.arrivalTime],
     ['Contact', `${guest.email}${guest.phone ? ` · ${guest.phone}` : ''}`],
@@ -75,33 +75,61 @@ export default function ConfirmationPage() {
     { Icon: Phone, title: 'Need a change?', text: 'Call the concierge on +1 (800) 555-0182 (7 AM – 11 PM ET) with your reference.' },
   ];
 
+  const photo = hotel.images?.[0] || room.image;
+
   return (
     <div className="confirm co-confirm">
-      <div className="confirm-icon"><Check size={38} strokeWidth={2.2} color="#3F6B5C" aria-hidden="true" /></div>
-      <h1 className="h1-lg">You're going to {hotel.location.city}.</h1>
-      <p className="lead center-text">
-        {hotel.name} has your {room.name} booked for {formatDate(search.checkIn, 'short')} – {formatDate(search.checkOut, 'short')}.
-        {' '}{later ? 'Pay the hotel when you arrive.' : 'Payment received.'} Confirmation is on its way to {booking.email}.
-      </p>
+      {/* Top: the property on the left, the confirmation on the right (stacked on phones). */}
+      <div className="co-hero">
+        <article className="card co-stay" aria-label="Your stay">
+          {photo && (
+            <div className="co-stay-photo">
+              <img src={photo} alt={hotel.name} loading="eager" decoding="async" />
+            </div>
+          )}
+          <div className="co-stay-body">
+            <p className="mini-label">
+              {hotel.propertyType}{hotel.stars ? ` · ${hotel.stars}-star` : ''}
+            </p>
+            <h2 className="co-stay-name">{hotel.name}</h2>
+            <p className="muted-sm">{[hotel.location.city, hotel.location.region].filter(Boolean).join(', ')}</p>
+            <dl className="co-stay-facts">
+              <div><dt className="mini-label">ROOM</dt><dd>{room.name}</dd></div>
+              <div><dt className="mini-label">DATES</dt><dd>{formatDate(search.checkIn, 'short')} – {formatDate(search.checkOut, 'short')} · {nightsLabel(price.nights)}</dd></div>
+              <div><dt className="mini-label">GUESTS</dt><dd>{guestsLabel(search.guests, search.rooms)}</dd></div>
+              <div><dt className="mini-label">CHECK-IN / OUT</dt><dd>{hotel.policies.checkIn} · {hotel.policies.checkOut}</dd></div>
+            </dl>
+          </div>
+          <a href={directionsUrl} target="_blank" rel="noreferrer" className="co-directions no-print">
+            <MapPin size={16} aria-hidden="true" /><span>{hotel.address}</span><span className="link-strong">Directions →</span>
+          </a>
+        </article>
 
-      <div className="co-ref">
-        <span className="mini-label">REFERENCE</span>
-        <span className="co-ref-code">{reference}</span>
-        <button type="button" className="icon-btn co-ref-copy no-print" onClick={copyReference} aria-label="Copy booking reference">
-          {copied ? <Check size={14} className="co-ok" /> : <Copy size={14} />}
-        </button>
-      </div>
+        <div className="card co-hero-text">
+          <div className="confirm-icon"><Check size={38} strokeWidth={2.2} color="#3F6B5C" aria-hidden="true" /></div>
+          <h1 className="h1-lg">You're going to {hotel.location.city}.</h1>
+          <p className="lead">
+            {hotel.name} has your {room.name} booked for {formatDate(search.checkIn, 'short')} – {formatDate(search.checkOut, 'short')}.
+            {' '}{later ? 'Pay the hotel when you arrive.' : 'Payment received.'} Confirmation is on its way to {booking.email}.
+          </p>
 
-      <div className="row-gap-10 wrap justify-center co-mt no-print">
-        <Link to="/trips" className="btn btn-primary btn-lg">View my trip</Link>
-        <button type="button" className="btn btn-outline btn-lg" onClick={() => downloadCalendarFile(booking)}><CalendarPlus size={18} aria-hidden="true" />Add to calendar</button>
-        <button type="button" className="btn btn-outline btn-lg" onClick={() => window.print()}><Printer size={18} aria-hidden="true" />Print</button>
+          <div className="co-ref">
+            <span className="mini-label">REFERENCE</span>
+            <span className="co-ref-code">{reference}</span>
+            <button type="button" className="icon-btn co-ref-copy no-print" onClick={copyReference} aria-label="Copy booking reference">
+              {copied ? <Check size={14} className="co-ok" /> : <Copy size={14} />}
+            </button>
+          </div>
+
+          <div className="row-gap-10 wrap co-mt no-print">
+            <Link to="/trips" className="btn btn-primary btn-lg">View my trip</Link>
+            <button type="button" className="btn btn-outline btn-lg" onClick={() => downloadCalendarFile(booking)}><CalendarPlus size={18} aria-hidden="true" />Add to calendar</button>
+            <button type="button" className="btn btn-outline btn-lg" onClick={() => window.print()}><Printer size={18} aria-hidden="true" />Print</button>
+          </div>
+        </div>
       </div>
 
       <section className="card card-lg co-confirm-card">
-        <div className="co-confirm-photo">
-          <img src={room.image || hotel.images[0]} alt="" loading="lazy" decoding="async" />
-        </div>
         <dl className="co-details">
           {details.map(([k, v]) => (
             <div key={k}><dt className="mini-label">{k.toUpperCase()}</dt><dd>{v}</dd></div>
@@ -110,9 +138,6 @@ export default function ConfirmationPage() {
         <div className="co-divider" />
         <PriceBreakdown price={price} addons={addons} totalLabel={later ? 'Due at property' : 'Paid'}
           totalNote={later ? 'Pay later · settle the balance at the property' : booking.paymentLast4 === 'PayPal' ? 'Paid with PayPal · demo transaction' : `Card ending ${booking.paymentLast4} · demo transaction`} />
-        <a href={directionsUrl} target="_blank" rel="noreferrer" className="co-directions no-print">
-          <MapPin size={16} aria-hidden="true" /><span>{hotel.address}</span><span className="link-strong">Directions →</span>
-        </a>
       </section>
 
       <ol className="co-next">

@@ -72,8 +72,14 @@ export function HotelCard({ hotel, className = '', style }) {
 
         <div className="hcard-foot">
           <p className="hcard-rating">
-            <span className="score">{hotel.rating.toFixed(1)}</span>
-            <span className="muted-xs">({hotel.reviewCount} reviews)</span>
+            {hotel.reviewCount > 0 ? (
+              <>
+                <span className="score">{hotel.rating.toFixed(1)}</span>
+                <span className="muted-xs">({hotel.reviewCount} reviews)</span>
+              </>
+            ) : (
+              <span className="muted-xs">New · no reviews yet</span>
+            )}
           </p>
           <div className="hcard-price">
             <p className="hcard-was">{formatCurrency(price.originalPrice)}</p>

@@ -78,15 +78,35 @@
 .co-terms input { margin-top: 2px; flex: 0 0 auto; }
 .co-terms-error { margin: 6px 0 0 32px; }
 
-/* Confirmation (calm, centred) */
-.co-confirm { max-width: 780px; padding-top: 56px; padding-bottom: 64px; }
-.co-confirm .lead { max-width: 600px; margin-left: auto; margin-right: auto; }
+/* Confirmation: two cards side by side - property (left) + confirmation (right) - details below.
+   Selectors are doubled (.confirm.co-confirm, .card.co-stay) because styles.css loads after this file
+   and its .confirm / .card rules would otherwise win (centred 640px page, card padding). */
+.confirm.co-confirm { max-width: 1180px; padding: 40px 32px 64px; text-align: left; }
+.co-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: stretch; }
+
+/* Left: property card */
+.card.co-stay { padding: 0; overflow: hidden; display: flex; flex-direction: column; text-align: left; }
+.co-stay-photo { height: 240px; background: #DDE5E0; }
+.co-stay-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.co-stay-body { padding: 22px 26px 20px; flex: 1; }
+.co-stay-body .mini-label { margin: 0; }
+.co-stay-name { margin: 6px 0 4px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; color: var(--ink); }
+.co-stay-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; margin: 18px 0 0; padding-top: 18px; border-top: 1px solid var(--line); }
+.co-stay-facts dd { margin: 4px 0 0; font-size: 15px; font-weight: 600; line-height: 1.4; color: var(--ink); }
+.card.co-stay .co-directions { padding: 14px 26px; }
+
+/* Right: confirmation card */
+/* Centred: tick, heading, message, reference and buttons all on the card's centre line. */
+.card.co-hero-text { padding: 36px 36px 32px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+.co-hero-text .confirm-icon { margin: 0 auto 18px; width: 64px; height: 64px; }
+.co-hero-text .h1-lg { margin: 0; line-height: 1.1; }
+.confirm.co-confirm .co-hero-text .lead { max-width: 520px; margin: 14px auto 22px; font-size: 16px; line-height: 1.6; text-align: center; }
+.co-hero-text .co-ref { align-self: center; }
+.co-hero-text .co-mt { margin-top: 22px; justify-content: center; }
 .co-ref { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding: 6px 8px 6px 18px; border-radius: 999px; border: 1px dashed var(--line-input); background: rgba(255, 255, 255, 0.55); }
 .co-ref-code { font-size: 16px; font-weight: 800; letter-spacing: 0.08em; }
 .co-ref-copy { width: 34px; height: 34px; flex: 0 0 34px; }
-.co-confirm-card { margin-top: 32px; padding: 0; overflow: hidden; text-align: left; }
-.co-confirm-photo { height: 180px; background: #DDE5E0; }
-.co-confirm-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.co-confirm-card { margin-top: 36px; padding: 0; overflow: hidden; text-align: left; }
 .co-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 28px; margin: 0; padding: 24px 28px 0; }
 .co-details dd { margin: 4px 0 0; font-size: 15px; font-weight: 600; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
 .co-confirm-card .co-divider { margin: 22px 28px; }
@@ -104,6 +124,13 @@
   .co-checkout .booking-col { max-width: none; }
 }
 
+/* Tablets & phones: confirmation card first, then the property card */
+@media (max-width: 900px) {
+  .co-hero { grid-template-columns: 1fr; gap: 16px; }
+  .card.co-hero-text { order: -1; padding: 26px 22px; }
+  .co-stay-photo { height: 200px; }
+}
+
 @media (max-width: 720px) {
   .co-checkout, .container-narrow.co-checkout { padding-top: 12px; }
   .co-guest-main { grid-template-columns: 96px minmax(0, 1fr); }
@@ -116,7 +143,7 @@
   .co-extras-grid, .co-policy-dl, .co-details, .co-next { grid-template-columns: 1fr; }
   .co-card-head > .co-seg { width: 100%; }
   .co-seg .seg-btn { flex: 1; }
-  .co-confirm { padding: 32px 18px 48px; }
+  .confirm.co-confirm { padding: 24px 16px 48px; }
   .co-confirm .row-gap-10 .btn { flex: 1 1 100%; }
   .co-details { padding: 20px 20px 0; }
   .co-confirm-card .co-divider { margin: 20px; }

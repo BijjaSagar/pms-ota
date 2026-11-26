@@ -1,7 +1,7 @@
 // Ported from pms-ota/src/context/WishlistProvider.tsx (types removed, logic unchanged).
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { hotels } from "../data/hotels";
 import { WishlistContext } from "./wishlist-context";
+import { useCatalogue } from "./useCatalogue.js";
 const STORAGE_KEY = "triponx.wishlist.v1";
 const WISHLISTS_KEY = "triponx.wishlists.v1";
 function createInitialIds() {
@@ -41,6 +41,8 @@ function cityMatchesHotelName(cityName, hotel) {
   return hotelCity.includes(target) || hotelCountry.includes(target) || hotelName.includes(target);
 }
 function WishlistProvider({ children }) {
+  // Approved properties from the API plus the demo hotels.
+  const { hotels } = useCatalogue();
   const [ids, setIds] = useState(createInitialIds);
   const [wishlists, setWishlists] = useState(createInitialWishlists);
   useEffect(() => {
@@ -76,7 +78,7 @@ function WishlistProvider({ children }) {
     };
     setWishlists((current) => [nextItem, ...current]);
     return nextItem;
-  }, []);
+  }, [hotels]);
   const deleteWishlist = useCallback((wishlistId) => {
     setWishlists((current) => current.filter((item) => item.id !== wishlistId));
   }, []);
