@@ -1,5 +1,4 @@
 .mo-page {
-  --mo-blue: #2563eb;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -27,7 +26,7 @@
   cursor: pointer;
 }
 .mo-tabs button:hover { color: var(--ink); }
-.mo-tabs button.is-current { color: var(--mo-blue); }
+.mo-tabs button.is-current { color: var(--accent-dark); }
 .mo-tabs button.is-current::after {
   content: "";
   position: absolute;
@@ -36,9 +35,9 @@
   bottom: -1px;
   height: 3px;
   border-radius: 3px 3px 0 0;
-  background: var(--mo-blue);
+  background: var(--accent);
 }
-.mo-tabs button:focus-visible { outline: 3px solid rgba(37, 99, 235, .25); outline-offset: 2px; }
+.mo-tabs button:focus-visible { outline: 3px solid rgba(63, 107, 92, .35); outline-offset: 2px; }
 
 .mo-card { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
 .mo-table-wrap { max-width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 14px; overflow-x: auto; overscroll-behavior-x: contain; }
@@ -71,11 +70,11 @@
   border: 1px solid var(--line);
   border-radius: 9px;
   background: #fff;
-  color: var(--mo-blue);
+  color: var(--accent-dark);
   cursor: pointer;
 }
 .mo-pagination button:disabled { background: #f8faf9; color: #aab5b0; cursor: default; }
-.mo-pagination button:focus-visible { outline: 3px solid rgba(37, 99, 235, .25); outline-offset: 2px; }
+.mo-pagination button:focus-visible { outline: 3px solid rgba(63, 107, 92, .35); outline-offset: 2px; }
 
 @media (max-width: 760px) {
   .mo-card { padding: 14px; }
