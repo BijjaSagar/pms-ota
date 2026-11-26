@@ -52,7 +52,11 @@ function PropertyRow({ property: p }) {
           {p.coverUrl ? <PrivateImage path={p.coverUrl} alt="" /> : <PropertyIcon type={p.type} size={34} />}
         </span>
         <div className="bs-id-text">
-          <h3 className="bs-name"><Link to={propertyDetailsPath(p.id)}>{nameOf(p)}</Link></h3>
+          <h3 className="bs-name">
+            <Link to={propertyDetailsPath(p.id)} target="_blank" rel="noopener noreferrer">
+              {nameOf(p)}<span className="sr-only"> (opens in a new tab)</span>
+            </Link>
+          </h3>
           <span className="pv-card-meta">
             {p.typeLabel}
             {p.city && <><span aria-hidden="true">·</span><MapPin size={13} aria-hidden="true" />{p.city}</>}
@@ -79,8 +83,8 @@ function PropertyRow({ property: p }) {
         {PERIOD_METRICS.map((m) => <Metric key={m.key} property={p} metric={m} suffix="in the last 30 days" />)}
       </dl>
       {p.reviewRequests > 0 && (
-        <Link className="bs-review" to={propertyDetailsPath(p.id, 'reviews')}>
-          <Star size={15} aria-hidden="true" />Request review for {p.reviewRequests} booking{p.reviewRequests === 1 ? '' : 's'}<ArrowRight size={15} aria-hidden="true" />
+        <Link className="bs-review" to={propertyDetailsPath(p.id, 'reviews')} target="_blank" rel="noopener noreferrer">
+          <Star size={15} aria-hidden="true" />Request review for {p.reviewRequests} booking{p.reviewRequests === 1 ? '' : 's'}<span className="sr-only"> (opens in a new tab)</span><ArrowRight size={15} aria-hidden="true" />
         </Link>
       )}
       {p.reviewNote && <p className="pv-card-note bs-note"><Info size={14} aria-hidden="true" />{p.reviewNote}</p>}

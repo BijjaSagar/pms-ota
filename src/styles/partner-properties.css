@@ -52,6 +52,8 @@
   .pv-switch button { flex: 1 1 0; padding: 0 8px; gap: 6px; }
   .bs-row { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .bs-metrics:not(.bs-period) { padding-top: 14px; border-top: 1px dashed var(--line); }
+  .bs-tabs { gap: 6px; }
+  .bs-control { min-height: 40px; padding: 0 12px; font-size: 13px; }
 }
 @media (max-width: 380px) {
   .bs-photo { flex-basis: 68px; height: 68px; }

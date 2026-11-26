@@ -1,6 +1,7 @@
 /* Partner Hub — "List your property". Standalone page: own top bar, split promo/panel, wizard.
    Reuses global tokens, .card, .form-field, .auth (AuthFlow) and the glass recipe. */
 .lp-shell { min-height: 100vh; background: var(--bg); }
+.lp-shell-fixed { height: 100vh; height: 100dvh; overflow: hidden; }
 /* No mobile tab bar on this page, so drop the space reserved for it */
 .page:has(.lp-shell) { padding-bottom: 0; }
 
@@ -74,6 +75,27 @@
 .pmn-item.is-active .pmn-icon { background: var(--sage); }
 .pmn-item.is-active::after {
   content: ""; position: absolute; left: 16px; right: 16px; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--accent);
+}
+.pmn-flyout-wrap { position: relative; flex: 0 0 auto; display: flex; }
+.pmn-flyout-trigger { border: 0; background: transparent; font-family: inherit; cursor: pointer; }
+.pmn-flyout-trigger:hover { color: var(--ink); background: rgba(28, 43, 45, .04); }
+.pmn-flyout-trigger:focus-visible { outline: 3px solid rgba(63, 107, 92, .35); outline-offset: -3px; }
+.pmn-flyout {
+  position: fixed; z-index: 80; display: grid; gap: 4px; max-width: calc(100vw - 24px); max-height: min(420px, calc(100vh - 96px));
+  padding: 8px; overflow-y: auto; overscroll-behavior: contain;
+  border: 1px solid var(--line); border-radius: 16px; background: #fff;
+  box-shadow: 0 26px 60px -24px rgba(28, 43, 45, .45);
+}
+.pmn-flyout-item {
+  display: grid; gap: 2px; min-width: 0; padding: 10px 12px; border-radius: 11px;
+  color: var(--ink); text-decoration: none; break-inside: avoid;
+}
+.pmn-flyout-item:hover { background: var(--sage); }
+.pmn-flyout-item.is-active { background: var(--sage); }
+.pmn-flyout-item:focus-visible { outline: 3px solid rgba(63, 107, 92, .35); outline-offset: 2px; }
+.pmn-flyout-label { font-size: 13px; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  .pmn-flyout { max-height: min(60vh, 420px); }
 }
 /* When the row scrolls, fade its edges so it's clear there's more */
 @media (max-width: 1180px) {

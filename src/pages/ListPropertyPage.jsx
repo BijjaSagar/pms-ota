@@ -50,7 +50,7 @@ export default function ListPropertyPage() {
   if (isAuthenticated) return <Navigate to={PARTNER_PATHS.properties} replace />;
 
   return (
-    <div className="lp-shell">
+    <div className="lp-shell lp-shell-fixed">
       <PartnerTopBar />
 
       {/* Split: promo + sign-in card */}
