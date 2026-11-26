@@ -17,6 +17,7 @@ import ListPropertyPage from './pages/ListPropertyPage.jsx';
 import PartnerPropertiesPage from './pages/PartnerPropertiesPage.jsx';
 import PartnerPropertyPage from './pages/PartnerPropertyPage.jsx';
 import PartnerNewPropertyPage from './pages/PartnerNewPropertyPage.jsx';
+import PartnerPaymentsPage from './pages/PartnerPaymentsPage.jsx';
 import PartnerModuleSoonPage from './pages/PartnerModuleSoonPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import { PARTNER_PATH } from './lib/context/AuthProvider.jsx';
@@ -105,7 +106,8 @@ export default function App() {
         <Route path="list-property/properties" element={<PartnerPropertiesPage />} />
         <Route path="list-property/properties/:propertyId" element={<PartnerPropertyPage />} />
         <Route path="list-property/new" element={<PartnerNewPropertyPage />} />
-        {/* Modules not built yet (Bookings, Payments, …) show "Coming soon" */}
+        <Route path="list-property/payments" element={<PartnerPaymentsPage />} />
+        {/* Modules not built yet show "Coming soon" */}
         <Route path="list-property/module/:moduleId" element={<PartnerModuleSoonPage />} />
         <Route path="list-property/dashboard" element={<Navigate replace to="/list-property/properties" />} />
         <Route path="search" element={<LegacySearch />} />

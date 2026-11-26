@@ -2,19 +2,21 @@
 // ?view= picks the section. Sections are placeholders for now; build each one in place of "Coming soon".
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Hammer, Info, MapPin } from 'lucide-react';
+import { ArrowLeft, Hammer, Info } from 'lucide-react';
 import { PartnerShell } from '../components/partner/PartnerShell.jsx';
+import { PropertyBookings } from '../components/partner/PropertyBookings.jsx';
+import { PropertyRatesInventory } from '../components/partner/PropertyRatesInventory.jsx';
 import { PARTNER_PATHS } from '../components/partner/paths.js';
 import { AuthLoading } from '../components/auth/RequireAuth.jsx';
 import { listProperties } from '../lib/api/properties.js';
 import { withSamples } from '../lib/data/sampleProperties.js';
-import { nameOf } from '../lib/utils/propertySummary.js';
 import '../styles/partner.css';
 import '../styles/partner-properties.css';
 
 const VIEWS = [
   { key: 'overview', label: 'Overview' },
   { key: 'bookings', label: 'Bookings' },
+  { key: 'rates-inventory', label: 'Rates & Inventory' },
   { key: 'check-ins', label: 'Check-ins' },
   { key: 'staying', label: 'Staying' },
   { key: 'check-outs', label: 'Check-outs' },
@@ -24,7 +26,7 @@ const VIEWS = [
 
 function PropertyDetails() {
   const { propertyId } = useParams();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const [items, setItems] = useState(null);
   const [error, setError] = useState('');
 
@@ -46,24 +48,16 @@ function PropertyDetails() {
   const view = VIEWS.find((v) => v.key === params.get('view')) ?? VIEWS[0];
   return (
     <>
-      {back}
-      <h1 className="pp-title">{nameOf(property)}</h1>
-      <p className="pv-card-meta bs-page-meta">
-        {property.typeLabel}
-        {property.city && <><span aria-hidden="true">·</span><MapPin size={13} aria-hidden="true" />{property.city}</>}
-        <span className="ref-code">{property.reference}</span>
-        {property.isSample && <span className="bs-sample">Sample data</span>}
-      </p>
-      <div className="bs-tabs" role="group" aria-label="Property sections">
-        {VIEWS.map(({ key, label }) => (
-          <button key={key} type="button" aria-pressed={key === view.key} className={`bs-control ${key === view.key ? 'is-on' : ''}`}
-            onClick={() => setParams({ view: key }, { replace: true })}>{label}</button>
-        ))}
-      </div>
-      <section className="pp-soon" aria-labelledby="pd-soon-title">
-        <span className="pp-soon-icon"><Hammer size={28} aria-hidden="true" /></span>
-        <h2 id="pd-soon-title" className="pp-soon-title">{view.label}: coming soon</h2>
-      </section>
+      {view.key === 'bookings' ? (
+        <PropertyBookings property={property} />
+      ) : view.key === 'rates-inventory' ? (
+        <PropertyRatesInventory property={property} />
+      ) : (
+        <section className="pp-soon" aria-labelledby="pd-soon-title">
+          <span className="pp-soon-icon"><Hammer size={28} aria-hidden="true" /></span>
+          <h2 id="pd-soon-title" className="pp-soon-title">{view.label}: coming soon</h2>
+        </section>
+      )}
     </>
   );
 }
