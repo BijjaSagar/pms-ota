@@ -3,6 +3,7 @@
 // and the stay actions: Check in, Check out, Mark no-show, Cancel (the server decides what is allowed).
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
   BedDouble,
@@ -516,8 +517,15 @@ function ActionModal({ booking, action, busy, error, onConfirm, onClose }) {
 }
 
 export function PropertyBookings({ property }) {
+  const [params] = useSearchParams();
+  const requestedGst = params.get('gst');
+  const requestedBookingType = params.get('bookingType');
   const [query, setQuery] = useState('');
-  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [filters, setFilters] = useState(() => ({
+    ...INITIAL_FILTERS,
+    gst: GST_INVOICE_STATUSES.includes(requestedGst) ? requestedGst : INITIAL_FILTERS.gst,
+    bookingType: BOOKING_TYPES.includes(requestedBookingType) ? requestedBookingType : INITIAL_FILTERS.bookingType,
+  }));
   const [paymentBooking, setPaymentBooking] = useState(null);
   const [voucherBooking, setVoucherBooking] = useState(null);
   const [data, setData] = useState(null); // { bookings, stats } from the API
