@@ -4,6 +4,7 @@ export const PARTNER_PATHS = {
   properties: '/list-property/properties',   // Your properties (home after sign-in)
   newProperty: '/list-property/new',         // Add a property (type picker, then details)
   payments: '/list-property/payments',       // Net earnings and payouts dashboard
+  marginOffers: '/list-property/margin-offers',
 };
 
 // Modules that are not built yet open /list-property/module/<id> ("Coming soon").
