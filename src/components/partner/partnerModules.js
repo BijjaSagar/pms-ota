@@ -17,6 +17,12 @@ import {
 } from 'lucide-react';
 import { PARTNER_PATHS, moduleSoonPath, propertyDetailsPath, propertyOverviewPath } from './paths.js';
 
+export const MORE_MODULES = [
+  { id: 'margin-offers', label: 'Margin Offers', to: PARTNER_PATHS.marginOffers },
+  { id: 'reports', label: 'Reports' },
+  { id: 'action-center', label: 'Action Center' },
+].map((m) => ({ ...m, href: m.to ?? moduleSoonPath(m.id), soon: !m.to }));
+
 export const PARTNER_MODULES = [
   {
     id: 'home', label: 'Home', Icon: House, to: PARTNER_PATHS.properties,
@@ -45,7 +51,10 @@ export const PARTNER_MODULES = [
     hrefFor: ({ propertyId }) => propertyDetailsPath(propertyId ?? 'sample', 'analytics'),
     view: 'analytics',
   },
-  { id: 'more', label: 'More', Icon: Ellipsis },
+  {
+    id: 'more', label: 'More', Icon: Ellipsis,
+    also: [moduleSoonPath('more'), ...MORE_MODULES.map((m) => m.href)],
+  },
 ].map((m) => ({ also: [], ...m, href: m.to ?? moduleSoonPath(m.id), soon: !m.to }));
 
 // The property list keeps its original two-item row; other partner pages use the modules above.
@@ -54,4 +63,4 @@ export const PROPERTY_LIST_MODULES = [
   { id: 'inbox', label: 'Group inbox', Icon: Inbox },
 ].map((m) => ({ also: [], ...m, href: m.to ?? moduleSoonPath(m.id), soon: !m.to }));
 
-export const moduleById = (id) => [...PARTNER_MODULES, ...PROPERTY_LIST_MODULES].find((m) => m.id === id);
+export const moduleById = (id) => [...PARTNER_MODULES, ...MORE_MODULES, ...PROPERTY_LIST_MODULES].find((m) => m.id === id);

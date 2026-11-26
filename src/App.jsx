@@ -18,6 +18,7 @@ import PartnerPropertiesPage from './pages/PartnerPropertiesPage.jsx';
 import PartnerPropertyPage from './pages/PartnerPropertyPage.jsx';
 import PartnerNewPropertyPage from './pages/PartnerNewPropertyPage.jsx';
 import PartnerPaymentsPage from './pages/PartnerPaymentsPage.jsx';
+import PartnerMarginOffersPage from './pages/PartnerMarginOffersPage.jsx';
 import PartnerModuleSoonPage from './pages/PartnerModuleSoonPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 import { PARTNER_PATH } from './lib/context/AuthProvider.jsx';
@@ -107,6 +108,7 @@ export default function App() {
         <Route path="list-property/properties/:propertyId" element={<PartnerPropertyPage />} />
         <Route path="list-property/new" element={<PartnerNewPropertyPage />} />
         <Route path="list-property/payments" element={<PartnerPaymentsPage />} />
+        <Route path="list-property/margin-offers" element={<PartnerMarginOffersPage />} />
         {/* Modules not built yet show "Coming soon" */}
         <Route path="list-property/module/:moduleId" element={<PartnerModuleSoonPage />} />
         <Route path="list-property/dashboard" element={<Navigate replace to="/list-property/properties" />} />

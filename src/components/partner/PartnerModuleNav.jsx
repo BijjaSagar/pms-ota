@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import { PARTNER_MODULES, PROPERTY_LIST_MODULES } from './partnerModules.js';
+import { MORE_MODULES, PARTNER_MODULES, PROPERTY_LIST_MODULES } from './partnerModules.js';
 import { PARTNER_PATHS, moduleSoonPath, propertyRatesSectionPath } from './paths.js';
 import { RATES_INVENTORY_SECTIONS } from '../../lib/data/ratesInventorySections.js';
 import '../../styles/partner.css';
@@ -11,8 +11,9 @@ import '../../styles/partner.css';
 export function PartnerModuleNav() {
   const trackRef = useRef(null);
   const ratesRef = useRef(null);
+  const moreRef = useRef(null);
   const flyoutRef = useRef(null);
-  const [flyoutOpen, setFlyoutOpen] = useState(false);
+  const [openFlyout, setOpenFlyout] = useState(null);
   const [flyoutStyle, setFlyoutStyle] = useState({ top: 0, left: 0, width: 0 });
   const { pathname } = useLocation();
   const { propertyId } = useParams();
@@ -26,6 +27,7 @@ export function PartnerModuleNav() {
   const modules = onPropertyListFlow ? PROPERTY_LIST_MODULES : PARTNER_MODULES;
   const belongsTo = (path) => pathname === path || pathname.startsWith(`${path}/`);
   const activeRates = onPropertyPage && activeView === 'rates-inventory';
+  const moreActive = belongsTo(moduleSoonPath('more')) || MORE_MODULES.some((m) => belongsTo(m.href));
 
   useEffect(() => {
     const track = trackRef.current;
@@ -38,28 +40,29 @@ export function PartnerModuleNav() {
   }, [pathname, activeView]);
 
   useEffect(() => {
-    setFlyoutOpen(false);
+    setOpenFlyout(null);
   }, [pathname, activeView, activeSection]);
 
   useLayoutEffect(() => {
-    if (!flyoutOpen) return undefined;
+    if (!openFlyout) return undefined;
     const place = () => {
-      const rect = ratesRef.current?.getBoundingClientRect();
+      const rect = (openFlyout === 'more' ? moreRef.current : ratesRef.current)?.getBoundingClientRect();
       if (!rect) return;
-      const width = Math.max(rect.width, 286);
+      const width = Math.max(rect.width, openFlyout === 'more' ? 220 : 286);
       const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
       setFlyoutStyle({ top: Math.round(rect.bottom + 4), left: Math.round(left), width: Math.round(width) });
     };
     place();
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
-  }, [flyoutOpen]);
+  }, [openFlyout]);
 
   useEffect(() => {
-    if (!flyoutOpen) return undefined;
-    const close = () => setFlyoutOpen(false);
+    if (!openFlyout) return undefined;
+    const close = () => setOpenFlyout(null);
     const onPointerDown = (event) => {
-      if (ratesRef.current?.contains(event.target) || flyoutRef.current?.contains(event.target)) return;
+      const trigger = openFlyout === 'more' ? moreRef.current : ratesRef.current;
+      if (trigger?.contains(event.target) || flyoutRef.current?.contains(event.target)) return;
       close();
     };
     const onKeyDown = (event) => {
@@ -73,7 +76,7 @@ export function PartnerModuleNav() {
       document.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('scroll', close);
     };
-  }, [flyoutOpen]);
+  }, [openFlyout]);
 
   const moduleActive = ({ id, view, also = [] }, isActive = false) => (
     view
@@ -86,15 +89,17 @@ export function PartnerModuleNav() {
       <div className="pmn-track" ref={trackRef}>
         {modules.map((module) => {
           const { id, label, Icon, href, hrefFor, view, also } = module;
-          if (id === 'rates-inventory') {
+          if (id === 'rates-inventory' || id === 'more') {
+            const isActive = id === 'rates-inventory' ? activeRates : moreActive;
+            const flyoutId = id === 'rates-inventory' ? 'pmn-rates-flyout' : 'pmn-more-flyout';
             return (
-              <div className="pmn-flyout-wrap" key={id} ref={ratesRef}>
+              <div className="pmn-flyout-wrap" key={id} ref={id === 'rates-inventory' ? ratesRef : moreRef}>
                 <button type="button"
-                  className={`pmn-item pmn-flyout-trigger ${activeRates ? 'is-active' : ''}`}
+                  className={`pmn-item pmn-flyout-trigger ${isActive ? 'is-active' : ''}`}
                   aria-haspopup="menu"
-                  aria-expanded={flyoutOpen}
-                  aria-controls="pmn-rates-flyout"
-                  onClick={() => setFlyoutOpen((open) => !open)}>
+                  aria-expanded={openFlyout === id}
+                  aria-controls={flyoutId}
+                  onClick={() => setOpenFlyout((current) => (current === id ? null : id))}>
                   <span className="pmn-icon"><Icon size={22} strokeWidth={1.8} aria-hidden="true" /></span>
                   <span className="pmn-label">{label}</span>
                 </button>
@@ -110,17 +115,27 @@ export function PartnerModuleNav() {
           );
         })}
       </div>
-      {flyoutOpen && typeof document !== 'undefined' && createPortal(
-        <div className="pmn-flyout" id="pmn-rates-flyout" role="menu" aria-label="Rates & Inventory sections"
+      {openFlyout && typeof document !== 'undefined' && createPortal(
+        <div className="pmn-flyout"
+          id={openFlyout === 'rates-inventory' ? 'pmn-rates-flyout' : 'pmn-more-flyout'}
+          role="menu"
+          aria-label={openFlyout === 'rates-inventory' ? 'Rates & Inventory sections' : 'More sections'}
           ref={flyoutRef} style={flyoutStyle}>
-          {RATES_INVENTORY_SECTIONS.map((section) => (
-            <NavLink key={section.id} role="menuitem"
-              to={propertyRatesSectionPath(propertyId ?? 'sample', section.id)}
-              className={`pmn-flyout-item ${activeRates && activeSection === section.id ? 'is-active' : ''}`}
-              onClick={() => setFlyoutOpen(false)}>
-              <span className="pmn-flyout-label">{section.label}</span>
-            </NavLink>
-          ))}
+          {(openFlyout === 'rates-inventory' ? RATES_INVENTORY_SECTIONS : MORE_MODULES).map((item) => {
+            const to = openFlyout === 'rates-inventory'
+              ? propertyRatesSectionPath(propertyId ?? 'sample', item.id)
+              : item.href;
+            const itemActive = openFlyout === 'rates-inventory'
+              ? activeRates && activeSection === item.id
+              : belongsTo(item.href);
+            return (
+              <NavLink key={item.id} role="menuitem" to={to}
+                className={`pmn-flyout-item ${itemActive ? 'is-active' : ''}`}
+                onClick={() => setOpenFlyout(null)}>
+                <span className="pmn-flyout-label">{item.label}</span>
+              </NavLink>
+            );
+          })}
         </div>,
         document.body,
       )}
