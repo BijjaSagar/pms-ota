@@ -11,7 +11,8 @@ import { PrivateImage } from '../components/partner/PrivateImage.jsx';
 import { PropertyIcon } from '../components/partner/PropertyIcons.jsx';
 import { AuthLoading } from '../components/auth/RequireAuth.jsx';
 import { IN_PROGRESS_TAB, PARTNER_PATHS, propertyPath } from '../components/partner/paths.js';
-import { deleteProperty, listProperties } from '../lib/api/properties.js';
+import { cachedProperties, deleteProperty, listProperties } from '../lib/api/properties.js';
+import { useAuth } from '../lib/context/useAuth.js';
 import { PROPERTY_INFO_SECTIONS } from '../lib/data/partner.js';
 import { STATUS_INFO } from '../lib/data/propertyStatus.js';
 import { nameOf } from '../lib/utils/propertySummary.js';
@@ -102,7 +103,9 @@ function PropertyCard({ property: p, deleting, onDelete }) {
 
 function Properties() {
   const [params, setParams] = useSearchParams();
-  const [items, setItems] = useState(null);
+  const { user } = useAuth();
+  const account = user?.id;
+  const [items, setItems] = useState(() => cachedProperties(account)); // cached list shows at once, then refreshes
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState('');
   const latest = useRef(0); // only the newest request may update the screen
@@ -111,12 +114,12 @@ function Properties() {
     const request = ++latest.current;
     setError('');
     try {
-      const found = await listProperties();
+      const found = await listProperties(account);
       if (request === latest.current) setItems(found);
     } catch (problem) {
       if (request === latest.current) setError(problem.message);
     }
-  }, []);
+  }, [account]);
   useEffect(() => {
     load();
     return () => { latest.current += 1; };

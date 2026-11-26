@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { MORE_MODULES, PARTNER_MODULES, PROPERTY_LIST_MODULES } from './partnerModules.js';
-import { PARTNER_PATHS, moduleSoonPath, propertyRatesSectionPath } from './paths.js';
+import { PARTNER_PATHS, currentPropertyId, moduleSoonPath, propertyRatesSectionPath } from './paths.js';
 import { RATES_INVENTORY_SECTIONS } from '../../lib/data/ratesInventorySections.js';
 import '../../styles/partner.css';
 
@@ -123,7 +123,7 @@ export function PartnerModuleNav() {
           ref={flyoutRef} style={flyoutStyle}>
           {(openFlyout === 'rates-inventory' ? RATES_INVENTORY_SECTIONS : MORE_MODULES).map((item) => {
             const to = openFlyout === 'rates-inventory'
-              ? propertyRatesSectionPath(propertyId ?? 'sample', item.id)
+              ? propertyRatesSectionPath(currentPropertyId(propertyId), item.id)
               : item.href;
             const itemActive = openFlyout === 'rates-inventory'
               ? activeRates && activeSection === item.id

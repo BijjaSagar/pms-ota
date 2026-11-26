@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { BedDouble, CreditCard, Download, Eye, RotateCcw, Tag, Target } from 'lucide-react';
-import { propertyAnalyticsSectionPath } from './paths.js';
+import { currentPropertyId, propertyAnalyticsSectionPath } from './paths.js';
 import { AnalyticsPanel } from './AnalyticsPanel.jsx';
 import { AspPanel } from './AspPanel.jsx';
 import {
@@ -136,7 +136,7 @@ export function PropertyAnalytics({ property }) {
         {kpis.map((card) => {
           const Icon = KPI_ICONS[card.id];
           return (
-            <Link key={card.id} to={propertyAnalyticsSectionPath(propertyId ?? 'sample', card.section)}
+            <Link key={card.id} to={propertyAnalyticsSectionPath(currentPropertyId(propertyId), card.section)}
               className={`an-kpi ${card.section === activeSection ? 'is-active' : ''}`}
               aria-current={card.section === activeSection ? 'page' : undefined}>
               <span className="an-kpi-icon"><Icon size={18} aria-hidden="true" /></span>
@@ -151,7 +151,7 @@ export function PropertyAnalytics({ property }) {
       <nav className="an-tabs" role="tablist" aria-label="Analytics sections">
         {ANALYTICS_SECTIONS.map((section) => (
           <Link key={section.id} role="tab" aria-selected={section.id === activeSection}
-            to={propertyAnalyticsSectionPath(propertyId ?? 'sample', section.id)}
+            to={propertyAnalyticsSectionPath(currentPropertyId(propertyId), section.id)}
             className={`an-tab ${section.id === activeSection ? 'is-current' : ''}`}>
             {section.label}
           </Link>

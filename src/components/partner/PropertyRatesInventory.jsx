@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, BedDouble, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Minus, Plus, Settings, Tag, Trash2 } from 'lucide-react';
-import { propertyRatesSectionPath } from './paths.js';
+import { currentPropertyId, propertyRatesSectionPath } from './paths.js';
 import { RATES_INVENTORY_SECTIONS } from '../../lib/data/ratesInventorySections.js';
 import { formatStayDate, formatWeekday, inr } from '../../lib/data/sampleBookings.js';
 import '../../styles/partner-properties.css';
@@ -1087,7 +1087,7 @@ export function PropertyRatesInventory({ property }) {
           title={selected.label}
           description={selected.detail}
           action={selected.id === 'default' ? (
-            <Link className="btn btn-light btn-sm" to={propertyRatesSectionPath(propertyId ?? 'sample', 'manage')}>
+            <Link className="btn btn-light btn-sm" to={propertyRatesSectionPath(currentPropertyId(propertyId), 'manage')}>
               Calendar View
             </Link>
           ) : undefined}
@@ -1095,7 +1095,7 @@ export function PropertyRatesInventory({ property }) {
         {selected.id === 'manage' && <ManageRatesPanel />}
         {selected.id === 'extras' && <PaidExtrasPanel />}
         {selected.id === 'default' && <DefaultRatesPanel />}
-        {selected.id === 'hourly' && <HourlyStaysPanel propertyId={propertyId ?? 'sample'} propertyName={propertyName} />}
+        {selected.id === 'hourly' && <HourlyStaysPanel propertyId={currentPropertyId(propertyId)} propertyName={propertyName} />}
       </div>
     </div>
   );
