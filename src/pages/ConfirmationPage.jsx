@@ -4,6 +4,7 @@
 import { CalendarPlus, Check, Copy, Mail, MapPin, Phone, Printer, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { AuthLoading } from '../components/auth/RequireAuth.jsx';
 import { EmptyBookingState } from '../components/booking/EmptyBookingState.jsx';
 import { PriceBreakdown } from '../components/booking/PriceBreakdown.jsx';
 import { useBooking } from '../lib/context/useBooking.js';
@@ -15,7 +16,7 @@ import '../styles/checkout.css';
 export default function ConfirmationPage() {
   const { bookingId } = useParams();
   const { confirmation } = useBooking();
-  const { getBooking, addBooking } = useTrips();
+  const { getBooking, addBooking, loading } = useTrips();
   const [copied, setCopied] = useState(false);
 
   const booking = confirmation && confirmation.reference === bookingId
@@ -27,6 +28,8 @@ export default function ConfirmationPage() {
     if (confirmation && !getBooking(confirmation.reference)) addBooking(confirmation);
   }, [confirmation, getBooking, addBooking]);
 
+  // After a reload the booking comes from My trips (the API): wait for it.
+  if (!booking && loading) return <AuthLoading label="Loading your booking…" />;
   if (!booking) {
     return (
       <EmptyBookingState
@@ -38,6 +41,9 @@ export default function ConfirmationPage() {
 
   const { hotel, room, search, guest, price, reference } = booking;
   const later = booking.paymentMode === 'later';
+  // Paid online but not verified by a payment gateway yet (the server's 'pending_payment').
+  const paymentPending = !later && booking.status === 'pending_payment';
+  const paymentText = later ? 'Pay the hotel when you arrive.' : paymentPending ? 'We are confirming your payment.' : 'Payment received.';
   const additional = guest.additionalGuests ?? [];
   const addons = booking.addons ?? [];
   const travelDay = [booking.earlyCheckIn ? 'Early check-in' : '', booking.lateCheckOut ? 'Late check-out' : ''].filter(Boolean).join(' · ');
@@ -110,7 +116,7 @@ export default function ConfirmationPage() {
           <h1 className="h1-lg">You're going to {hotel.location.city}.</h1>
           <p className="lead">
             {hotel.name} has your {room.name} booked for {formatDate(search.checkIn, 'short')} – {formatDate(search.checkOut, 'short')}.
-            {' '}{later ? 'Pay the hotel when you arrive.' : 'Payment received.'} Confirmation is on its way to {booking.email}.
+            {' '}{paymentText} Confirmation is on its way to {booking.email}.
           </p>
 
           <div className="co-ref">
@@ -136,8 +142,8 @@ export default function ConfirmationPage() {
           ))}
         </dl>
         <div className="co-divider" />
-        <PriceBreakdown price={price} addons={addons} totalLabel={later ? 'Due at property' : 'Paid'}
-          totalNote={later ? 'Pay later · settle the balance at the property' : booking.paymentLast4 === 'PayPal' ? 'Paid with PayPal · demo transaction' : `Card ending ${booking.paymentLast4} · demo transaction`} />
+        <PriceBreakdown price={price} addons={addons} totalLabel={later ? 'Due at property' : paymentPending ? 'Payment pending' : 'Paid'}
+          totalNote={later ? 'Pay later · settle the balance at the property' : `${booking.paymentLast4 === 'PayPal' ? 'PayPal' : `Card ending ${booking.paymentLast4}`} · ${paymentPending ? 'awaiting confirmation from the payment provider' : 'demo transaction'}`} />
       </section>
 
       <ol className="co-next">

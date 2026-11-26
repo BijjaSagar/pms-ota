@@ -80,6 +80,12 @@ export const publicApi = {
  * onRefreshed(body): the refresh response (partner refresh also returns the partner).
  * onLost(): the session can't be renewed any more (signed out elsewhere, expired …).
  */
+/** Runs `task` while holding a browser-wide lock (Web Locks API); just runs it where that API is missing. */
+function oneTabAtATime(name, task) {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  return locks?.request ? locks.request(name, task) : task();
+}
+
 export function createSession({ refreshPath, onRefreshed, onLost }) {
   let token = null;
   let expiresAt = 0;
@@ -91,10 +97,12 @@ export function createSession({ refreshPath, onRefreshed, onLost }) {
   };
   const clear = () => { token = null; expiresAt = 0; };
 
-  // Single-flight: every caller waits for the same /refresh (a reused refresh cookie ends the session).
+  // Single-flight: every caller in this tab waits for the same /refresh. Across tabs, a Web Lock (in memory,
+  // nothing stored) makes tabs refresh one after another, so each sends the newest refresh cookie. The server
+  // also accepts the just-replaced cookie for a moment, so a tab that still races is never signed out.
   const refresh = () => {
     if (!refreshing) {
-      refreshing = send(refreshPath, { method: 'POST' })
+      refreshing = oneTabAtATime(`triponx-refresh:${refreshPath}`, () => send(refreshPath, { method: 'POST' }))
         .then((data) => { set(data); onRefreshed?.(data); return data; })
         .catch((error) => { clear(); throw error; })
         .finally(() => { refreshing = null; });
