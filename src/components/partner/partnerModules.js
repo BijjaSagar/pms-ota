@@ -35,8 +35,16 @@ export const PARTNER_MODULES = [
   },
   { id: 'payments', label: 'Payments', Icon: CreditCard, to: PARTNER_PATHS.payments },
   { id: 'property-information', label: 'Property Information', Icon: ClipboardList },
-  { id: 'ratings-reviews', label: 'Ratings & Reviews', Icon: Star },
-  { id: 'analytics', label: 'Analytics', Icon: ChartNoAxesCombined },
+  {
+    id: 'ratings-reviews', label: 'Ratings & Reviews', Icon: Star, to: PARTNER_PATHS.properties,
+    hrefFor: ({ propertyId }) => propertyDetailsPath(propertyId ?? 'sample', 'reviews'),
+    view: 'reviews',
+  },
+  {
+    id: 'analytics', label: 'Analytics', Icon: ChartNoAxesCombined, to: PARTNER_PATHS.properties,
+    hrefFor: ({ propertyId }) => propertyDetailsPath(propertyId ?? 'sample', 'analytics'),
+    view: 'analytics',
+  },
   { id: 'more', label: 'More', Icon: Ellipsis },
 ].map((m) => ({ also: [], ...m, href: m.to ?? moduleSoonPath(m.id), soon: !m.to }));
 

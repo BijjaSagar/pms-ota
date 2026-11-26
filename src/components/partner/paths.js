@@ -12,13 +12,15 @@ export const moduleSoonPath = (id) => `/list-property/module/${id}`;
 export const IN_PROGRESS_TAB = 'in-progress';
 export const propertiesTab = (tab) => `${PARTNER_PATHS.properties}${tab ? `?tab=${tab}` : ''}`;
 
-/** One property; view = overview | bookings | rates-inventory | check-ins | staying | check-outs | earnings | reviews */
+/** One property; view = overview | bookings | rates-inventory | check-ins | staying | check-outs | earnings | reviews | analytics */
 export const propertyDetailsPath = (id, view = 'overview') => `${PARTNER_PATHS.properties}/${encodeURIComponent(id)}?view=${view}`;
 
 /** Overview of one property — the Home icon in the partner module row. */
 export const propertyOverviewPath = (id) => propertyDetailsPath(id, 'overview');
 
 export const propertyRatesSectionPath = (id, section) => `${propertyDetailsPath(id, 'rates-inventory')}&section=${encodeURIComponent(section)}`;
+
+export const propertyAnalyticsSectionPath = (id, section) => `${propertyDetailsPath(id, 'analytics')}&section=${encodeURIComponent(section)}`;
 
 /** Payments dashboard; tab = earnings | payouts, view = old | new. */
 export const paymentsPath = (tab, view) => {
