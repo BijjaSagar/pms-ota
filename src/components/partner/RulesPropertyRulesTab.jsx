@@ -1,85 +1,155 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Check, ChevronDown, ChevronRight, Save, Search } from 'lucide-react';
-import {
-  INFANT_FOOD_OPTIONS,
-  PET_CHARGE_FREQUENCIES,
-  PET_TYPES,
-  PROPERTY_RULE_SECTIONS,
-  RESTRICTED_AREA_OPTIONS,
-  YES_NO_OPTIONS,
-  isRuleFieldFilled,
-} from '../../lib/data/rulesPolicies.js';
+import { MASTER_LISTS } from '../../lib/data/partner.js';
 
-const FIELD_LABELS = {
-  unmarriedCouples: 'Unmarried couples',
-  below18: 'Guests below 18 years',
-  maleGroupOnly: 'Male-only groups',
+// Rules & Policies > Property Rules. Every Yes/No is required; the details of
+// a "Yes" appear under it and are required with it (the server clears them
+// on a "No").
+
+const PET_FREQUENCIES = [['per-day', 'Per day'], ['per-night', 'Per night'], ['per-stay', 'Per stay']];
+const PET_AREAS = [['guest-rooms', 'Guest rooms'], ['restaurant', 'Restaurant'], ['pool', 'Pool'], ['lobby', 'Lobby'], ['terrace', 'Terrace']];
+const EXTRA_BED_INCLUSION = [['both', 'Extra adult and extra paid child'], ['adult', 'Extra adult only']];
+const MONEY = /^\d{1,6}(\.\d{1,2})?$/;
+
+const YES_NO = [
+  'unmarriedCouples', 'below18', 'maleGroupOnly', 'sameCityIdsAllowed', 'smokingAllowed', 'privateParties',
+  'wheelchairAccess', 'outsideVisitors', 'petLivingOnProperty', 'petsAllowed', 'petFoodAvailable',
+  'petChargesEnabled', 'petLeashRequired', 'has24HourPolicy', 'includeInfant', 'infantCountedInOccupancy',
+  'infantFoodProvided', 'extraBedIncluded', 'extraBedForAdults', 'extraBedForKids',
+];
+const LISTS = ['identityProofs', 'petTypes', 'petRestrictedAreas', 'infantFoodOptions'];
+
+const LABELS = {
+  unmarriedCouples: 'Are unmarried couples allowed?',
+  below18: 'Are guests below 18 years allowed?',
+  maleGroupOnly: 'Are groups of only men allowed?',
   identityProofs: 'Acceptable identity proofs',
-  sameCityIdsAccepted: 'IDs from the same city',
-  smokingAllowed: 'Smoking allowed',
-  privateParties: 'Private parties and events',
-  wheelchairAccess: 'Wheelchair accessible',
-  outsideVisitors: 'Outside visitors in rooms',
-  petLivingOnProperty: 'Pets live at the property',
-  petsAllowed: 'Pets accepted',
-  petFoodAvailable: 'Pet food available',
-  petTypes: 'Permitted pet types',
-  petChargesEnabled: 'Additional pet charges',
-  petChargeAmount: 'Pet charges (INR)',
-  petChargeFrequency: 'Charging frequency',
-  restrictedAreas: 'Restricted areas',
-  leashRequired: 'Leash required',
-  maxPets: 'Maximum pets allowed',
-  has24HourPolicy: '24-hour check-in',
-  includeInfant: 'Infants allowed',
-  infantCountedInOccupancy: 'Infants counted in occupancy',
-  infantFoodProvided: 'Complimentary infant food',
-  infantFoodItems: 'Complimentary food items',
-  extraBedIncluded: 'Extra bed included in paid rates',
-  extraBedInclusionTypes: 'Rate types covered',
-  extraBedForAdults: 'Extra bed for adults',
+  sameCityIdsAllowed: 'Are IDs from the same city as the property accepted?',
+  smokingAllowed: 'Is smoking allowed in the property?',
+  privateParties: 'Are private parties or events allowed?',
+  wheelchairAccess: 'Is the property wheelchair accessible?',
+  outsideVisitors: 'Are outside visitors allowed in rooms?',
+  petLivingOnProperty: 'Do pets live at the property?',
+  petsAllowed: 'Are guests’ pets allowed?',
+  petFoodAvailable: 'Is pet food available?',
+  petTypes: 'Which pets are allowed?',
+  petChargesEnabled: 'Is there a charge for pets?',
+  petChargeAmount: 'Pet charge (₹)',
+  petChargeFrequency: 'Charged',
+  petRestrictedAreas: 'Areas where pets are not allowed (optional)',
+  petLeashRequired: 'Must pets be on a leash?',
+  maxPets: 'Most pets per booking',
+  has24HourPolicy: 'Do you offer 24-hour check-in?',
+  includeInfant: 'Are infants (0–2 years) allowed?',
+  infantCountedInOccupancy: 'Are infants counted in room occupancy?',
+  infantFoodProvided: 'Is complimentary infant food provided?',
+  infantFoodOptions: 'Which infant food?',
+  extraBedIncluded: 'Is an extra bed included in the extra-guest rate?',
+  extraBedInclusion: 'Included for',
+  extraBedForAdults: 'Do you provide an extra bed for adults?',
   adultExtraBedType: 'Adult extra bed type',
-  adultMattressCharge: 'Adult mattress charge (INR)',
-  extraBedForKids: 'Extra bed for children',
-  childMattressCharge: 'Child mattress charge (INR)',
+  adultMattressCharge: 'Adult extra bed charge (₹ per night)',
+  extraBedForKids: 'Do you provide an extra bed for children?',
+  kidExtraBedType: 'Child extra bed type',
+  childMattressCharge: 'Child extra bed charge (₹ per night)',
 };
 
-function YesNo({ value, onChange }) {
+const SECTIONS = [
+  { id: 'guest-profile', label: 'Guest Profile', fields: ['unmarriedCouples', 'below18', 'maleGroupOnly'] },
+  { id: 'identity', label: 'Acceptable Identity Proofs', fields: ['identityProofs', 'sameCityIdsAllowed'] },
+  { id: 'restrictions', label: 'Property Restrictions', fields: ['smokingAllowed', 'privateParties', 'wheelchairAccess', 'outsideVisitors'] },
+  { id: 'pet', label: 'Pet Policy', fields: ['petLivingOnProperty', 'petsAllowed', 'petFoodAvailable', 'petTypes', 'petChargesEnabled', 'petChargeAmount', 'petChargeFrequency', 'petRestrictedAreas', 'petLeashRequired', 'maxPets'] },
+  { id: 'checkin', label: 'Check-in', fields: ['has24HourPolicy'] },
+  { id: 'infant', label: 'Infant Policy', fields: ['includeInfant', 'infantCountedInOccupancy', 'infantFoodProvided', 'infantFoodOptions'] },
+  { id: 'extra-bed', label: 'Extra Beds', fields: ['extraBedIncluded', 'extraBedInclusion', 'extraBedForAdults', 'adultExtraBedType', 'adultMattressCharge', 'extraBedForKids', 'kidExtraBedType', 'childMattressCharge'] },
+];
+
+const yesNo = (value) => (value === true ? 'yes' : value === false ? 'no' : '');
+
+/** Server rules -> the form (Yes/No as 'yes' | 'no' | '' for unanswered). */
+export function rulesToForm(rules) {
+  const form = {};
+  Object.keys(LABELS).forEach((field) => {
+    const value = rules?.[field];
+    if (YES_NO.includes(field)) form[field] = yesNo(value);
+    else if (LISTS.includes(field)) form[field] = Array.isArray(value) ? value : [];
+    else form[field] = value === null || value === undefined ? '' : String(value);
+  });
+  if (!form.petChargeFrequency) form.petChargeFrequency = 'per-night';
+  if (!form.maxPets) form.maxPets = '1';
+  return form;
+}
+
+/** Shown under its Yes. */
+function visible(field, form) {
+  const pets = form.petsAllowed === 'yes';
+  switch (field) {
+    case 'petFoodAvailable': case 'petTypes': case 'petChargesEnabled': case 'petRestrictedAreas': case 'petLeashRequired': case 'maxPets':
+      return pets;
+    case 'petChargeAmount': case 'petChargeFrequency':
+      return pets && form.petChargesEnabled === 'yes';
+    case 'infantCountedInOccupancy': case 'infantFoodProvided':
+      return form.includeInfant === 'yes';
+    case 'infantFoodOptions':
+      return form.includeInfant === 'yes' && form.infantFoodProvided === 'yes';
+    case 'extraBedInclusion':
+      return form.extraBedIncluded === 'yes';
+    case 'adultExtraBedType': case 'adultMattressCharge':
+      return form.extraBedForAdults === 'yes';
+    case 'kidExtraBedType': case 'childMattressCharge':
+      return form.extraBedForKids === 'yes';
+    default:
+      return true;
+  }
+}
+
+/** Same rules as the server, so mistakes show before saving. */
+export function checkRulesForm(form) {
+  const errors = {};
+  Object.keys(LABELS).filter((field) => visible(field, form)).forEach((field) => {
+    const value = form[field];
+    if (YES_NO.includes(field) && value !== 'yes' && value !== 'no') errors[field] = 'Choose Yes or No.';
+    if (['identityProofs', 'petTypes', 'infantFoodOptions'].includes(field) && !value.length) errors[field] = 'Choose at least one.';
+    if (['petChargeAmount', 'adultMattressCharge', 'childMattressCharge'].includes(field) && (!MONEY.test(value) || Number(value) > 100000)) errors[field] = 'Enter an amount in rupees (0 to 1,00,000).';
+    if (['adultExtraBedType', 'kidExtraBedType', 'extraBedInclusion', 'petChargeFrequency'].includes(field) && !value) errors[field] = 'Choose one.';
+    if (field === 'maxPets' && !(Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 10)) errors[field] = 'Enter 1 to 10.';
+  });
+  return errors;
+}
+
+/** The form -> the request body: only the answers that apply. */
+export function formToBody(form) {
+  const body = {};
+  Object.keys(LABELS).filter((field) => visible(field, form)).forEach((field) => {
+    const value = form[field];
+    if (YES_NO.includes(field)) body[field] = value === 'yes';
+    else if (LISTS.includes(field)) body[field] = value;
+    else if (['petChargeAmount', 'adultMattressCharge', 'childMattressCharge', 'maxPets'].includes(field)) body[field] = Number(value);
+    else body[field] = value;
+  });
+  return body;
+}
+
+function YesNo({ value, onChange, invalid, label }) {
   return (
-    <div className="rpw-yesno" role="group">
-      {YES_NO_OPTIONS.map((option) => (
-        <button
-          type="button"
-          key={option.value}
-          className={value === option.value ? 'is-selected' : ''}
-          aria-pressed={value === option.value}
-          onClick={() => onChange(option.value)}
-        >
-          {value === option.value ? <Check size={13} aria-hidden="true" /> : null}
-          {option.label}
+    <div className="rpw-yesno" role="radiogroup" aria-label={label} aria-invalid={invalid || undefined}>
+      {[['yes', 'Yes'], ['no', 'No']].map(([option, text]) => (
+        <button type="button" key={option} role="radio" aria-checked={value === option} className={value === option ? 'is-selected' : ''} onClick={() => onChange(option)}>
+          {value === option ? <Check size={13} aria-hidden="true" /> : null}{text}
         </button>
       ))}
     </div>
   );
 }
 
-function MultiChoice({ options, value = [], onChange }) {
+function MultiChoice({ options, value, onChange, label }) {
   return (
-    <div className="rpw-multichoice">
-      {options.map((option) => {
-        const itemValue = typeof option === 'string' ? option : option.value;
-        const label = typeof option === 'string' ? option : option.label;
-        const checked = value.includes(itemValue);
+    <div className="rpw-multichoice" role="group" aria-label={label}>
+      {options.map(([code, text]) => {
+        const checked = value.includes(code);
         return (
-          <button
-            type="button"
-            key={itemValue}
-            className={checked ? 'is-selected' : ''}
-            aria-pressed={checked}
-            onClick={() => onChange(checked ? value.filter((entry) => entry !== itemValue) : [...value, itemValue])}
-          >
-            {checked ? <Check size={12} aria-hidden="true" /> : null}
-            {label}
+          <button type="button" key={code} aria-pressed={checked} className={checked ? 'is-selected' : ''} onClick={() => onChange(checked ? value.filter((item) => item !== code) : [...value, code])}>
+            {checked ? <Check size={12} aria-hidden="true" /> : null}{text}
           </button>
         );
       })}
@@ -87,93 +157,46 @@ function MultiChoice({ options, value = [], onChange }) {
   );
 }
 
-export default function RulesPropertyRulesTab({ ruleForm, extras, options, errors, onChange, onSave, saving }) {
+export default function RulesPropertyRulesTab({ form, errors, dirty, onChange, onSave, onDiscard, saving }) {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState([]);
+  const masters = (group) => (MASTER_LISTS[group] ?? []).filter(([code]) => code);
+  const lists = useMemo(() => ({
+    identityProofs: masters('identityProof'),
+    petTypes: masters('petType'),
+    infantFoodOptions: masters('infantFood'),
+    petRestrictedAreas: PET_AREAS,
+  }), [MASTER_LISTS.identityProof, MASTER_LISTS.petType, MASTER_LISTS.infantFood]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getValue = (field) => (field in extras ? extras[field] : ruleForm[field]);
-  const setValue = (field, value) => onChange(field, value);
-
-  const sections = PROPERTY_RULE_SECTIONS.map((section) => {
-    const done = section.fields.filter((field) => isRuleFieldFilled(field, getValue(field))).length;
-    return { ...section, done };
-  }).filter((section) => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return true;
-    return section.label.toLowerCase().includes(needle)
-      || section.fields.some((field) => FIELD_LABELS[field]?.toLowerCase().includes(needle));
-  });
+  const needle = query.trim().toLowerCase();
+  const sections = SECTIONS.map((section) => {
+    const fields = section.fields.filter((field) => visible(field, form));
+    const done = fields.filter((field) => {
+      const value = form[field];
+      return Array.isArray(value) ? value.length > 0 : String(value ?? '').trim() !== '';
+    }).length;
+    const matching = !needle || section.label.toLowerCase().includes(needle) ? fields : fields.filter((field) => LABELS[field].toLowerCase().includes(needle));
+    return { ...section, fields: matching, total: fields.length, done, hasError: fields.some((field) => errors[field]) };
+  }).filter((section) => section.fields.length);
 
   const renderField = (field) => {
-    const value = getValue(field);
-    const error = errors?.[field];
-    const fieldMarkup = (() => {
-      if (['petChargeAmount', 'adultMattressCharge', 'childMattressCharge'].includes(field)) {
-        return <input type="number" min="0" value={value} onChange={(event) => setValue(field, event.target.value)} placeholder="0" />;
-      }
-      switch (field) {
-        case 'identityProofs':
-          return <MultiChoice options={options.identityProofs} value={value} onChange={(next) => setValue(field, next)} />;
-        case 'sameCityIdsAccepted':
-        case 'smokingAllowed':
-        case 'privateParties':
-        case 'wheelchairAccess':
-        case 'outsideVisitors':
-        case 'petLivingOnProperty':
-        case 'petsAllowed':
-        case 'petFoodAvailable':
-        case 'petChargesEnabled':
-        case 'leashRequired':
-        case 'has24HourPolicy':
-        case 'includeInfant':
-        case 'infantCountedInOccupancy':
-        case 'infantFoodProvided':
-        case 'extraBedIncluded':
-        case 'extraBedForAdults':
-        case 'extraBedForKids':
-          return <YesNo value={value} onChange={(next) => setValue(field, next)} />;
-        case 'petTypes':
-          return <MultiChoice options={PET_TYPES} value={value} onChange={(next) => setValue(field, next)} />;
-        case 'restrictedAreas':
-          return <MultiChoice options={RESTRICTED_AREA_OPTIONS} value={value} onChange={(next) => setValue(field, next)} />;
-        case 'extraBedInclusionTypes':
-          return <MultiChoice options={[{ value: 'both', label: 'Extra adult and extra paid child' }, { value: 'adult', label: 'Extra adult only' }]} value={value} onChange={(next) => setValue(field, next)} />;
-        case 'petChargeFrequency':
-          return <select value={value} onChange={(event) => setValue(field, event.target.value)}>{PET_CHARGE_FREQUENCIES.map((item) => <option key={item} value={item}>{item}</option>)}</select>;
-        case 'adultExtraBedType':
-          return <select value={value} onChange={(event) => setValue(field, event.target.value)}><option value="">Select type</option>{options.extraBedTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>;
-        case 'maxPets':
-          return <input type="number" min="0" value={value} onChange={(event) => setValue(field, event.target.value)} />;
-        case 'infantFoodItems':
-          return <textarea rows="3" value={value} onChange={(event) => setValue(field, event.target.value)} placeholder={`e.g. ${INFANT_FOOD_OPTIONS.join(', ')}`} />;
-        default:
-          return null;
-      }
-    })();
-
-    if (!fieldMarkup) return null;
+    const value = form[field];
+    const error = errors[field];
+    let control;
+    if (YES_NO.includes(field)) control = <YesNo label={LABELS[field]} value={value} invalid={Boolean(error)} onChange={(next) => onChange(field, next)} />;
+    else if (lists[field]) control = <MultiChoice label={LABELS[field]} options={lists[field]} value={value} onChange={(next) => onChange(field, next)} />;
+    else if (field === 'petChargeFrequency') control = <select value={value} onChange={(event) => onChange(field, event.target.value)}>{PET_FREQUENCIES.map(([code, text]) => <option key={code} value={code}>{text}</option>)}</select>;
+    else if (field === 'extraBedInclusion') control = <select value={value} aria-invalid={Boolean(error)} onChange={(event) => onChange(field, event.target.value)}><option value="">Choose</option>{EXTRA_BED_INCLUSION.map(([code, text]) => <option key={code} value={code}>{text}</option>)}</select>;
+    else if (field === 'adultExtraBedType' || field === 'kidExtraBedType') control = <select value={value} aria-invalid={Boolean(error)} onChange={(event) => onChange(field, event.target.value)}><option value="">Choose a bed type</option>{masters('extraBedType').map(([code, text]) => <option key={code} value={code}>{text}</option>)}</select>;
+    else if (field === 'maxPets') control = <input type="number" min="1" max="10" step="1" inputMode="numeric" value={value} aria-invalid={Boolean(error)} onChange={(event) => onChange(field, event.target.value)} />;
+    else control = <input type="number" min="0" max="100000" step="0.01" inputMode="decimal" value={value} aria-invalid={Boolean(error)} onChange={(event) => onChange(field, event.target.value)} placeholder="0" />;
     return (
-      <div className="rpw-rule-field" key={field}>
-        <span>{FIELD_LABELS[field] ?? field}</span>
-        {fieldMarkup}
+      <div className={`rpw-rule-field ${error ? 'has-error' : ''}`} key={field} id={`rule-${field}`}>
+        <span>{LABELS[field]}</span>
+        {control}
         {error ? <small className="rpw-field-error" role="alert">{error}</small> : null}
       </div>
     );
-  };
-
-  const hiddenByCondition = (sectionId, field) => {
-    if (sectionId === 'pet') {
-      if (['petFoodAvailable', 'petTypes', 'petChargesEnabled', 'restrictedAreas', 'leashRequired', 'maxPets'].includes(field) && getValue('petsAllowed') !== 'yes') return true;
-      if (['petChargeAmount', 'petChargeFrequency'].includes(field) && getValue('petChargesEnabled') !== 'yes') return true;
-    }
-    if (sectionId === 'infant' && ['infantCountedInOccupancy', 'infantFoodProvided', 'infantFoodItems'].includes(field) && getValue('includeInfant') !== 'yes') return true;
-    if (sectionId === 'infant' && field === 'infantFoodItems' && getValue('infantFoodProvided') !== 'yes') return true;
-    if (sectionId === 'extra-bed-inclusion' && field === 'extraBedInclusionTypes' && getValue('extraBedIncluded') !== 'yes') return true;
-    if (sectionId === 'extra-bed') {
-      if (['adultExtraBedType', 'adultMattressCharge'].includes(field) && getValue('extraBedForAdults') !== 'yes') return true;
-      if (field === 'childMattressCharge' && getValue('extraBedForKids') !== 'yes') return true;
-    }
-    return false;
   };
 
   return (
@@ -182,7 +205,7 @@ export default function RulesPropertyRulesTab({ ruleForm, extras, options, error
         <div className="rpw-card-head">
           <div>
             <h3>Property Rules</h3>
-            <p>Configure guest eligibility, identity checks, restrictions, pets and extra beds.</p>
+            <p>Guest eligibility, identity checks, restrictions, pets, infants and extra beds.</p>
           </div>
           <label className="rpw-search">
             <Search size={15} aria-hidden="true" />
@@ -192,29 +215,24 @@ export default function RulesPropertyRulesTab({ ruleForm, extras, options, error
       </section>
 
       {sections.map((section) => {
-        const fields = section.fields.filter((field) => !hiddenByCondition(section.id, field));
-        if (query.trim() && fields.length === 0) return null;
-        const isCollapsed = collapsed.includes(section.id);
+        const isCollapsed = collapsed.includes(section.id) && !section.hasError && !needle;
         return (
-          <section className="rpw-card rpw-rule-section" key={section.id}>
+          <section className={`rpw-card rpw-rule-section ${section.hasError ? 'has-error' : ''}`} key={section.id}>
             <button type="button" className="rpw-rule-section-head" onClick={() => setCollapsed(isCollapsed ? collapsed.filter((id) => id !== section.id) : [...collapsed, section.id])} aria-expanded={!isCollapsed}>
               <span>{isCollapsed ? <ChevronRight size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}</span>
               <strong>{section.label}</strong>
-              <small>{section.done}/{section.fields.length} rules added</small>
+              <small>{section.done}/{section.total} answered</small>
             </button>
-            {isCollapsed ? null : (
-              <div className="rpw-rule-section-body">
-                {fields.map(renderField)}
-              </div>
-            )}
+            {isCollapsed ? null : <div className="rpw-rule-section-body">{section.fields.map(renderField)}</div>}
           </section>
         );
       })}
 
-      {!sections.length ? <div className="rpw-empty"><Search size={22} aria-hidden="true" /><strong>No rules match “{query}”.</strong><span>Try a different search term.</span></div> : null}
+      {!sections.length ? <div className="rpw-empty"><Search size={22} aria-hidden="true" /><strong>No rules match “{query}”.</strong><span>Try another word.</span></div> : null}
 
       <div className="rpw-save-bar">
-        <button type="button" className="rpw-btn is-primary" onClick={onSave} disabled={saving}><Save size={15} aria-hidden="true" />{saving ? 'Saving…' : 'Save property rules'}</button>
+        {dirty ? <button type="button" className="rpw-btn" onClick={onDiscard} disabled={saving}>Discard changes</button> : null}
+        <button type="button" className="rpw-btn is-primary" onClick={onSave} disabled={saving || !dirty}><Save size={15} aria-hidden="true" />{saving ? 'Saving…' : dirty ? 'Save property rules' : 'Saved'}</button>
       </div>
     </div>
   );

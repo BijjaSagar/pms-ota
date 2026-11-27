@@ -6,72 +6,98 @@ import {
   Save, ShieldCheck, Star, X,
 } from 'lucide-react';
 import {
-  BASIC_INFO_TABS, CURRENCY_OPTIONS, EMPTY_BASIC_EXTRAS, HOTEL_CHAIN_OPTIONS,
-  PROPERTY_TYPE_OPTIONS, SAMPLE_DIRECTIONS, STAR_RATING_OPTIONS, TIMEZONE_OPTIONS,
+  BASIC_INFO_TABS, CURRENCY_OPTIONS, HOTEL_CHAIN_OPTIONS,
+  SAMPLE_DIRECTIONS, STAR_RATING_OPTIONS, TIMEZONE_OPTIONS,
   VEHICLE_TYPE_OPTIONS,
 } from '../../lib/data/basicInformation.js';
 import { PROPERTY_RATINGS, mobileError, propertyNameError } from '../../lib/data/partner.js';
-import { basicFromApi, policiesFromApi, saveBasic, savePolicies } from '../../lib/api/properties.js';
+import {
+  reportLocation, requestContactOtp, saveInformationContacts, saveInformationDetails, saveInformationReach, verifyContactOtp,
+} from '../../lib/api/properties.js';
+import { usePropertyTypes } from '../../lib/api/propertyTypes.js';
 import { isValidEmail } from '../../lib/utils/validation.js';
 import { LocationMap } from './LocationMap.jsx';
+import { ResponsiveSelectField } from './ResponsiveSelectField.jsx';
 import '../../styles/partner-basic-information.css';
 
-const STORAGE_KEY = 'triponx.partner.basicInformation.';
+const splitList = (value) => String(value ?? '').split(',').map((item) => item.trim()).filter(Boolean);
+const joinList = (values) => (Array.isArray(values) ? values.join(', ') : '');
+const yesNoOf = (value) => (value === true ? 'yes' : value === false ? 'no' : '');
+const countText = (value) => (value === null || value === undefined ? '' : String(value));
+const countOf = (value) => (String(value ?? '').trim() === '' ? null : Number(value));
 
-const loadExtras = (id) => {
-  try {
-    const stored = window.sessionStorage.getItem(`${STORAGE_KEY}${id}`);
-    return stored ? { ...EMPTY_BASIC_EXTRAS, ...JSON.parse(stored) } : EMPTY_BASIC_EXTRAS;
-  } catch {
-    return EMPTY_BASIC_EXTRAS;
-  }
-};
-
-const persistExtras = (id, form) => {
-  const extras = Object.fromEntries(Object.keys(EMPTY_BASIC_EXTRAS).map((key) => [key, form[key]]));
-  try {
-    window.sessionStorage.setItem(`${STORAGE_KEY}${id}`, JSON.stringify(extras));
-  } catch {
-    return;
-  }
-};
-
-const initialForm = (property, basic, policies, extras) => ({
-  propertyName: basic.propertyName ?? property.propertyName ?? '',
-  displayName: extras.displayName || basic.propertyName || property.propertyName || '',
-  description: extras.description || property.description || '',
-  propertyType: extras.propertyType || property.typeLabel || property.type || '',
-  starRating: String(basic.rating ?? property.rating ?? ''),
-  hotelChainName: extras.hotelChainName || '',
-  yearOfConstruction: String(basic.builtYear ?? ''),
-  acceptingBookingsSince: String(basic.bookingSince ?? ''),
-  restaurants: String(extras.restaurants ?? property.restaurants ?? ''),
-  rooms: String(property.rooms?.length ?? extras.rooms ?? ''),
-  floors: String(extras.floors ?? ''),
-  currency: extras.currency || 'INR',
-  timezone: extras.timezone || 'Asia/Kolkata',
-  checkInTime: policies.checkInTime || '',
-  checkOutBefore: policies.checkOutTime || '',
-  twentyFourHourCheckIn: Boolean(extras.twentyFourHourCheckIn),
+/** The three tabs' forms, from GET .../information. */
+const formFromInformation = ({ details, contacts, reach }) => ({
+  propertyName: details.propertyName ?? '',
+  displayName: details.displayName || details.propertyName || '',
+  description: details.description ?? '',
+  propertyType: details.type ?? '',
+  starRating: countText(details.starRating),
+  hotelChainName: details.hotelChain ?? '',
+  yearOfConstruction: countText(details.builtYear),
+  acceptingBookingsSince: countText(details.bookingSince),
+  restaurants: countText(details.restaurantCount),
+  rooms: countText(details.roomCount),
+  floors: countText(details.floorCount),
+  currency: details.currency || 'INR',
+  timezone: details.timezone || 'Asia/Kolkata',
+  checkInTime: details.checkInTime ?? '',
+  checkOutBefore: details.checkOutTime ?? '',
+  twentyFourHourCheckIn: Boolean(details.has24HourCheckIn),
   authorized: false,
-  hotelPhone: basic.landline || property.landline || '',
-  hotelMobile: basic.mobile || '',
-  hotelEmail: basic.email || '',
-  phoneList: extras.phoneList || '',
-  websiteList: extras.websiteList || '',
-  emailList: extras.emailList || '',
-  customerCareNumber: extras.customerCareNumber || '',
-  vehicleAccess: extras.vehicleAccess || '',
-  vehicleTypeMode: extras.vehicleTypeMode || '',
-  vehicleTypes: Array.isArray(extras.vehicleTypes) ? extras.vehicleTypes : [],
-  directions: extras.directions || '',
+  hotelPhone: contacts.landline ?? '',
+  hotelMobile: contacts.mobile ?? '',
+  hotelEmail: contacts.email ?? '',
+  whatsappSameAsMobile: contacts.whatsappSameAsMobile ?? true,
+  whatsappMobile: contacts.whatsappMobile ?? '',
+  phoneList: joinList(contacts.phones),
+  websiteList: joinList(contacts.websites),
+  emailList: joinList(contacts.emails),
+  customerCareNumber: joinList(contacts.customerCareNumbers),
+  vehicleAccess: yesNoOf(reach.vehicleReachesEntrance),
+  vehicleTypeMode: reach.allVehicleTypes === true ? 'all' : reach.allVehicleTypes === false ? 'selected' : '',
+  vehicleTypes: Array.isArray(reach.vehicleTypes) ? reach.vehicleTypes : [],
+  directions: reach.directions ?? '',
 });
 
-const years = Array.from({ length: new Date().getFullYear() - 1799 }, (_, index) => String(new Date().getFullYear() - index));
+/** API field -> the form field it is shown under. */
+const API_FIELDS = {
+  type: 'propertyType', hotelChain: 'hotelChainName', builtYear: 'yearOfConstruction',
+  bookingSince: 'acceptingBookingsSince', restaurantCount: 'restaurants', floorCount: 'floors',
+  checkOutTime: 'checkOutBefore', has24HourCheckIn: 'twentyFourHourCheckIn',
+  email: 'hotelEmail', mobile: 'hotelMobile', landline: 'hotelPhone',
+  customerCareNumbers: 'customerCareNumber', phones: 'phoneList', emails: 'emailList', websites: 'websiteList',
+  vehicleReachesEntrance: 'vehicleAccess', allVehicleTypes: 'vehicleTypeMode',
+};
+const fieldErrorsOf = (problem) => {
+  const next = {};
+  Object.entries(problem?.fieldErrors ?? {}).forEach(([field, message]) => {
+    const key = API_FIELDS[field.split('.')[0]] ?? field.split('.')[0];
+    if (!next[key]) next[key] = /^[A-Z]/.test(message) ? message : `This ${message}.`;
+  });
+  return next;
+};
+
+// Same lists as the "Add a property" wizard.
+const currentYear = new Date().getFullYear();
+const yearsFrom = (placeholder) => [['', placeholder], ...Array.from({ length: currentYear - 1899 }, (_, index) => {
+  const year = String(currentYear - index);
+  return [year, year];
+})];
+const BUILT_YEAR_OPTIONS = yearsFrom('Select built year');
+const BOOKING_YEAR_OPTIONS = yearsFrom('Select booking year');
 
 const displayAddress = (location) => [location.apartmentName, location.area, location.city, location.state, location.pincode, location.country]
   .filter(Boolean)
   .join(', ');
+
+/** The form fields each tab saves. */
+const TAB_FIELDS = {
+  details: ['propertyName', 'displayName', 'description', 'propertyType', 'starRating', 'hotelChainName', 'yearOfConstruction',
+    'acceptingBookingsSince', 'restaurants', 'rooms', 'floors', 'currency', 'timezone', 'checkInTime', 'checkOutBefore', 'twentyFourHourCheckIn'],
+  contact: ['hotelPhone', 'hotelMobile', 'hotelEmail', 'whatsappSameAsMobile', 'whatsappMobile', 'phoneList', 'websiteList', 'emailList', 'customerCareNumber'],
+  reach: ['vehicleAccess', 'vehicleTypeMode', 'vehicleTypes', 'directions'],
+};
 
 function Field({ label, required, hint, error, children }) {
   return (
@@ -139,28 +165,91 @@ function SaveBar({ onCancel, onSave, saving, disabled, note }) {
   );
 }
 
-export function BasicInformationEditor({ property }) {
+/** "Verify" for a changed email or mobile: send a code, then type it in. */
+function ContactVerify({ propertyId, field, value, onVerified }) {
+  const [step, setStep] = useState('idle');
+  const [code, setCode] = useState('');
+  const [message, setMessage] = useState('');
+  const label = field === 'email' ? 'email' : 'mobile number';
+
+  const send = async () => {
+    setMessage('');
+    setStep('sending');
+    try {
+      const sent = await requestContactOtp(propertyId, field, value);
+      setStep('code');
+      setMessage(sent?.message || `We sent a code to this ${label}.`);
+    } catch (problem) {
+      setStep('idle');
+      setMessage(problem?.fieldErrors?.[field] ? `This ${label} ${problem.fieldErrors[field]}.` : problem?.message || 'Could not send the code.');
+    }
+  };
+
+  const verify = async () => {
+    setMessage('');
+    setStep('verifying');
+    try {
+      await verifyContactOtp(propertyId, field, value, code.trim());
+      setStep('idle');
+      setCode('');
+      onVerified(field, value);
+    } catch (problem) {
+      setStep('code');
+      setMessage(problem?.message || 'The code is wrong or has expired.');
+    }
+  };
+
+  return (
+    <div className="pbi-verify" aria-live="polite">
+      <span className="pbi-verify-text"><Info size={15} aria-hidden="true" />The new {label} must be verified before saving.</span>
+      {step === 'code' || step === 'verifying' ? (
+        <div className="pbi-verify-row">
+          <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} placeholder="Enter code" aria-label={`Code sent to the ${label}`}
+            onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} />
+          <button type="button" className="pbi-btn" disabled={code.length < 4 || step === 'verifying'} onClick={verify}>{step === 'verifying' ? 'Verifying…' : 'Verify'}</button>
+          <button type="button" className="pbi-btn is-light" onClick={send}>Resend</button>
+        </div>
+      ) : (
+        <button type="button" className="pbi-btn is-light" disabled={!value || step === 'sending'} onClick={send}>{step === 'sending' ? 'Sending…' : `Send code to ${label}`}</button>
+      )}
+      {message ? <small className="pbi-hint">{message}</small> : null}
+    </div>
+  );
+}
+
+export function BasicInformationEditor({ property, information, onInformationChange }) {
   const [params, setParams] = useSearchParams();
   const requestedTab = params.get('tab');
   const tab = BASIC_INFO_TABS.some((item) => item.id === requestedTab) ? requestedTab : 'details';
-  const basic = useMemo(() => basicFromApi(property.basic ?? property, null), [property]);
-  const policies = useMemo(() => policiesFromApi(property.policies), [property]);
-  const [form, setForm] = useState(() => initialForm(property, basic, policies, loadExtras(property.id)));
+  const [form, setForm] = useState(() => formFromInformation(information));
   const [savedForm, setSavedForm] = useState(form);
+  const [verified, setVerified] = useState(() => ({
+    email: information.contacts.verifiedEmail, mobile: information.contacts.verifiedMobile,
+  }));
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
   const [dialog, setDialog] = useState(null);
   const [copied, setCopied] = useState('');
   const [reportText, setReportText] = useState('');
+  const [reporting, setReporting] = useState(false);
+  const { categories } = usePropertyTypes();
+  const typeOptions = useMemo(() => {
+    const options = categories.flatMap((category) => category.types.map((type) => [type.code, type.label]));
+    const current = information.details;
+    if (current.type && !options.some(([code]) => code === current.type)) options.push([current.type, current.typeLabel]);
+    return [['', 'Select property type'], ...options];
+  }, [categories, information.details]);
 
-  const location = property.location ?? property.address ?? {};
+  const location = property.location ?? {};
   const address = displayAddress(location);
   const latitude = Number(location.latitude);
   const longitude = Number(location.longitude);
-  const hasPoint = Number.isFinite(latitude) && Number.isFinite(longitude);
-  const contactChanged = form.hotelEmail !== savedForm.hotelEmail || form.hotelMobile !== savedForm.hotelMobile;
+  const hasPoint = location.latitude != null && location.longitude != null && Number.isFinite(latitude) && Number.isFinite(longitude);
+  const emailNeedsCode = Boolean(form.hotelEmail.trim()) && form.hotelEmail.trim().toLowerCase() !== verified.email;
+  const mobileNeedsCode = Boolean(form.hotelMobile.trim()) && form.hotelMobile.trim() !== verified.mobile;
   const wordCount = form.description.trim() ? form.description.trim().split(/\s+/).length : 0;
+  const dirty = JSON.stringify({ ...form, authorized: false }) !== JSON.stringify({ ...savedForm, authorized: false });
 
   const setField = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -169,10 +258,13 @@ export function BasicInformationEditor({ property }) {
   };
 
   const selectTab = (id) => {
+    if (id === tab) return;
     const next = new URLSearchParams(params);
     next.set('section', 'basic-information');
     next.set('tab', id);
     setParams(next);
+    setErrors({});
+    setStatus(null);
   };
 
   const validate = () => {
@@ -180,15 +272,16 @@ export function BasicInformationEditor({ property }) {
     if (tab === 'details') {
       const nameProblem = propertyNameError(form.propertyName);
       if (nameProblem) next.propertyName = nameProblem;
-      if (!form.displayName.trim()) next.displayName = 'Enter the display name.';
-      if (wordCount && (wordCount < 100 || wordCount > 500)) next.description = 'Description must be 100–500 words.';
+      if (form.displayName.trim().length < 2) next.displayName = 'Enter the display name.';
+      if (wordCount && (wordCount < 100 || wordCount > 500)) next.description = `Description must be 100–500 words (now ${wordCount}).`;
+      if (!form.propertyType) next.propertyType = 'Choose the property type.';
       if (!PROPERTY_RATINGS.includes(Number(form.starRating))) next.starRating = 'Choose a star rating.';
       const built = Number(form.yearOfConstruction);
       const since = Number(form.acceptingBookingsSince);
-      if (!built || built < 1800 || built > new Date().getFullYear()) next.yearOfConstruction = 'Choose a valid construction year.';
-      if (!since || since < 1800 || since > new Date().getFullYear()) next.acceptingBookingsSince = 'Choose a valid booking year.';
-      else if (!next.yearOfConstruction && since < built) next.acceptingBookingsSince = 'This cannot be before the construction year.';
-      ['restaurants', 'rooms', 'floors'].forEach((key) => {
+      if (!built) next.yearOfConstruction = 'Choose the construction year.';
+      if (!since) next.acceptingBookingsSince = 'Choose the year bookings started.';
+      else if (built && since < built) next.acceptingBookingsSince = 'This cannot be before the construction year.';
+      ['restaurants', 'floors'].forEach((key) => {
         const value = String(form[key] ?? '').trim();
         if (value && !/^\d+$/.test(value)) next[key] = 'Enter a whole number.';
       });
@@ -197,21 +290,27 @@ export function BasicInformationEditor({ property }) {
       if (!form.authorized) next.authorized = 'Confirm that you are authorized to make these changes.';
     }
     if (tab === 'contact') {
-      if (form.hotelPhone.trim() && !/^[+\d\s()-]{7,25}$/.test(form.hotelPhone.trim())) next.hotelPhone = 'Enter a valid phone number.';
+      if (form.hotelPhone.trim() && !/^(?=(?:\D*\d){7,15}\D*$)[+\d\s()-]{7,25}$/.test(form.hotelPhone.trim())) next.hotelPhone = 'Enter a valid phone number.';
       const mobileProblem = mobileError(form.hotelMobile);
       if (mobileProblem) next.hotelMobile = mobileProblem;
+      else if (mobileNeedsCode) next.hotelMobile = 'Verify the new mobile number first.';
       if (!isValidEmail(form.hotelEmail)) next.hotelEmail = 'Enter a valid email address.';
-      const careNumbers = String(form.customerCareNumber).split(',').map((value) => value.trim()).filter(Boolean);
-      if (!careNumbers.length || careNumbers.some((value) => !/^\d{10}$/.test(value.replace(/\D/g, '')))) {
-        next.customerCareNumber = 'Enter one or more 10-digit customer care numbers, separated by commas.';
+      else if (emailNeedsCode) next.hotelEmail = 'Verify the new email first.';
+      if (!form.whatsappSameAsMobile && mobileError(form.whatsappMobile)) next.whatsappMobile = 'Enter the 10-digit WhatsApp number.';
+      const careNumbers = splitList(form.customerCareNumber);
+      if (!careNumbers.length || careNumbers.length > 5 || careNumbers.some((value) => !/^[6-9]\d{9}$/.test(value.replace(/\D/g, '')))) {
+        next.customerCareNumber = 'Enter 1–5 ten-digit mobile numbers, separated by commas.';
       }
+      if (splitList(form.emailList).some((value) => !isValidEmail(value))) next.emailList = 'Every entry must be an email address.';
+      if (splitList(form.websiteList).some((value) => !/^https?:\/\/\S+\.\S+/i.test(value))) next.websiteList = 'Every website must start with https://';
+      if (splitList(form.phoneList).some((value) => !/^(?=(?:\D*\d){7,15}\D*$)[+\d\s()-]{7,25}$/.test(value))) next.phoneList = 'Every entry must be a phone number.';
     }
     if (tab === 'reach') {
       if (!form.vehicleAccess) next.vehicleAccess = 'Choose whether a vehicle can reach the entrance.';
       if (!form.vehicleTypeMode) next.vehicleTypeMode = 'Choose which vehicle types can reach the property.';
       if (form.vehicleTypeMode === 'selected' && !form.vehicleTypes.length) next.vehicleTypes = 'Select at least one vehicle type.';
       const length = form.directions.trim().length;
-      if (length < 100 || length > 1200) next.directions = 'Directions must be 100–1200 characters.';
+      if (length < 100 || length > 1200) next.directions = `Directions must be 100–1200 characters (now ${length}).`;
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -219,57 +318,99 @@ export function BasicInformationEditor({ property }) {
 
   const save = async () => {
     setStatus(null);
-    if (!validate()) return;
+    if (!validate()) {
+      setStatus({ type: 'error', message: 'Fix the highlighted fields, then save again.' });
+      return;
+    }
     setSaving(true);
     try {
+      let saved;
       if (tab === 'details') {
-        await saveBasic(property.id, {
-          ...form,
-          rating: Number(form.starRating),
+        saved = await saveInformationDetails(property.id, {
+          propertyName: form.propertyName.trim(),
+          displayName: form.displayName.trim(),
+          description: form.description.trim() || undefined,
+          type: form.propertyType,
+          starRating: Number(form.starRating),
+          hotelChain: form.hotelChainName || undefined,
           builtYear: Number(form.yearOfConstruction),
           bookingSince: Number(form.acceptingBookingsSince),
-          channelManager: basic.channelManager || 'no',
-          providerName: basic.providerName || '',
-          email: form.hotelEmail,
-          mobile: form.hotelMobile,
-          landline: form.hotelPhone,
-          emailVerified: basic.emailVerified,
-          mobileVerified: basic.mobileVerified,
+          restaurantCount: countOf(form.restaurants),
+          floorCount: countOf(form.floors),
+          currency: form.currency,
+          timezone: form.timezone,
+          checkInTime: form.checkInTime,
+          checkOutTime: form.checkOutBefore,
+          has24HourCheckIn: form.twentyFourHourCheckIn,
+          authorized: form.authorized,
         });
-        const nextPolicies = { ...policies, checkInTime: form.checkInTime, checkOutTime: form.checkOutBefore };
-        await savePolicies(property.id, nextPolicies);
-      }
-      if (tab === 'contact') {
-        await saveBasic(property.id, {
-          ...form,
-          rating: Number(form.starRating) || 1,
-          builtYear: Number(form.yearOfConstruction) || new Date().getFullYear(),
-          bookingSince: Number(form.acceptingBookingsSince) || new Date().getFullYear(),
-          channelManager: basic.channelManager || 'no',
-          providerName: basic.providerName || '',
-          email: form.hotelEmail,
-          mobile: form.hotelMobile,
-          landline: form.hotelPhone,
-          emailVerified: basic.emailVerified,
-          mobileVerified: basic.mobileVerified,
+      } else if (tab === 'contact') {
+        saved = await saveInformationContacts(property.id, {
+          email: form.hotelEmail.trim(),
+          mobile: form.hotelMobile.trim(),
+          landline: form.hotelPhone.trim() || undefined,
+          customerCareNumbers: splitList(form.customerCareNumber),
+          phones: splitList(form.phoneList),
+          emails: splitList(form.emailList),
+          websites: splitList(form.websiteList),
+          whatsappSameAsMobile: form.whatsappSameAsMobile,
+          whatsappMobile: form.whatsappSameAsMobile ? undefined : form.whatsappMobile.trim(),
+        });
+      } else {
+        saved = await saveInformationReach(property.id, {
+          vehicleReachesEntrance: form.vehicleAccess === 'yes',
+          allVehicleTypes: form.vehicleTypeMode === 'all',
+          vehicleTypes: form.vehicleTypeMode === 'all' ? [] : form.vehicleTypes,
+          directions: form.directions.trim(),
         });
       }
-      const nextForm = { ...form, authorized: false };
-      persistExtras(property.id, nextForm);
-      setForm(nextForm);
-      setSavedForm(nextForm);
-      setStatus({ type: 'success', message: 'Changes saved successfully.' });
+      onInformationChange?.(saved);
+      // Only this tab's fields come back from the server; keep the others' edits.
+      const fresh = formFromInformation(saved);
+      const keys = TAB_FIELDS[tab];
+      const next = { ...form, ...Object.fromEntries(keys.map((key) => [key, fresh[key]])), authorized: false };
+      setForm(next);
+      setSavedForm((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, fresh[key]])) }));
+      setErrors({});
+      setStatus({ type: 'success', message: 'Changes saved.' });
     } catch (problem) {
-      setStatus({ type: 'error', message: problem?.message || 'Could not save changes. Please try again.' });
+      const fieldErrors = fieldErrorsOf(problem);
+      setErrors(fieldErrors);
+      setStatus({ type: 'error', message: Object.keys(fieldErrors).length ? 'Fix the highlighted fields, then save again.' : problem?.message || 'Could not save changes. Please try again.' });
     } finally {
       setSaving(false);
     }
   };
 
   const cancel = () => {
-    setForm(savedForm);
+    const keys = TAB_FIELDS[tab];
+    setForm((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, savedForm[key]])), authorized: false }));
     setErrors({});
     setStatus(null);
+  };
+
+  const markVerified = (field, value) => {
+    setVerified((current) => ({ ...current, [field]: field === 'email' ? value.trim().toLowerCase() : value.trim() }));
+    setErrors((current) => ({ ...current, [field === 'email' ? 'hotelEmail' : 'hotelMobile']: undefined }));
+    setStatus({ type: 'success', message: `${field === 'email' ? 'Email' : 'Mobile number'} verified. Save to apply it.` });
+  };
+
+  const sendReport = async () => {
+    if (reportText.trim().length < 10) {
+      setStatus({ type: 'error', message: 'Describe the problem in at least 10 characters.' });
+      return;
+    }
+    setReporting(true);
+    try {
+      await reportLocation(property.id, reportText.trim());
+      setReportText('');
+      setDialog(null);
+      setStatus({ type: 'success', message: 'Location report sent to the TriponX team.' });
+    } catch (problem) {
+      setStatus({ type: 'error', message: problem?.message || 'Could not send the report.' });
+    } finally {
+      setReporting(false);
+    }
   };
 
   const copyValue = async (label, value) => {
@@ -315,7 +456,7 @@ export function BasicInformationEditor({ property }) {
                   <TextField label="Property Name" value={form.propertyName} onChange={(value) => setField('propertyName', value)} error={errors.propertyName} required maxLength={100} />
                   <TextField label="Display Name" value={form.displayName} onChange={(value) => setField('displayName', value)} error={errors.displayName} required maxLength={100} />
                   <TextareaField label="Property Description" value={form.description} onChange={(value) => setField('description', value)} error={errors.description} hint={`${wordCount} words · 100–500 words`} rows={6} />
-                  <SelectField label="Property Type" value={form.propertyType} onChange={(value) => setField('propertyType', value)} options={PROPERTY_TYPE_OPTIONS} />
+                  <SelectField label="Property Type" value={form.propertyType} onChange={(value) => setField('propertyType', value)} options={typeOptions} error={errors.propertyType} required />
                   <SelectField label="Star Rating" value={form.starRating} onChange={(value) => setField('starRating', value)} options={STAR_RATING_OPTIONS} error={errors.starRating} required />
                   <SelectField label="Hotel Chain Name" value={form.hotelChainName} onChange={(value) => setField('hotelChainName', value)} options={HOTEL_CHAIN_OPTIONS} />
                 </div>
@@ -323,10 +464,10 @@ export function BasicInformationEditor({ property }) {
 
               <SectionCard icon={ClipboardList} title="Property Configuration" subtitle="Operational configuration for this property.">
                 <div className="pbi-grid">
-                  <SelectField label="Year of Construction" value={form.yearOfConstruction} onChange={(value) => setField('yearOfConstruction', value)} options={[['', 'Select year'], ...years]} error={errors.yearOfConstruction} required />
-                  <SelectField label="Accepting Bookings Since" value={form.acceptingBookingsSince} onChange={(value) => setField('acceptingBookingsSince', value)} options={[['', 'Select year'], ...years]} error={errors.acceptingBookingsSince} required />
+                  <ResponsiveSelectField label="Year of Construction" labelClassName="pbi-label" className="pbi-year" required value={form.yearOfConstruction} onChange={(event) => setField('yearOfConstruction', event.target.value)} options={BUILT_YEAR_OPTIONS} error={errors.yearOfConstruction} />
+                  <ResponsiveSelectField label="Accepting Bookings Since" labelClassName="pbi-label" className="pbi-year" required value={form.acceptingBookingsSince} onChange={(event) => setField('acceptingBookingsSince', event.target.value)} options={BOOKING_YEAR_OPTIONS} error={errors.acceptingBookingsSince} />
                   <TextField label="Number of Restaurants" type="number" min="0" value={form.restaurants} onChange={(value) => setField('restaurants', value)} error={errors.restaurants} />
-                  <TextField label="Number of Rooms" type="number" min="0" value={form.rooms} onChange={(value) => setField('rooms', value)} error={errors.rooms} />
+                  <TextField label="Number of Rooms" type="number" value={form.rooms} onChange={() => {}} readOnly hint="Total of all room types (Rooms & Rateplans)." />
                   <TextField label="Number of Floors" type="number" min="0" value={form.floors} onChange={(value) => setField('floors', value)} error={errors.floors} />
                   <SelectField label="Currency" value={form.currency} onChange={(value) => setField('currency', value)} options={CURRENCY_OPTIONS} />
                   <SelectField label="Timezone" value={form.timezone} onChange={(value) => setField('timezone', value)} options={TIMEZONE_OPTIONS} />
@@ -360,16 +501,24 @@ export function BasicInformationEditor({ property }) {
                   <TextField label="Hotel Mobile" type="tel" value={form.hotelMobile} onChange={(value) => setField('hotelMobile', value)} error={errors.hotelMobile} required hint="Receives SMS and WhatsApp communications." />
                   <TextField label="Hotel Email" type="email" value={form.hotelEmail} onChange={(value) => setField('hotelEmail', value)} error={errors.hotelEmail} required />
                 </div>
-                {contactChanged ? (
-                  <div className="pbi-notice"><Info size={16} aria-hidden="true" /><span>Email or mobile was changed. Verify the new details in the listing wizard to keep communications enabled.</span></div>
+                {emailNeedsCode && isValidEmail(form.hotelEmail) ? <ContactVerify propertyId={property.id} field="email" value={form.hotelEmail.trim()} onVerified={markVerified} /> : null}
+                {mobileNeedsCode && !mobileError(form.hotelMobile) ? <ContactVerify propertyId={property.id} field="mobile" value={form.hotelMobile.trim()} onVerified={markVerified} /> : null}
+                <label className="pbi-check-row">
+                  <input type="checkbox" checked={form.whatsappSameAsMobile} onChange={(event) => setField('whatsappSameAsMobile', event.target.checked)} />
+                  <span><strong>Use the same mobile number for WhatsApp</strong><small>Guests and TriponX reach you on WhatsApp at this number.</small></span>
+                </label>
+                {!form.whatsappSameAsMobile ? (
+                  <div className="pbi-grid">
+                    <TextField label="WhatsApp Number" type="tel" value={form.whatsappMobile} onChange={(value) => setField('whatsappMobile', value)} error={errors.whatsappMobile} required inputMode="numeric" maxLength={10} />
+                  </div>
                 ) : null}
               </SectionCard>
 
               <SectionCard icon={ClipboardList} title="Additional Contact Information" subtitle="Separate multiple entries with commas.">
                 <div className="pbi-grid">
-                  <TextField label="Phone List" value={form.phoneList} onChange={(value) => setField('phoneList', value)} placeholder="02212345678, 02287654321" />
-                  <TextField label="Website List" value={form.websiteList} onChange={(value) => setField('websiteList', value)} placeholder="https://hotel.example, https://book.example" />
-                  <TextField label="Email List" value={form.emailList} onChange={(value) => setField('emailList', value)} placeholder=" reservations@hotel.example, sales@hotel.example" />
+                  <TextField label="Phone List" value={form.phoneList} onChange={(value) => setField('phoneList', value)} error={errors.phoneList} placeholder="02212345678, 02287654321" />
+                  <TextField label="Website List" value={form.websiteList} onChange={(value) => setField('websiteList', value)} error={errors.websiteList} placeholder="https://hotel.example, https://book.example" />
+                  <TextField label="Email List" value={form.emailList} onChange={(value) => setField('emailList', value)} error={errors.emailList} placeholder="reservations@hotel.example, sales@hotel.example" />
                 </div>
               </SectionCard>
 
@@ -440,7 +589,7 @@ export function BasicInformationEditor({ property }) {
             </>
           ) : null}
 
-          <SaveBar onCancel={cancel} onSave={save} saving={saving} disabled={tab === 'details' && !form.authorized} note={status?.message} />
+          <SaveBar onCancel={cancel} onSave={save} saving={saving} disabled={!dirty || (tab === 'details' && !form.authorized)} note={dirty ? 'You have unsaved changes.' : ''} />
           {status ? <div className={`pbi-status ${status.type}`} role="status">{status.type === 'success' ? <CheckCircle2 size={16} aria-hidden="true" /> : <Info size={16} aria-hidden="true" />}{status.message}</div> : null}
         </div>
 
@@ -500,8 +649,8 @@ export function BasicInformationEditor({ property }) {
               <>
                 <h2>Report Incorrect Location</h2>
                 <p>Tell the BDM team what is wrong with the registered location.</p>
-                <textarea rows={5} value={reportText} onChange={(event) => setReportText(event.target.value)} placeholder="Describe the correct location or landmark…" />
-                <button type="button" className="pbi-btn is-full" onClick={() => { setReportText(''); setDialog(null); setStatus({ type: 'success', message: 'Location report sent to BDM.' }); }}>Send report</button>
+                <textarea rows={5} maxLength={1000} value={reportText} onChange={(event) => setReportText(event.target.value)} placeholder="Describe the correct location or landmark…" aria-label="What is wrong with the location" />
+                <button type="button" className="pbi-btn is-full" disabled={reporting || reportText.trim().length < 10} onClick={sendReport}>{reporting ? 'Sending…' : 'Send report'}</button>
               </>
             )}
           </div>

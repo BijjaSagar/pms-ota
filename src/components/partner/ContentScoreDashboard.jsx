@@ -1,87 +1,105 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
-  ArrowUpRight,
-  Building2,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Coffee,
-  Image as ImageIcon,
-  Info,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  X,
+  ArrowUpRight, Building2, Check, ChevronDown, ChevronRight, Coffee, Image as ImageIcon, Info,
+  RefreshCw, ShieldCheck, Sparkles, TrendingUp, X,
 } from 'lucide-react';
-import {
-  CONTENT_SCORE_FAQS,
-  CONTENT_SCORE_INFO,
-  formatScore,
-  formatSectionScore,
-  getSectionStatus,
-  normalizeContentScoreSnapshot,
-} from '../../lib/data/contentScore.js';
+import { getContentScore } from '../../lib/api/properties.js';
 import { propertyInformationSectionPath } from './paths.js';
 import '../../styles/partner-content-score.css';
 
-const SECTION_ICONS = {
-  photos: ImageIcon,
-  amenities: Coffee,
-  'property-details': Building2,
-  policies: ShieldCheck,
-};
+// Content Score, calculated by the server from the saved listing. Every
+// point comes from one check; an unmet check is a task that links to the
+// section that fixes it.
 
-const progressPercent = (section) => {
-  const maximum = Number(section.maximum) || 1;
-  return Math.max(0, Math.min(100, (Number(section.current) / maximum) * 100));
-};
+const SECTION_ICONS = { photos: ImageIcon, amenities: Coffee, 'property-details': Building2, policies: ShieldCheck };
+const LEVEL_TONE = { Excellent: 'complete', Good: 'complete', 'Needs work': 'partial', Incomplete: 'empty' };
+const fmt = (value, decimals = 1) => Number(value).toFixed(decimals).replace(/\.0+$/, '');
+const pct = (earned, maximum) => Math.max(0, Math.min(100, maximum ? (earned / maximum) * 100 : 0));
+
+const FAQS = [
+  { question: 'How can I increase my score?', answer: 'Work through Next best actions. Each one says exactly what is missing and opens the section that fixes it. The score updates as soon as you save there.' },
+  { question: 'How is the score calculated?', answer: 'Photos are worth 45 points, amenities 30, property details 15 and policies 10. Each area is made of checks; partly done work earns part of the points.' },
+  { question: 'Why does my area comparison not show?', answer: 'It compares you with other live listings in your city, and needs at least 3 of them to be meaningful.' },
+];
+
+/** Status of an area from its points. */
+function statusOf(area) {
+  if (area.earned >= area.maximum) return { label: 'Complete', tone: 'complete' };
+  if (area.earned > 0) return { label: 'In progress', tone: 'partial' };
+  return { label: 'Not started', tone: 'empty' };
+}
 
 export default function ContentScoreDashboard({ property }) {
-  const snapshot = useMemo(() => normalizeContentScoreSnapshot(property), [property]);
+  const [score, setScore] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState({});
   const [faqOpen, setFaqOpen] = useState(0);
   const [learnOpen, setLearnOpen] = useState(false);
 
-  const pendingSections = snapshot.sections.filter((section) => section.pendingTasks.length);
-  const pendingTasks = pendingSections.flatMap((section) => section.pendingTasks.map((task) => ({ section, task })));
-  const completedSections = snapshot.sections.length - pendingSections.length;
-  const overallPercent = Math.max(0, Math.min(100, snapshot.total));
-  const aheadBy = snapshot.total - snapshot.areaAverage;
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setScore(await getContentScore(property.id));
+    } catch (problem) {
+      setError(problem?.message || 'The content score could not be loaded.');
+    } finally {
+      setLoading(false);
+    }
+  }, [property.id]);
+  useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
     if (!learnOpen) return undefined;
     const onKeyDown = (event) => { if (event.key === 'Escape') setLearnOpen(false); };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKeyDown); document.body.style.overflow = overflow; };
   }, [learnOpen]);
 
-  const toggleSection = (id) => setExpanded((current) => ({ ...current, [id]: !current[id] }));
+  if (!score) {
+    return error ? (
+      <div className="csd-error" role="alert"><Info size={15} aria-hidden="true" /> {error} <button type="button" className="csd-learn-btn" onClick={load}>Try again</button></div>
+    ) : <div className="csd-loading" role="status">Calculating your content score…</div>;
+  }
+
+  const areas = score.areas;
+  const tasks = areas.flatMap((area) => area.checks.filter((item) => item.task).map((item) => ({ area, item, gain: item.points - item.earned })))
+    .sort((a, b) => b.gain - a.gain);
+  const complete = areas.filter((area) => area.earned >= area.maximum).length;
+  const total = Math.max(0, Math.min(100, score.total));
+  const { comparison } = score;
+  const ahead = comparison.average === null ? null : score.total - comparison.average;
+  const sectionLink = (area) => propertyInformationSectionPath(property.id, area.sectionId);
 
   return (
     <div className="csd-dashboard">
       <header className="csd-hero">
         <div className="csd-hero-copy">
-          <span className="csd-eyebrow"><Sparkles size={14} aria-hidden="true" />{snapshot.channel} content quality</span>
+          <span className="csd-eyebrow"><Sparkles size={14} aria-hidden="true" />Listing content quality</span>
           <h2>Your listing, measured</h2>
-          <p>See how complete your property information is and where a small update can make a difference.</p>
+          <p>How complete your property information is, calculated from what you have saved, and the updates that raise it most.</p>
           <div className="csd-hero-meta">
-            <span><Check size={13} aria-hidden="true" />{completedSections} of {snapshot.sections.length} sections complete</span>
-            <button type="button" className="csd-learn-btn" onClick={() => setLearnOpen(true)}><Info size={14} aria-hidden="true" />Learn More</button>
+            <span><Check size={13} aria-hidden="true" />{complete} of {areas.length} areas complete</span>
+            <button type="button" className="csd-learn-btn" onClick={() => setLearnOpen(true)}><Info size={14} aria-hidden="true" />How it works</button>
+            <button type="button" className="csd-learn-btn" onClick={load} disabled={loading}><RefreshCw size={14} aria-hidden="true" className={loading ? 'csd-spin' : ''} />{loading ? 'Updating…' : 'Refresh'}</button>
           </div>
         </div>
 
         <div className="csd-score-block">
-          <div className="csd-ring" style={{ '--score': `${overallPercent}%` }}>
-            <strong>{formatScore(snapshot.total)}</strong>
+          <div className="csd-ring" style={{ '--score': `${total}%` }}>
+            <strong>{fmt(score.total, 2)}</strong>
             <span>/ 100</span>
           </div>
           <div className="csd-score-copy">
-            <span className="csd-pill is-complete">Almost optimized</span>
-            <p>{pendingTasks.length ? `Finish ${pendingTasks.length} remaining task${pendingTasks.length === 1 ? '' : 's'} to reach a perfect score.` : 'Everything is complete. Great work!'}</p>
-            <div className="csd-banner-bar" role="progressbar" aria-label="Overall content score" aria-valuemin="0" aria-valuemax="100" aria-valuenow={snapshot.total}>
-              <i style={{ width: `${overallPercent}%` }} />
+            <span className={`csd-pill is-${LEVEL_TONE[score.level] ?? 'partial'}`}>{score.level}</span>
+            <p>{tasks.length ? `${tasks.length} task${tasks.length === 1 ? '' : 's'} left; the first one is worth ${fmt(tasks[0].gain)} point${tasks[0].gain === 1 ? '' : 's'}.` : 'Everything is complete. Great work!'}</p>
+            <div className="csd-banner-bar" role="progressbar" aria-label="Overall content score" aria-valuemin="0" aria-valuemax="100" aria-valuenow={score.total}>
+              <i style={{ width: `${total}%` }} />
             </div>
           </div>
         </div>
@@ -93,16 +111,16 @@ export default function ContentScoreDashboard({ property }) {
             <div className="csd-card-head">
               <div>
                 <h3>Score breakdown</h3>
-                <p>Four weighted areas make up the overall content score.</p>
+                <p>Four weighted areas make up the score. Open one to see each check.</p>
               </div>
-              <span className="csd-count-pill">{snapshot.sections.length} sections</span>
+              <span className="csd-count-pill">{areas.length} areas</span>
             </div>
 
             <div className="csd-table-scroll">
               <table className="csd-table">
                 <thead>
                   <tr>
-                    <th>Section</th>
+                    <th>Area</th>
                     <th>Status</th>
                     <th>Progress</th>
                     <th>Points</th>
@@ -110,34 +128,32 @@ export default function ContentScoreDashboard({ property }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {snapshot.sections.map((section) => {
-                    const Icon = SECTION_ICONS[section.id] ?? Sparkles;
-                    const status = getSectionStatus(section);
-                    const isOpen = Boolean(expanded[section.id]);
-                    const percent = progressPercent(section);
+                  {areas.map((area) => {
+                    const Icon = SECTION_ICONS[area.id] ?? Sparkles;
+                    const status = statusOf(area);
+                    const isOpen = Boolean(expanded[area.id]);
+                    const percent = pct(area.earned, area.maximum);
+                    const open = area.checks.filter((item) => item.task).length;
                     return (
-                      <Fragment key={section.id}>
+                      <Fragment key={area.id}>
                         <tr className={isOpen ? 'is-open' : ''}>
-                          <th data-label="Section">
+                          <th data-label="Area">
                             <div className="csd-section-name">
                               <span className="csd-section-icon"><Icon size={16} aria-hidden="true" /></span>
-                              <span><strong>{section.label}</strong><small>{section.summary}</small></span>
+                              <span><strong>{area.label}</strong><small>{open ? `${open} of ${area.checks.length} checks to finish` : `All ${area.checks.length} checks done`}</small></span>
                             </div>
                           </th>
                           <td data-label="Status"><span className={`csd-pill is-${status.tone}`}>{status.label}</span></td>
                           <td data-label="Progress">
                             <div className="csd-progress-cell">
-                              <div className="csd-bar" role="progressbar" aria-label={`${section.label} progress`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(percent)}>
-                                <i style={{ width: `${percent}%` }} />
-                              </div>
+                              <div className="csd-bar" role="progressbar" aria-label={`${area.label} progress`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(percent)}><i style={{ width: `${percent}%` }} /></div>
                               <small>{Math.round(percent)}%</small>
                             </div>
                           </td>
-                          <td data-label="Points"><strong>{formatSectionScore(section.current)}</strong><span> / {formatSectionScore(section.maximum)}</span></td>
+                          <td data-label="Points"><strong>{fmt(area.earned)}</strong><span> / {area.maximum}</span></td>
                           <td className="csd-row-action">
-                            <button type="button" onClick={() => toggleSection(section.id)} aria-expanded={isOpen}>
-                              {isOpen ? 'Hide' : 'Show'}
-                              {isOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+                            <button type="button" onClick={() => setExpanded((current) => ({ ...current, [area.id]: !current[area.id] }))} aria-expanded={isOpen}>
+                              {isOpen ? 'Hide' : 'Show'}{isOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
                             </button>
                           </td>
                         </tr>
@@ -145,15 +161,16 @@ export default function ContentScoreDashboard({ property }) {
                           <tr className="csd-detail-row">
                             <td colSpan="5">
                               <div className="csd-detail">
-                                <p>{section.detail}</p>
-                                {section.pendingTasks.length ? (
-                                  <ul>
-                                    {section.pendingTasks.map((task) => <li key={task}><span />{task}</li>)}
-                                  </ul>
-                                ) : (
-                                  <span className="csd-done"><Check size={13} aria-hidden="true" />No pending tasks in this section.</span>
-                                )}
-                                <Link to={propertyInformationSectionPath(property.id, section.sectionId)}>Open {section.label} <ArrowUpRight size={13} aria-hidden="true" /></Link>
+                                <ul className="csd-check-list">
+                                  {area.checks.map((item) => (
+                                    <li key={item.id} className={item.task ? 'is-open' : 'is-done'}>
+                                      <span className="csd-check-mark" aria-hidden="true">{item.task ? null : <Check size={12} />}</span>
+                                      <span className="csd-check-copy"><strong>{item.label}</strong>{item.task ? <small>{item.task}</small> : null}</span>
+                                      <span className="csd-check-points">{fmt(item.earned)} / {item.points}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                                <Link to={sectionLink(area)}>Open {area.label} <ArrowUpRight size={13} aria-hidden="true" /></Link>
                               </div>
                             </td>
                           </tr>
@@ -167,7 +184,7 @@ export default function ContentScoreDashboard({ property }) {
                     <th>Total</th>
                     <td />
                     <td />
-                    <td><strong>{formatScore(snapshot.total)}</strong><span> / 100</span></td>
+                    <td><strong>{fmt(score.total, 2)}</strong><span> / 100</span></td>
                     <td />
                   </tr>
                 </tfoot>
@@ -179,14 +196,14 @@ export default function ContentScoreDashboard({ property }) {
             <div className="csd-card-head">
               <div>
                 <h3>Why this matters</h3>
-                <p>A complete listing presents better information to potential guests.</p>
+                <p>A complete listing gives guests what they need to choose you.</p>
               </div>
             </div>
             <div className="csd-purpose-grid">
               <div><span>01</span><strong>Understand quality</strong><small>See which parts of your listing are already strong.</small></div>
-              <div><span>02</span><strong>Find gaps</strong><small>Spot missing property information before guests do.</small></div>
-              <div><span>03</span><strong>Improve presentation</strong><small>Use the next actions to polish photos and amenities.</small></div>
-              <div><span>04</span><strong>Stay ready</strong><small>Keep details and policies current as your property changes.</small></div>
+              <div><span>02</span><strong>Find gaps</strong><small>Spot missing information before guests do.</small></div>
+              <div><span>03</span><strong>Improve presentation</strong><small>Photos and amenities carry the most points.</small></div>
+              <div><span>04</span><strong>Stay ready</strong><small>Keep details and policies current as things change.</small></div>
             </div>
           </section>
         </main>
@@ -196,24 +213,34 @@ export default function ContentScoreDashboard({ property }) {
             <div className="csd-card-head">
               <div>
                 <h3>Area insights</h3>
-                <p>How this property compares nearby.</p>
+                <p>{comparison.city ? `Live listings in ${comparison.city}.` : 'Your city is not set yet.'}</p>
               </div>
               <TrendingUp size={17} aria-hidden="true" />
             </div>
             <div className="csd-insight-body">
-              <div className="csd-insight-scores">
-                <div><span>This property</span><strong>{formatScore(snapshot.total)}</strong></div>
-                <div><span>Area average</span><strong>{formatScore(snapshot.areaAverage)}</strong></div>
-              </div>
-              <div className="csd-compare-track" aria-hidden="true">
-                <i style={{ width: `${Math.min(100, snapshot.areaAverage)}%` }} />
-                <b style={{ left: `${overallPercent}%` }} />
-              </div>
-              <p className="csd-insight-note">
-                {aheadBy >= 0
-                  ? `You are ${formatScore(aheadBy)} points ahead of the area average. Complete the remaining task to extend that lead.`
-                  : `You are ${formatScore(Math.abs(aheadBy))} points behind the area average. Completing pending tasks will close the gap.`}
-              </p>
+              {comparison.average === null ? (
+                <p className="csd-insight-note">
+                  {comparison.city
+                    ? `Not enough live listings in ${comparison.city} to compare yet (${comparison.properties} of ${comparison.minimum} needed).`
+                    : 'Add your location in Basic Information to compare with nearby listings.'}
+                </p>
+              ) : (
+                <>
+                  <div className="csd-insight-scores">
+                    <div><span>This property</span><strong>{fmt(score.total, 2)}</strong></div>
+                    <div><span>City average</span><strong>{fmt(comparison.average, 2)}</strong></div>
+                  </div>
+                  <div className="csd-compare-track" aria-hidden="true">
+                    <i style={{ width: `${Math.min(100, comparison.average)}%` }} />
+                    <b style={{ left: `${total}%` }} />
+                  </div>
+                  <p className="csd-insight-note">
+                    {ahead >= 0
+                      ? `You are ${fmt(ahead, 2)} points ahead of the ${comparison.properties} live listings in ${comparison.city}.`
+                      : `You are ${fmt(-ahead, 2)} points behind the ${comparison.properties} live listings in ${comparison.city}. The tasks below close the gap.`}
+                  </p>
+                </>
+              )}
             </div>
           </section>
 
@@ -221,19 +248,19 @@ export default function ContentScoreDashboard({ property }) {
             <div className="csd-card-head">
               <div>
                 <h3>Next best actions</h3>
-                <p>Small updates with the biggest score impact.</p>
+                <p>Biggest score gain first.</p>
               </div>
-              <span className="csd-count-pill">{pendingTasks.length}</span>
+              <span className="csd-count-pill">{tasks.length}</span>
             </div>
             <div className="csd-action-list">
-              {pendingTasks.length ? pendingTasks.map(({ section, task }) => (
-                <div className="csd-action-item" key={`${section.id}-${task}`}>
+              {tasks.length ? tasks.map(({ area, item, gain }) => (
+                <Link className="csd-action-item" key={`${area.id}-${item.id}`} to={sectionLink(area)}>
                   <span className="csd-action-dot" />
-                  <div><strong>{section.label}</strong><p>{task}</p></div>
-                  <Link to={propertyInformationSectionPath(property.id, section.sectionId)} aria-label={`Open ${section.label}`}><ArrowUpRight size={15} aria-hidden="true" /></Link>
-                </div>
+                  <div><strong>{area.label} · +{fmt(gain)}</strong><p>{item.task}</p></div>
+                  <ArrowUpRight size={15} aria-hidden="true" />
+                </Link>
               )) : (
-                <div className="csd-action-empty"><Check size={18} aria-hidden="true" /><strong>All caught up</strong><span>No pending tasks remain.</span></div>
+                <div className="csd-action-empty"><Check size={18} aria-hidden="true" /><strong>All caught up</strong><span>No tasks left.</span></div>
               )}
             </div>
           </section>
@@ -242,11 +269,11 @@ export default function ContentScoreDashboard({ property }) {
             <div className="csd-card-head">
               <div>
                 <h3>Frequently asked questions</h3>
-                <p>Understand how the score works.</p>
+                <p>How the score works.</p>
               </div>
             </div>
             <div className="csd-faq-list">
-              {CONTENT_SCORE_FAQS.map((faq, index) => {
+              {FAQS.map((faq, index) => {
                 const isOpen = faqOpen === index;
                 return (
                   <div className={`csd-faq-item ${isOpen ? 'is-open' : ''}`} key={faq.question}>
@@ -263,24 +290,28 @@ export default function ContentScoreDashboard({ property }) {
         </aside>
       </div>
 
-      <footer className="csd-foot"><Info size={14} aria-hidden="true" /><span>Scores shown are a demo snapshot and will update automatically when a content-score endpoint is connected.</span></footer>
+      <footer className="csd-foot"><Info size={14} aria-hidden="true" /><span>Calculated from your saved listing each time you open this page.</span></footer>
 
-      {learnOpen && typeof document !== 'undefined' ? createPortal(
+      {learnOpen ? createPortal(
         <div className="csd-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setLearnOpen(false); }}>
-          <section className="csd-modal" role="dialog" aria-modal="true" aria-label={CONTENT_SCORE_INFO.title}>
+          <section className="csd-modal" role="dialog" aria-modal="true" aria-label="How the content score is calculated">
             <header className="csd-modal-head">
               <div>
                 <span className="csd-eyebrow"><Sparkles size={13} aria-hidden="true" />Content score guide</span>
-                <h3>{CONTENT_SCORE_INFO.title}</h3>
+                <h3>How the content score is calculated</h3>
               </div>
               <button type="button" className="csd-icon-btn" onClick={() => setLearnOpen(false)} aria-label="Close dialog"><X size={17} aria-hidden="true" /></button>
             </header>
             <div className="csd-modal-body">
-              <p className="csd-modal-intro">{CONTENT_SCORE_INFO.intro}</p>
-              <ul className="csd-modal-points">
-                {CONTENT_SCORE_INFO.points.map((point) => <li key={point}><Check size={14} aria-hidden="true" /><span>{point}</span></li>)}
-              </ul>
-              <p className="csd-modal-note"><Info size={14} aria-hidden="true" />{CONTENT_SCORE_INFO.note}</p>
+              <p className="csd-modal-intro">Your score measures how complete your listing is across the four areas guests rely on most. Every point comes from one of these checks:</p>
+              {areas.map((area) => (
+                <div className="csd-guide-area" key={area.id}>
+                  <h4>{area.label} <span>{area.maximum} points</span></h4>
+                  <ul className="csd-modal-points">
+                    {area.checks.map((item) => <li key={item.id}><Check size={14} aria-hidden="true" /><span>{item.label} ({item.points})</span></li>)}
+                  </ul>
+                </div>
+              ))}
             </div>
             <footer className="csd-modal-foot"><button type="button" className="csd-learn-btn" onClick={() => setLearnOpen(false)}>Got it</button></footer>
           </section>

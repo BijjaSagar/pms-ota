@@ -69,25 +69,25 @@ export const PROPERTY_RULE_SECTIONS = [
 
 export const FAQ_CONTENT = {
   cancellation: [
-    { question: 'How does a new cancellation policy work?', answer: 'Create a policy, add refund conditions, map rate plans, and save. The policy can then be assigned to eligible room rates.' },
-    { question: 'How does policy deletion work?', answer: 'Deleting removes the policy from this list and unmaps its rate plans. Use deactivate if you want to keep the history.' },
-    { question: 'How do I view linked rate plans?', answer: 'Open the three-dot menu on a policy and choose View rate plans.' },
-    { question: 'What do blackout dates do?', answer: 'They apply special cancellation conditions during festivals, holidays, and peak seasons.' },
+    { question: 'How does a cancellation policy work?', answer: 'Each rule says how much is refunded when a guest cancels at least that many hours before check-in. The 0-hours rule covers late cancellations. Rate plans without their own policy use the default.' },
+    { question: 'What happens when I delete or switch off a policy?', answer: 'Its rate plans go back to the default policy. The default itself can not be switched off or deleted; make another policy the default first.' },
+    { question: 'How do I see which rate plans use a policy?', answer: 'Choose View mapping on the policy card.' },
+    { question: 'What do blackout dates do?', answer: 'For stays in those dates (festivals, holidays, peak season) the refund you set there applies instead of the normal rules.' },
   ],
   'property-rules': [
     { question: 'How do I find a specific rule?', answer: 'Use the search bar above the rule sections. Matching sections stay visible while others are hidden.' },
     { question: 'Why did a field disappear?', answer: 'Conditional fields only appear when the related Yes/No answer requires more detail.' },
-    { question: 'What gets saved to the property?', answer: 'Core rules use the property policy API. Property-only extras stay in this browser session until dedicated fields are available.' },
+    { question: 'What gets saved?', answer: 'Every answer is saved to your property. When you answer No, the details under that question are cleared.' },
   ],
   notices: [
-    { question: 'When does a notice expire?', answer: 'A notice moves to Expired/Deactivated automatically when its stay end date has passed.' },
-    { question: 'Can I edit a deactivated notice?', answer: 'Yes. Open it from Expired/Deactivated, edit the details, and activate it again if needed.' },
-    { question: 'What does Associated With mean?', answer: 'It shows the property, room, or service the announcement applies to.' },
+    { question: 'When does a notice expire?', answer: 'A notice moves to Expired / Switched off by itself after its last stay date.' },
+    { question: 'Can I edit a deactivated notice?', answer: 'Yes. Open it from Expired / Switched off, edit it, and switch it on again. An expired notice needs new dates first.' },
+    { question: 'What does Applies to mean?', answer: 'Whether guests of the whole property, all rooms, one room or one restaurant see the notice.' },
   ],
   'child-age': [
-    { question: 'How are adult rates calculated?', answer: 'Children above the paid-stay age are treated as adults for pricing.' },
+    { question: 'How are adult rates calculated?', answer: 'Children older than the paid-child age are charged as adults.' },
     { question: 'Can the ranges overlap?', answer: 'No. The free-stay age must be lower than the paid-stay age, and adult age is calculated automatically.' },
-    { question: 'How do I disable this policy?', answer: 'Turn off Children are allowed. The configuration stays saved but becomes inactive.' },
+    { question: 'How do I disable this policy?', answer: 'Turn off Children are allowed and save. The ages are kept for when you turn it back on.' },
   ],
   'post-booking': [
     { question: 'What does a guest name change allow?', answer: 'It lets the guest update the name on a confirmed booking without creating a new reservation.' },

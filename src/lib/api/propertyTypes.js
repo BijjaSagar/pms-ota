@@ -1,5 +1,4 @@
-// Property categories and types for "Add a property" (GET /api/v1/partner/property-types).
-// The lists live in the database: adding, renaming, reordering or switching one off shows up here by itself.
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { partnerApi } from '../context/AuthProvider.jsx';
 

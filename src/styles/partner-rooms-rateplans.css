@@ -841,3 +841,50 @@
     display: none;
   }
 }
+
+/* ---- room form: beds, steppers, plan types, confirm ---- */
+.rrw-form-title { margin: 18px 0 10px; font-size: 14px; font-weight: 700; color: #1f2a24; }
+.rrw-form-title:first-child { margin-top: 0; }
+.rrw-form-grid.is-tight { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rrw-field textarea { width: 100%; min-height: 72px; padding: 10px 12px; border: 1px solid #d7ddd9; border-radius: 10px; font: inherit; font-size: 14px; resize: vertical; background: #fff; }
+.rrw-field textarea:focus { outline: none; border-color: #3f6b5c; box-shadow: 0 0 0 3px rgba(63, 107, 92, .15); }
+.rrw-hint { color: #6b746f; font-size: 12px; }
+.rrw-beds { display: flex; flex-direction: column; gap: 10px; }
+.rrw-beds > .rrw-link { align-self: flex-start; }
+.rrw-bed-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.rrw-bed-row select { height: 42px; padding: 0 12px; border: 1px solid #d7ddd9; border-radius: 10px; font: inherit; font-size: 14px; background: #fff; min-width: 0; }
+.rrw-stepper { display: inline-flex; align-items: center; border: 1px solid #d7ddd9; border-radius: 10px; overflow: hidden; background: #fff; height: 42px; width: max-content; }
+.rrw-stepper button { width: 38px; height: 100%; border: 0; background: #f3f5f3; color: #1f2a24; display: grid; place-items: center; cursor: pointer; }
+.rrw-stepper button:disabled { color: #b5bbb7; cursor: default; }
+.rrw-stepper input { width: 52px; height: 100%; border: 0 !important; border-left: 1px solid #e3e7e4 !important; border-right: 1px solid #e3e7e4 !important; border-radius: 0 !important; text-align: center; font: inherit; font-weight: 600; padding: 0 !important; }
+.rrw-kind-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.rrw-kind { display: flex; gap: 8px; align-items: flex-start; padding: 12px; border: 1px solid #d7ddd9; border-radius: 12px; cursor: pointer; background: #fff; }
+.rrw-kind.is-on { border-color: #3f6b5c; background: #eef4f1; }
+.rrw-kind input { margin-top: 3px; accent-color: #3f6b5c; }
+.rrw-kind span { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.rrw-kind small { color: #6b746f; font-size: 12px; }
+.rrw-room-meta { margin-top: 4px; font-size: 12px; color: #6b746f; }
+.rrw-drawer-plans article.is-off { opacity: .6; }
+.rrw-plan-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.rrw-switch.is-small { margin: 0; }
+.rrw-confirm { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid #f0c9c4; border-radius: 12px; background: #fdf1ef; font-size: 13px; color: #6d221a; }
+.rrw-confirm > div { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.rrw-link:disabled { opacity: .5; cursor: default; }
+
+@media (max-width: 860px) {
+  .rrw-form-grid.is-tight { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rrw-kind-options { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .rrw-form-grid.is-tight { grid-template-columns: 1fr; }
+  .rrw-bed-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .rrw-bed-row .rrw-icon-btn { grid-column: 2; grid-row: 1; }
+  .rrw-bed-row .rrw-stepper { grid-column: 1 / -1; }
+  .rrw-modal-foot { flex-direction: column-reverse; }
+  .rrw-modal-foot .rrw-btn { width: 100%; justify-content: center; }
+  .rrw-confirm > div .rrw-btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* The drawer slides in at the right edge (the shared margin: auto centred it). */
+.rrw-overlay.is-drawer .rrw-drawer { margin: 0 0 0 auto; }
+@media (max-width: 520px) { .rrw-drawer { width: 100%; border-radius: 0; } }
