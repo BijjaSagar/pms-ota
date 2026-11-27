@@ -35,6 +35,41 @@ export const getProperty = (id) => partnerApi.get(base(id));
 export const deleteProperty = (id) => partnerApi.del(base(id));
 export const submitProperty = (id) => partnerApi.post(`${base(id)}/submit`);
 
+// ---------- Property Information (works on listed properties too) ----------
+const info = (id) => `${base(id)}/information`;
+export const getInformation = (id) => partnerApi.get(info(id));
+export const saveInformationDetails = (id, body) => partnerApi.put(`${info(id)}/details`, body);
+export const saveInformationContacts = (id, body) => partnerApi.put(`${info(id)}/contacts`, body);
+export const saveInformationReach = (id, body) => partnerApi.put(`${info(id)}/reach`, body);
+export const getAmenities = (id) => partnerApi.get(`${info(id)}/amenities`);
+export const saveAmenityAnswers = (id, answers) => partnerApi.put(`${info(id)}/amenities`, { answers });
+export const saveRoomAmenities = (id, roomId, answers) => partnerApi.put(`${info(id)}/rooms/${roomId}/amenities`, { answers });
+export const createRestaurant = (id, body) => partnerApi.post(`${info(id)}/restaurants`, body);
+export const updateRestaurant = (id, restaurantId, body) => partnerApi.put(`${info(id)}/restaurants/${restaurantId}`, body);
+export const deleteRestaurant = (id, restaurantId) => partnerApi.del(`${info(id)}/restaurants/${restaurantId}`);
+// ---------- rules & policies (each call answers with the whole Rules view) ----------
+export const getRules = (id) => partnerApi.get(`${info(id)}/rules`);
+export const saveGracePeriod = (id, body) => partnerApi.put(`${info(id)}/rules/grace-period`, body);
+export const savePropertyRules = (id, body) => partnerApi.put(`${info(id)}/rules/property-rules`, body);
+export const saveChildAge = (id, body) => partnerApi.put(`${info(id)}/rules/child-age`, body);
+export const savePostBooking = (id, body) => partnerApi.put(`${info(id)}/rules/post-booking`, body);
+export const createCancellationPolicy = (id, body) => partnerApi.post(`${info(id)}/cancellation-policies`, body);
+export const updateCancellationPolicy = (id, policyId, body) => partnerApi.put(`${info(id)}/cancellation-policies/${policyId}`, body);
+export const setCancellationPolicyActive = (id, policyId, active) => partnerApi.patch(`${info(id)}/cancellation-policies/${policyId}/status`, { active });
+export const setDefaultCancellationPolicy = (id, policyId) => partnerApi.put(`${info(id)}/cancellation-policies/${policyId}/default`, {});
+export const deleteCancellationPolicy = (id, policyId) => partnerApi.del(`${info(id)}/cancellation-policies/${policyId}`);
+export const createNotice = (id, body) => partnerApi.post(`${info(id)}/notices`, body);
+export const updateNotice = (id, noticeId, body) => partnerApi.put(`${info(id)}/notices/${noticeId}`, body);
+export const setNoticeActive = (id, noticeId, active) => partnerApi.patch(`${info(id)}/notices/${noticeId}/status`, { active });
+export const deleteNotice = (id, noticeId) => partnerApi.del(`${info(id)}/notices/${noticeId}`);
+export const getContentScore = (id) => partnerApi.get(`${info(id)}/content-score`);
+export const getInclusions = (id) => partnerApi.get(`${info(id)}/inclusions`);
+export const addPlanInclusion = (id, planId, body) => partnerApi.post(`${info(id)}/rate-plans/${planId}/inclusions`, body);
+export const setPlanInclusions = (id, planId, codes) => partnerApi.put(`${info(id)}/rate-plans/${planId}/inclusions`, { codes });
+export const updatePlanInclusion = (id, rowId, body) => partnerApi.patch(`${info(id)}/plan-inclusions/${rowId}`, body);
+export const deletePlanInclusion = (id, rowId) => partnerApi.del(`${info(id)}/plan-inclusions/${rowId}`);
+export const reportLocation = (id, message) => partnerApi.post(`${info(id)}/location-reports`, { message });
+
 // ---------- contact verification ----------
 const contactBody = (field, value) => ({ [field]: String(value).trim() });
 export const requestContactOtp = (id, field, value) => partnerApi.post(`${base(id)}/contact/otp/request`, contactBody(field, value));
@@ -135,6 +170,15 @@ export function saveRoom(id, roomId, info) {
 }
 export const deleteRoom = (id, roomId) => partnerApi.del(`${base(id)}/rooms/${roomId}`);
 
+/** Rooms & Rateplans: the full room body (beds, occupancy, charges) -> property detail. */
+export const saveRoomFull = (id, roomId, body) => (roomId
+  ? partnerApi.put(`${base(id)}/rooms/${roomId}`, body)
+  : partnerApi.post(`${base(id)}/rooms`, body));
+export const setRoomStatus = (id, roomId, active) => partnerApi.put(`${base(id)}/rooms/${roomId}/status`, { active });
+export const createRatePlan = (id, roomId, body) => partnerApi.post(`${base(id)}/rooms/${roomId}/rate-plans`, body);
+export const updateRatePlan = (id, roomId, planId, body) => partnerApi.patch(`${base(id)}/rooms/${roomId}/rate-plans/${planId}`, body);
+export const deleteRatePlan = (id, roomId, planId) => partnerApi.del(`${base(id)}/rooms/${roomId}/rate-plans/${planId}`);
+
 // ---------- photos & videos (saved as they are added) ----------
 const mediaFromApi = (m) => ({ ...m, tag: m.tag ?? '', width: m.width ?? 0, height: m.height ?? 0 });
 
@@ -165,6 +209,9 @@ export const uploadVideo = (id, file) => partnerApi.post(`${base(id)}/videos`, u
 export const setImageTag = (id, mediaId, tag) => partnerApi.patch(`${base(id)}/media/${mediaId}`, { tag });
 export const setCover = (id, mediaId) => partnerApi.put(`${base(id)}/cover`, { mediaId });
 export const deleteMedia = (id, mediaId) => partnerApi.del(`${base(id)}/media/${mediaId}`);
+/** Tag, caption, roomTypeId / restaurantId (null unlinks). */
+export const updateMedia = (id, mediaId, body) => partnerApi.patch(`${base(id)}/media/${mediaId}`, body);
+export const reorderMedia = (id, ids) => partnerApi.put(`${base(id)}/media-order`, { ids });
 
 // ---------- policies ----------
 export function policiesFromApi(p) {

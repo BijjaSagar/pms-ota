@@ -1046,3 +1046,42 @@
     font-size: 22px;
   }
 }
+
+/* ---- calculated score: states, check list, guide ---- */
+.csd-loading { padding: 24px; color: #6b746f; font-size: 14px; }
+.csd-error { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px; border: 1px solid #efc4bf; border-radius: 12px; background: #fff5f3; color: #7d2219; font-size: 13px; }
+.csd-learn-btn:disabled { opacity: .6; cursor: progress; }
+.csd-spin { animation: csd-spin 1s linear infinite; }
+@keyframes csd-spin { to { transform: rotate(360deg); } }
+.csd-detail ul.csd-check-list { display: grid; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }
+.csd-check-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 8px 10px; border: 1px solid #e4eee8; border-radius: 10px; background: #fff; }
+.csd-check-list li.is-open { border-color: #f0d58a; background: #fffbf0; }
+.csd-check-mark { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #d9b44a; color: #fff; }
+.csd-check-list li.is-done .csd-check-mark { border-color: #3f6b5c; background: #3f6b5c; }
+.csd-check-copy { display: grid; gap: 2px; min-width: 0; }
+.csd-check-copy strong { font-size: 13px; }
+.csd-check-copy small { color: #6b4b00; font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.csd-check-points { color: #4a5650; font-size: 12px; font-weight: 700; white-space: nowrap; }
+a.csd-action-item { color: inherit; text-decoration: none; }
+a.csd-action-item:hover { background: #f4f9f6; }
+a.csd-action-item p { overflow-wrap: anywhere; }
+.csd-guide-area + .csd-guide-area { margin-top: 12px; }
+.csd-guide-area h4 { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 6px; font-size: 14px; }
+.csd-guide-area h4 span { color: #6b746f; font-size: 12px; font-weight: 600; }
+.csd-modal { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); }
+.csd-modal-head, .csd-modal-foot { flex: 0 0 auto; }
+.csd-modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 620px) {
+  .csd-check-list li { grid-template-columns: 22px minmax(0, 1fr); }
+  .csd-check-points { grid-column: 2; }
+}
+
+/* The check list replaces the demo bullet list: undo its 6px-dot spans. */
+.csd-detail .csd-check-list { display: grid; }
+.csd-detail .csd-check-list li { display: grid; color: var(--ink, #1f2a25); font-weight: 400; }
+.csd-detail .csd-check-list li span { width: auto; height: auto; border-radius: 0; background: none; }
+.csd-detail .csd-check-list li .csd-check-mark { width: 20px; height: 20px; border-radius: 50%; }
+.csd-detail .csd-check-list li.is-done .csd-check-mark { background: #3f6b5c; }
+.csd-detail .csd-check-list { width: 100%; align-self: stretch; }
+.csd-detail .csd-check-list li, .csd-detail .csd-check-list li * { text-align: left; }
+.csd-detail .csd-check-list .csd-check-points { text-align: right; }

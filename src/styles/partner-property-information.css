@@ -15,6 +15,9 @@
 .pii-section-head h2 { margin: 0; font-size: 15px; font-weight: 800; color: var(--ink); }
 .pii-section-head p { margin: 3px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
 .pii-section-body { padding: 18px; }
+.pii-load-error { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px; border-radius: 12px; background: #fdecea; color: #8a1f17; font-size: 14px; }
+.pii-load-error button { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 999px; padding: 6px 12px; font: inherit; cursor: pointer; }
+.pii-load-error button:disabled { opacity: .6; cursor: default; }
 .pii-panel-stack { display: grid; gap: 16px; }
 
 .pii-info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }

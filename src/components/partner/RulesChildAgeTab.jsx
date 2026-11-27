@@ -1,8 +1,9 @@
 import { Baby, Check, Save, Sparkles } from 'lucide-react';
 
-const AGE_OPTIONS = Array.from({ length: 18 }, (_, index) => index);
+const FREE_AGES = Array.from({ length: 13 }, (_, index) => index);
+const PAID_AGES = Array.from({ length: 17 }, (_, index) => index + 1);
 
-export default function RulesChildAgeTab({ value, onChange, onSave, saving }) {
+export default function RulesChildAgeTab({ value, onChange, onSave, onDiscard, saving, dirty }) {
   const invalid = Number(value.paidMaxAge) <= Number(value.freeMaxAge);
   const paidStart = Number(value.freeMaxAge) + 1;
   const adultStart = Number(value.paidMaxAge) + 1;
@@ -31,8 +32,8 @@ export default function RulesChildAgeTab({ value, onChange, onSave, saving }) {
         </div>
 
         <div className={`rpw-child-grid ${value.childrenAllowed ? '' : 'is-disabled'}`}>
-          <label className="rpw-field"><span>Free stay up to age</span><select disabled={!value.childrenAllowed} value={value.freeMaxAge} onChange={(event) => onChange({ ...value, freeMaxAge: Number(event.target.value) })}>{AGE_OPTIONS.map((age) => <option key={age} value={age}>{age} {age === 1 ? 'year' : 'years'}</option>)}</select></label>
-          <label className="rpw-field"><span>Paid child stay up to age</span><select disabled={!value.childrenAllowed} value={value.paidMaxAge} onChange={(event) => onChange({ ...value, paidMaxAge: Number(event.target.value) })}>{AGE_OPTIONS.map((age) => <option key={age} value={age}>{age} {age === 1 ? 'year' : 'years'}</option>)}</select></label>
+          <label className="rpw-field"><span>Free stay up to age</span><select disabled={!value.childrenAllowed} value={value.freeMaxAge} onChange={(event) => onChange({ ...value, freeMaxAge: Number(event.target.value) })}>{FREE_AGES.map((age) => <option key={age} value={age}>{age} {age === 1 ? 'year' : 'years'}</option>)}</select></label>
+          <label className="rpw-field"><span>Paid child stay up to age</span><select disabled={!value.childrenAllowed} value={value.paidMaxAge} onChange={(event) => onChange({ ...value, paidMaxAge: Number(event.target.value) })}>{PAID_AGES.map((age) => <option key={age} value={age}>{age} {age === 1 ? 'year' : 'years'}</option>)}</select></label>
           <div className="rpw-field is-readonly"><span>Adult rates start at</span><strong>{adultStart} {adultStart === 1 ? 'year' : 'years'}</strong><small>Calculated automatically.</small></div>
         </div>
 
@@ -44,8 +45,8 @@ export default function RulesChildAgeTab({ value, onChange, onSave, saving }) {
           <div><span className="rpw-age-dot is-adult" /><strong>Adult rate</strong><small>{adultStart} years and above</small></div>
         </div>
 
-        <div className="rpw-child-note"><Sparkles size={15} aria-hidden="true" /><span>Channel guests see these age bands on the property policies page.</span></div>
-        <div className="rpw-save-bar"><button type="button" className="rpw-btn is-primary" onClick={onSave} disabled={saving || invalid}><Check size={15} aria-hidden="true" />{saving ? 'Saving…' : 'Save child age policy'}</button></div>
+        <div className="rpw-child-note"><Sparkles size={15} aria-hidden="true" /><span>Guests see these age bands with your policies. When children are not allowed, the ages are kept for later.</span></div>
+        <div className="rpw-save-bar">{dirty ? <button type="button" className="rpw-btn" onClick={onDiscard} disabled={saving}>Discard changes</button> : null}<button type="button" className="rpw-btn is-primary" onClick={onSave} disabled={saving || invalid || !dirty}><Check size={15} aria-hidden="true" />{saving ? 'Saving…' : dirty ? 'Save child age policy' : 'Saved'}</button></div>
       </section>
     </div>
   );

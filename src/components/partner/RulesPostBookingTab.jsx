@@ -1,7 +1,7 @@
 import { Check, Save, UserRoundPen } from 'lucide-react';
 import { YES_NO_OPTIONS } from '../../lib/data/rulesPolicies.js';
 
-export default function RulesPostBookingTab({ value, onChange, onSave, saving }) {
+export default function RulesPostBookingTab({ value, onChange, onSave, onDiscard, saving, dirty }) {
   return (
     <div className="rpw-tab-panel">
       <section className="rpw-card">
@@ -30,10 +30,10 @@ export default function RulesPostBookingTab({ value, onChange, onSave, saving })
                 </button>
               ))}
             </div>
-            <p className="rpw-muted">This setting applies to future bookings on all channels.</p>
+            <p className="rpw-muted">Applies to bookings made from now on.</p>
           </div>
         </div>
-        <div className="rpw-save-bar"><button type="button" className="rpw-btn is-primary" onClick={onSave} disabled={saving}><Save size={15} aria-hidden="true" />{saving ? 'Saving…' : 'Save post booking policy'}</button></div>
+        <div className="rpw-save-bar">{dirty ? <button type="button" className="rpw-btn" onClick={onDiscard} disabled={saving}>Discard changes</button> : null}<button type="button" className="rpw-btn is-primary" onClick={onSave} disabled={saving || !dirty}><Save size={15} aria-hidden="true" />{saving ? 'Saving…' : dirty ? 'Save post booking policy' : 'Saved'}</button></div>
       </section>
     </div>
   );

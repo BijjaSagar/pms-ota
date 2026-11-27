@@ -1,8 +1,11 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   BedDouble, Building2, ClipboardList, Coffee, Gift, Image as ImageIcon,
-  Landmark, Settings, Star,
+  Info, Landmark, RefreshCw, Settings, Star,
 } from 'lucide-react';
+import { getInformation, getProperty } from '../../lib/api/properties.js';
+import { AuthLoading } from '../auth/RequireAuth.jsx';
 import {
   propertyInfoSectionById,
 } from '../../lib/data/propertyInformationSections.js';
@@ -43,17 +46,46 @@ const show = (value) => {
   return text || '—';
 };
 
-export function PropertyInformation({ property }) {
+/**
+ * Loads the whole property (the list only has a summary) and its Property
+ * Information once, and hands both to the open section. A section that saves
+ * passes the new state back so the others see it too.
+ */
+function usePropertyInformation(propertyId) {
+  const [state, setState] = useState({ detail: null, information: null, error: '', loading: true });
+
+  const load = useCallback(async () => {
+    setState((current) => ({ ...current, loading: true, error: '' }));
+    try {
+      const [detail, information] = await Promise.all([getProperty(propertyId), getInformation(propertyId)]);
+      setState({ detail, information, error: '', loading: false });
+    } catch (problem) {
+      setState((current) => ({ ...current, loading: false, error: problem?.message || 'We could not load this property.' }));
+    }
+  }, [propertyId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const setDetail = useCallback((detail) => setState((current) => ({ ...current, detail })), []);
+  const setInformation = useCallback((information) => setState((current) => ({ ...current, information })), []);
+  return { ...state, reload: load, setDetail, setInformation };
+}
+
+export function PropertyInformation({ property: summary }) {
   const [params] = useSearchParams();
   const section = propertyInfoSectionById(params.get('section'));
   const Icon = SECTION_ICONS[section.id] ?? Building2;
+  const { detail, information, error, loading, reload, setDetail, setInformation } = usePropertyInformation(summary.id);
+  // Summary first (status, cover, stats), then everything the detail adds.
+  const property = detail ? { ...summary, ...detail } : summary;
+  const shared = { property, information, onPropertyChange: setDetail, onInformationChange: setInformation, onReload: reload };
 
   return (
     <div className="pii-page">
       <header className="pii-head">
         <div>
           <h1 className="pii-title">Property Information</h1>
-          <p className="pii-sub">{show(property.propertyName)} · manage every part of this listing.</p>
+          <p className="pii-sub">{show(information?.details.displayName || property.basic?.propertyName || property.propertyName)} · manage every part of this listing.</p>
         </div>
       </header>
 
@@ -67,15 +99,27 @@ export function PropertyInformation({ property }) {
         </header>
 
         <div className="pii-section-body">
-          {section.id === 'basic-information' ? <BasicInformationEditor property={property} /> : null}
-          {section.id === 'rooms-rateplans' ? <RoomsRateplansWorkspace property={property} /> : null}
-          {section.id === 'amenities-restaurants' ? <AmenitiesRestaurantWorkspace property={property} /> : null}
-          {section.id === 'inclusions-packages' ? <InclusionsPackagesWorkspace property={property} /> : null}
-          {section.id === 'photos-videos' ? <PhotosVideosWorkspace property={property} /> : null}
-          {section.id === 'rules-policies' ? <RulesPoliciesWorkspace property={property} /> : null}
-          {section.id === 'content-score' ? <ContentScoreDashboard property={property} /> : null}
-          {section.id === 'financial-bank-details' ? <FinancialBankDetailsWorkspace property={property} /> : null}
-          {section.id === 'settings' ? <PropertySettingsWorkspace property={property} /> : null}
+          {!detail || !information ? (
+            error ? (
+              <div className="pii-load-error" role="alert">
+                <Info size={18} aria-hidden="true" />
+                <span>{error}</span>
+                <button type="button" onClick={reload} disabled={loading}><RefreshCw size={15} aria-hidden="true" />Try again</button>
+              </div>
+            ) : <AuthLoading label="Loading property information…" />
+          ) : (
+            <>
+              {section.id === 'basic-information' ? <BasicInformationEditor key={property.id} {...shared} /> : null}
+              {section.id === 'rooms-rateplans' ? <RoomsRateplansWorkspace key={property.id} {...shared} /> : null}
+              {section.id === 'amenities-restaurants' ? <AmenitiesRestaurantWorkspace key={property.id} {...shared} /> : null}
+              {section.id === 'inclusions-packages' ? <InclusionsPackagesWorkspace key={property.id} {...shared} /> : null}
+              {section.id === 'photos-videos' ? <PhotosVideosWorkspace key={property.id} {...shared} /> : null}
+              {section.id === 'rules-policies' ? <RulesPoliciesWorkspace key={property.id} {...shared} /> : null}
+              {section.id === 'content-score' ? <ContentScoreDashboard key={property.id} {...shared} /> : null}
+              {section.id === 'financial-bank-details' ? <FinancialBankDetailsWorkspace key={property.id} {...shared} /> : null}
+              {section.id === 'settings' ? <PropertySettingsWorkspace key={property.id} {...shared} /> : null}
+            </>
+          )}
         </div>
       </section>
     </div>

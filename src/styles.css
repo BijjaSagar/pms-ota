@@ -45,6 +45,9 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* Keep the scrollbar's space when a popup locks page scrolling, so the
+     page does not jump sideways as dialogs open and close. */
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -3660,8 +3663,11 @@ body {
   color: var(--bg);
 }
 
+/* backwards, not both: a transform kept after the entry animation would make
+   every position: fixed popup inside the page (modals, drawers, sheets)
+   position against .page-main instead of the screen, so they scroll away. */
 .page-main {
-  animation: page-in .45s var(--ease) both;
+  animation: page-in .45s var(--ease) backwards;
 }
 
 @keyframes page-in {

@@ -1034,3 +1034,59 @@
     flex: 1;
   }
 }
+
+/* ---- saved inclusions: states, confirm, checklist groups ---- */
+.ipw-loading { padding: 24px; color: #6b746f; font-size: 14px; }
+.ipw-hint { color: #6b746f; font-size: 12px; }
+.ipw-error { color: #a3392b; font-size: 12px; }
+.ipw-section-title { margin: 18px 0 8px; font-size: 14px; font-weight: 700; }
+.ipw-check-group + .ipw-check-group { margin-top: 12px; }
+.ipw-check-group h5 { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: #4a5650; text-transform: uppercase; letter-spacing: .04em; }
+.ipw-check-grid label.is-disabled { opacity: .5; }
+.ipw-status-chip { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #fff3d6; color: #7a5600; font-size: 10px; font-style: normal; font-weight: 700; vertical-align: middle; }
+.ipw-status.scheduled { background: #fff3d6; color: #7a5600; }
+.ipw-plan-card.is-off { opacity: .75; }
+.ipw-inclusion-actions.is-confirm button, .ipw-card-actions.is-confirm button { font-size: 12px; }
+.ipw-inclusion-actions .is-danger, .ipw-card-actions .is-danger { background: #a3392b; border-color: #a3392b; color: #fff; }
+.ipw-card-actions.is-confirm { align-items: center; flex-wrap: wrap; }
+.ipw-card-actions.is-confirm span { font-size: 12px; color: #6d221a; margin-right: auto; }
+.ipw-inline-confirm { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; color: #6d221a; }
+.ipw-check-row { flex-direction: row !important; align-items: center; gap: 8px; }
+.ipw-check-row input { width: 18px; height: 18px; accent-color: #3f6b5c; }
+.ipw-field textarea { min-height: 70px; }
+@media (max-width: 620px) {
+  .ipw-modal-foot { flex-direction: column-reverse; align-items: stretch; gap: 10px; }
+  .ipw-modal-foot-actions { display: flex; gap: 8px; }
+  .ipw-modal-foot-actions .ipw-btn { flex: 1 1 auto; justify-content: center; }
+  .ipw-inline-confirm { justify-content: space-between; }
+}
+
+/* Plan names wrap to two lines instead of being cut off; the header wraps
+   its "Edit" link under the name on narrow cards. */
+.ipw-plan-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.ipw-plan-head { flex-wrap: wrap; }
+.ipw-plan-toggle { flex: 1 1 220px; min-width: 0; }
+.ipw-plan-copy strong { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.ipw-expired-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+/* ---- delete confirmation ---- */
+.ipw-danger-box { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 16px 0 0; padding: 14px 16px; border: 1px solid #efc4bf; border-radius: 12px; background: #fff5f3; }
+.ipw-danger-box strong { display: block; color: #7d2219; font-size: 14px; overflow-wrap: anywhere; }
+.ipw-danger-box p { margin: 4px 0 0; color: #7d4a44; font-size: 13px; line-height: 1.45; }
+.ipw-danger-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.ipw-btn.is-solid-danger { border-color: #a3392b; background: #a3392b; color: #fff; }
+.ipw-btn.is-solid-danger:hover:not(:disabled) { background: #8a2e22; }
+.ipw-btn.is-solid-danger:disabled { opacity: .7; cursor: progress; }
+.ipw-confirm-text { font-size: 12px; font-weight: 700; color: #7d2219; align-self: center; }
+@media (max-width: 620px) {
+  .ipw-danger-actions { width: 100%; }
+  .ipw-danger-actions .ipw-btn { flex: 1 1 0; justify-content: center; }
+}
+
+/* Row remove confirm: its own line, real buttons (not 24px icon squares). */
+.ipw-inclusion-card.is-confirming { flex-wrap: wrap; border-color: #efc4bf; background: #fff9f8; }
+.ipw-inclusion-actions.is-confirm { flex: 1 1 100%; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; padding-top: 8px; border-top: 1px dashed #efc4bf; }
+.ipw-inclusion-actions.is-confirm .ipw-confirm-text { margin-right: auto; }
+.ipw-inclusion-actions.is-confirm button { width: auto; height: 28px; padding: 0 12px; border: 1px solid #d9e4de; background: #fff; color: #33433b; font-weight: 700; }
+.ipw-inclusion-actions.is-confirm button.is-danger { border-color: #a3392b; background: #a3392b; color: #fff; }
+.ipw-inclusion-actions.is-confirm .ipw-confirm-text { flex: 1 1 100%; margin: 0 0 2px; }

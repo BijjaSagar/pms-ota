@@ -1472,3 +1472,75 @@
     flex-wrap: wrap;
   }
 }
+
+/* ---- saved Rules & Policies ---- */
+.rpw-loading { padding: 24px; color: var(--muted); font-size: 14px; }
+.rpw-modal { max-height: calc(100dvh - 32px); }
+.rpw-modal-body { scrollbar-width: thin; overscroll-behavior: contain; }
+.rpw-modal-body::-webkit-scrollbar { display: block; width: 8px; }
+.rpw-modal-body::-webkit-scrollbar-thumb { border-radius: 8px; background: #cfdcd4; }
+.rpw-nav button { position: relative; }
+.rpw-nav-dirty { width: 8px; height: 8px; margin-left: auto; border-radius: 50%; background: #d08a00; flex-shrink: 0; }
+.rpw-pill.is-default { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; background: #fff3d6; color: #7a5600; }
+.rpw-pill.is-scheduled { background: #e8f0fb; color: #284f86; }
+.rpw-menu-note { margin: 4px 0 0; padding: 8px 10px 4px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; line-height: 1.4; max-width: 220px; }
+.rpw-condition strong.is-none { color: #9b3329; }
+.rpw-danger-box { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding: 12px 14px; border: 1px solid #efc4bf; border-radius: 12px; background: #fff5f3; }
+.rpw-danger-box strong { display: block; color: #7d2219; font-size: 13px; overflow-wrap: anywhere; }
+.rpw-danger-box p { margin: 3px 0 0; color: #7d4a44; font-size: 12px; line-height: 1.45; }
+.rpw-danger-box.is-inline { grid-column: 1 / -1; margin-top: 0; }
+.rpw-danger-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.rpw-btn.is-solid-danger { border-color: #a3392b; background: #a3392b; color: #fff; }
+.rpw-btn.is-solid-danger:hover:not(:disabled) { background: #8a2e22; }
+.rpw-btn:disabled { opacity: .6; cursor: not-allowed; }
+.rpw-rule-row.is-compact { grid-template-columns: minmax(120px, 1fr) minmax(100px, .8fr) minmax(160px, 1.6fr) 30px; align-items: start; }
+.rpw-rule-row.is-compact > .rpw-icon-btn { margin-top: 20px; }
+.rpw-rule-summary { align-self: center; padding-top: 18px; color: #2f5546; font-size: 12px; font-weight: 700; line-height: 1.35; }
+.rpw-blackout-row { align-items: start; }
+.rpw-blackout-row > .rpw-icon-btn { margin-top: 20px; }
+.rpw-blackout-row label span { color: var(--muted); font-size: 10px; font-weight: 700; }
+.rpw-rate-options label small { color: var(--muted); font-weight: 500; }
+.rpw-field-error { color: #a3392b; font-size: 11px; font-weight: 600; }
+.rpw-counter { justify-self: end; color: var(--muted); font-size: 11px; }
+[aria-invalid="true"] { border-color: #d9796c !important; }
+.rpw-yesno[aria-invalid="true"] button { border-color: #e7a89f; }
+.rpw-rule-field.has-error > span { color: #7d2219; }
+.rpw-rule-section.has-error { border-color: #efc4bf; }
+.rpw-save-bar { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.rpw-muted { margin: 0 0 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+@media (max-width: 720px) {
+  .rpw-rule-row.is-compact { grid-template-columns: 1fr 1fr 30px; }
+  .rpw-rule-row.is-compact .rpw-rule-summary { grid-column: 1 / -1; grid-row: 2; padding-top: 0; }
+  .rpw-blackout-row { grid-template-columns: 1fr 1fr; }
+  .rpw-blackout-row > label:first-child { grid-column: 1 / -1; }
+  .rpw-blackout-row > .rpw-icon-btn { margin-top: 0; justify-self: end; grid-column: 1 / -1; }
+  .rpw-danger-actions { width: 100%; }
+  .rpw-danger-actions .rpw-btn { flex: 1 1 0; justify-content: center; }
+  .rpw-save-bar .rpw-btn { flex: 1 1 auto; justify-content: center; }
+}
+.rpw-field .rpw-counter { align-self: flex-end; margin-top: -2px; }
+
+/* Property Rules: dropdowns and amount boxes get the same look as every
+   other form field here (they showed as plain browser controls). */
+.rpw-rule-field > input,
+.rpw-rule-field > select,
+.rpw-rule-field > textarea {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-input);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.rpw-rule-field > input:focus,
+.rpw-rule-field > select:focus,
+.rpw-rule-field > textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(63, 107, 92, .12);
+}
+.rpw-rule-field > select { cursor: pointer; }
+.rpw-rule-field > input[type="number"] { max-width: 240px; }

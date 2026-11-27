@@ -1,148 +1,127 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Baby, Ban, BellRing, CheckCircle2, ClipboardList, ShieldCheck, UserRoundPen } from 'lucide-react';
 import {
-  Baby,
-  Ban,
-  BellRing,
-  CheckCircle2,
-  ClipboardList,
-  ShieldCheck,
-  UserRoundPen,
-} from 'lucide-react';
-import { loadMasters, policiesFromApi, savePolicies } from '../../lib/api/properties.js';
-import {
-  CANCELLATION_OPTIONS,
-  EXTRA_BED_TYPE_OPTIONS,
-  IDENTITY_PROOF_OPTIONS,
-  POLICY_YES_NO_FIELDS,
-} from '../../lib/data/partner.js';
-import {
-  CANCELLATION_POLICY_FALLBACK,
-  CHANNEL_PREVIEW,
-  EXTRA_BED_TYPE_FALLBACK,
-  FAQ_CONTENT,
-  IDENTITY_PROOF_FALLBACK,
-  RULES_TABS,
-  buildRatePlanOptions,
-  createInitialRulesPoliciesState,
-  normalizeRulesPoliciesState,
-  optionList,
-} from '../../lib/data/rulesPolicies.js';
+  createCancellationPolicy, createNotice, deleteCancellationPolicy, deleteNotice, getRules, loadMasters,
+  saveChildAge, saveGracePeriod, savePostBooking, savePropertyRules, setCancellationPolicyActive,
+  setDefaultCancellationPolicy, setNoticeActive, updateCancellationPolicy, updateNotice,
+} from '../../lib/api/properties.js';
+import { CHANNEL_PREVIEW, FAQ_CONTENT, RULES_TABS } from '../../lib/data/rulesPolicies.js';
 import RulesCancellationPoliciesTab from './RulesCancellationPoliciesTab.jsx';
-import RulesPropertyRulesTab from './RulesPropertyRulesTab.jsx';
+import RulesPropertyRulesTab, { checkRulesForm, formToBody, rulesToForm } from './RulesPropertyRulesTab.jsx';
 import RulesNoticesTab from './RulesNoticesTab.jsx';
 import RulesChildAgeTab from './RulesChildAgeTab.jsx';
 import RulesPostBookingTab from './RulesPostBookingTab.jsx';
 import RulesFaqPanel from './RulesFaqPanel.jsx';
 import '../../styles/partner-rules-policies.css';
 
-const STORAGE_KEY = 'triponx.partner.rulesPolicies';
+// Rules & Policies, saved on the server. Every save answers with the whole
+// Rules view, which replaces what is shown.
 
-const TAB_ICONS = {
-  cancellation: Ban,
-  'property-rules': ClipboardList,
-  notices: BellRing,
-  'child-age': Baby,
-  'post-booking': UserRoundPen,
-};
+const TAB_ICONS = { cancellation: Ban, 'property-rules': ClipboardList, notices: BellRing, 'child-age': Baby, 'post-booking': UserRoundPen };
 
-const loadStoredState = (id) => {
-  try {
-    const stored = window.sessionStorage.getItem(`${STORAGE_KEY}.${id}.v1`);
-    return stored ? normalizeRulesPoliciesState(JSON.parse(stored)) : createInitialRulesPoliciesState();
-  } catch {
-    return createInitialRulesPoliciesState();
-  }
-};
-
-const persistState = (id, state) => {
-  try {
-    window.sessionStorage.setItem(`${STORAGE_KEY}.${id}.v1`, JSON.stringify(state));
-  } catch {
-    return;
-  }
-};
-
-const validateRuleForm = (form) => {
-  const errors = {};
-  POLICY_YES_NO_FIELDS.forEach((field) => {
-    if (form[field] !== 'yes' && form[field] !== 'no') errors[field] = 'Choose Yes or No.';
-  });
-  if (!Array.isArray(form.identityProofs) || form.identityProofs.length === 0) errors.identityProofs = 'Select at least one identity proof.';
-  if (form.includeInfant === 'yes' && form.infantFoodProvided !== 'yes' && form.infantFoodProvided !== 'no') errors.infantFoodProvided = 'Choose Yes or No.';
-  if (form.infantFoodProvided === 'yes' && !String(form.infantFoodItems ?? '').trim()) errors.infantFoodItems = 'Mention the complimentary food items.';
-  if (form.extraBedForAdults === 'yes' && !form.adultExtraBedType) errors.adultExtraBedType = 'Choose an extra bed type.';
-  return errors;
-};
+/** Server field errors -> { field: 'This must be …' }. */
+const fieldErrors = (problem) => Object.fromEntries(Object.entries(problem?.fieldErrors ?? {})
+  .map(([field, message]) => [field, /^[A-Z]/.test(message) ? message : `This ${message}.`]));
 
 export default function RulesPoliciesWorkspace({ property }) {
+  const propertyId = property.id;
+  const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
   const [activeTab, setActiveTab] = useState('cancellation');
   const [faqHidden, setFaqHidden] = useState(false);
   const [previewChannel, setPreviewChannel] = useState('MMT');
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null);
-  const [errors, setErrors] = useState({});
-  const [ruleForm, setRuleForm] = useState(() => policiesFromApi(property.policies));
-  const [state, setState] = useState(() => loadStoredState(property.id));
-  const [masterTick, setMasterTick] = useState(0);
+  const [rulesForm, setRulesForm] = useState(null);
+  const [rulesErrors, setRulesErrors] = useState({});
+  const [childAge, setChildAge] = useState(null);
+  const [nameChange, setNameChange] = useState('');
+  const bannerRef = useRef(null);
 
-  useEffect(() => {
-    let active = true;
-    loadMasters()
-      .then(() => { if (active) setMasterTick((tick) => tick + 1); })
-      .catch(() => {});
-    return () => { active = false; };
+  /** New server data: the forms follow it. */
+  const accept = useCallback((next) => {
+    setData(next);
+    setRulesForm(rulesToForm(next.propertyRules));
+    setChildAge(next.childAge);
+    setNameChange(next.postBooking.allowGuestNameChange ? 'yes' : 'no');
   }, []);
 
-  const ratePlanOptions = useMemo(() => buildRatePlanOptions(property), [property]);
-  const ruleOptions = useMemo(() => ({
-    identityProofs: optionList(IDENTITY_PROOF_OPTIONS, IDENTITY_PROOF_FALLBACK),
-    extraBedTypes: optionList(EXTRA_BED_TYPE_OPTIONS, EXTRA_BED_TYPE_FALLBACK),
-    cancellationPolicies: optionList(CANCELLATION_OPTIONS, CANCELLATION_POLICY_FALLBACK),
-  }), [masterTick]);
-
-  const update = (patch) => {
-    setState((current) => {
-      const next = typeof patch === 'function' ? patch(current) : { ...current, ...patch };
-      persistState(property.id, next);
-      return next;
-    });
-  };
-
-  const changeRuleField = (field, value) => {
-    if (field in ruleForm) setRuleForm((current) => ({ ...current, [field]: value }));
-    else update((current) => ({ ...current, propertyRuleExtras: { ...current.propertyRuleExtras, [field]: value } }));
-    setErrors((current) => {
-      if (!current[field]) return current;
-      const next = { ...current };
-      delete next[field];
-      return next;
-    });
-  };
-
-  const savePropertyRules = async () => {
-    const nextErrors = validateRuleForm(ruleForm);
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) {
-      setStatus({ type: 'error', message: 'Complete the highlighted property rules before saving.' });
-      return;
+  const load = useCallback(async () => {
+    setLoadError('');
+    try {
+      const [, next] = await Promise.all([loadMasters(), getRules(propertyId)]);
+      accept(next);
+    } catch (problem) {
+      setLoadError(problem?.message || 'Rules & Policies could not be loaded.');
     }
-    setSaving(true);
+  }, [propertyId, accept]);
+  useEffect(() => { load(); }, [load]);
+
+  const api = useMemo(() => ({
+    saveGracePeriod: (body) => saveGracePeriod(propertyId, body),
+    createCancellationPolicy: (body) => createCancellationPolicy(propertyId, body),
+    updateCancellationPolicy: (policyId, body) => updateCancellationPolicy(propertyId, policyId, body),
+    setCancellationPolicyActive: (policyId, active) => setCancellationPolicyActive(propertyId, policyId, active),
+    setDefaultCancellationPolicy: (policyId) => setDefaultCancellationPolicy(propertyId, policyId),
+    deleteCancellationPolicy: (policyId) => deleteCancellationPolicy(propertyId, policyId),
+    createNotice: (body) => createNotice(propertyId, body),
+    updateNotice: (noticeId, body) => updateNotice(propertyId, noticeId, body),
+    setNoticeActive: (noticeId, active) => setNoticeActive(propertyId, noticeId, active),
+    deleteNotice: (noticeId) => deleteNotice(propertyId, noticeId),
+  }), [propertyId]);
+
+  const show = (next) => {
+    setStatus(next);
+    requestAnimationFrame(() => bannerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+  };
+
+  /** Runs a save. Field errors go back to the caller's form; others show on top. */
+  const run = async (action, success) => {
+    setBusy(true);
     setStatus(null);
     try {
-      await savePolicies(property.id, ruleForm);
-      persistState(property.id, state);
-      setStatus({ type: 'success', message: 'Property rules saved successfully.' });
+      accept(await action(api));
+      show({ type: 'success', message: success });
+      return { ok: true };
     } catch (problem) {
-      setStatus({ type: 'error', message: problem?.message || 'Could not save property rules. Please try again.' });
+      const fields = fieldErrors(problem);
+      if (Object.keys(fields).length) return { ok: false, fields };
+      show({ type: 'error', message: problem?.message || 'That did not save. Please try again.' });
+      return { ok: false };
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   };
 
-  const saveWithoutApi = (message) => setStatus({ type: 'success', message });
+  const changeTab = (tab) => { setActiveTab(tab); setStatus(null); };
+
+  if (!data) {
+    return loadError ? (
+      <div className="rpw-status-banner is-error" role="alert">{loadError} <button type="button" className="rpw-btn is-small" onClick={load}>Try again</button></div>
+    ) : <div className="rpw-loading" role="status">Loading Rules &amp; Policies…</div>;
+  }
+
+  const rulesDirty = JSON.stringify(rulesForm) !== JSON.stringify(rulesToForm(data.propertyRules));
+  const childDirty = JSON.stringify(childAge) !== JSON.stringify(data.childAge);
+  const nameDirty = nameChange !== (data.postBooking.allowGuestNameChange ? 'yes' : 'no');
+  const dirtyTabs = { 'property-rules': rulesDirty, 'child-age': childDirty, 'post-booking': nameDirty };
+
+  const saveRules = async () => {
+    const problems = checkRulesForm(rulesForm);
+    setRulesErrors(problems);
+    if (Object.keys(problems).length) {
+      show({ type: 'error', message: `Answer the ${Object.keys(problems).length} highlighted question${Object.keys(problems).length === 1 ? '' : 's'} before saving.` });
+      requestAnimationFrame(() => document.getElementById(`rule-${Object.keys(problems)[0]}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+      return;
+    }
+    const result = await run(() => savePropertyRules(propertyId, formToBody(rulesForm)), 'Property rules saved.');
+    if (result.fields) {
+      setRulesErrors(result.fields);
+      show({ type: 'error', message: 'Fix the highlighted answers.' });
+    }
+  };
 
   const activeTabMeta = RULES_TABS.find((tab) => tab.id === activeTab) ?? RULES_TABS[0];
-  const faqs = FAQ_CONTENT[activeTab] ?? [];
 
   return (
     <div className="rpw-workspace">
@@ -150,7 +129,7 @@ export default function RulesPoliciesWorkspace({ property }) {
         <div>
           <span className="rpw-eyebrow"><ShieldCheck size={14} aria-hidden="true" />Property configuration</span>
           <h2>Rules &amp; Policies</h2>
-          <p>Manage cancellation terms, stay rules, notices and guest policies from one place.</p>
+          <p>Cancellation terms, stay rules, notices and guest policies, in one place.</p>
         </div>
         <div className="rpw-channel-switch" role="group" aria-label="Channel preview">
           {Object.keys(CHANNEL_PREVIEW).map((channel) => (
@@ -159,7 +138,9 @@ export default function RulesPoliciesWorkspace({ property }) {
         </div>
       </header>
 
-      {status ? <div className={`rpw-status-banner is-${status.type}`} role="status">{status.message}</div> : null}
+      <div ref={bannerRef}>
+        {status ? <div className={`rpw-status-banner is-${status.type}`} role={status.type === 'error' ? 'alert' : 'status'}>{status.message}</div> : null}
+      </div>
 
       <div className={`rpw-layout ${faqHidden ? 'faq-hidden' : ''}`}>
         <nav className="rpw-nav" aria-label="Rules and policy sections">
@@ -167,16 +148,11 @@ export default function RulesPoliciesWorkspace({ property }) {
           {RULES_TABS.map((tab, index) => {
             const Icon = TAB_ICONS[tab.id] ?? ClipboardList;
             return (
-              <button
-                type="button"
-                key={tab.id}
-                className={activeTab === tab.id ? 'is-active' : ''}
-                aria-current={activeTab === tab.id ? 'page' : undefined}
-                onClick={() => { setActiveTab(tab.id); setStatus(null); setErrors({}); }}
-              >
+              <button type="button" key={tab.id} className={activeTab === tab.id ? 'is-active' : ''} aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => changeTab(tab.id)}>
                 <span className="rpw-nav-index">{String(index + 1).padStart(2, '0')}</span>
                 <Icon size={15} aria-hidden="true" />
                 <span>{tab.label}</span>
+                {dirtyTabs[tab.id] ? <span className="rpw-nav-dirty" title="Unsaved changes" aria-label="Unsaved changes" /> : null}
               </button>
             );
           })}
@@ -189,80 +165,52 @@ export default function RulesPoliciesWorkspace({ property }) {
             <p>{activeTabMeta.description}</p>
           </div>
 
-          {activeTab === 'cancellation' ? (
-            <RulesCancellationPoliciesTab
-              gracePeriod={state.gracePeriod}
-              policies={state.cancellationPolicies}
-              ratePlanOptions={ratePlanOptions}
-              onChangeGracePeriod={(next) => update({ gracePeriod: next })}
-              onSavePolicy={(policy) => update((current) => {
-                const exists = current.cancellationPolicies.some((item) => item.id === policy.id);
-                return {
-                  ...current,
-                  cancellationPolicies: exists
-                    ? current.cancellationPolicies.map((item) => (item.id === policy.id ? policy : item))
-                    : [...current.cancellationPolicies, policy],
-                };
-              })}
-              onDeletePolicy={(id) => update((current) => ({ ...current, cancellationPolicies: current.cancellationPolicies.filter((policy) => policy.id !== id) }))}
-              onTogglePolicyStatus={(id) => update((current) => ({
-                ...current,
-                cancellationPolicies: current.cancellationPolicies.map((policy) => (policy.id === id ? { ...policy, status: policy.status === 'active' ? 'inactive' : 'active' } : policy)),
-              }))}
-            />
-          ) : null}
+          {activeTab === 'cancellation' ? <RulesCancellationPoliciesTab data={data} busy={busy} onRun={run} /> : null}
 
           {activeTab === 'property-rules' ? (
             <RulesPropertyRulesTab
-              ruleForm={ruleForm}
-              extras={state.propertyRuleExtras}
-              options={ruleOptions}
-              errors={errors}
-              onChange={changeRuleField}
-              onSave={savePropertyRules}
-              saving={saving}
+              form={rulesForm}
+              errors={rulesErrors}
+              dirty={rulesDirty}
+              saving={busy}
+              onChange={(field, value) => {
+                setRulesForm((current) => ({ ...current, [field]: value }));
+                setRulesErrors((current) => { if (!current[field]) return current; const next = { ...current }; delete next[field]; return next; });
+              }}
+              onDiscard={() => { setRulesForm(rulesToForm(data.propertyRules)); setRulesErrors({}); setStatus(null); }}
+              onSave={saveRules}
             />
           ) : null}
 
-          {activeTab === 'notices' ? (
-            <RulesNoticesTab
-              notices={state.notices}
-              onSaveNotice={(notice) => update((current) => {
-                const exists = current.notices.some((item) => item.id === notice.id);
-                return {
-                  ...current,
-                  notices: exists ? current.notices.map((item) => (item.id === notice.id ? notice : item)) : [...current.notices, notice],
-                };
-              })}
-              onDeleteNotice={(id) => update((current) => ({ ...current, notices: current.notices.filter((notice) => notice.id !== id) }))}
-              onToggleNoticeStatus={(id) => update((current) => ({
-                ...current,
-                notices: current.notices.map((notice) => (notice.id === id ? { ...notice, status: notice.status === 'active' ? 'deactivated' : 'active' } : notice)),
-              }))}
-            />
-          ) : null}
+          {activeTab === 'notices' ? <RulesNoticesTab data={data} busy={busy} onRun={run} /> : null}
 
           {activeTab === 'child-age' ? (
             <RulesChildAgeTab
-              value={state.childAge}
-              onChange={(next) => { update({ childAge: next }); setStatus(null); }}
-              onSave={() => saveWithoutApi('Child age policy saved for this browser session.')}
-              saving={false}
+              value={childAge}
+              dirty={childDirty}
+              saving={busy}
+              onChange={(next) => { setChildAge(next); setStatus(null); }}
+              onDiscard={() => setChildAge(data.childAge)}
+              onSave={() => run(() => saveChildAge(propertyId, childAge), 'Child age policy saved.').then((result) => {
+                if (result.fields) show({ type: 'error', message: Object.values(result.fields)[0] });
+              })}
             />
           ) : null}
 
           {activeTab === 'post-booking' ? (
             <RulesPostBookingTab
-              value={state.postBooking}
-              onChange={(next) => { update({ postBooking: next }); setStatus(null); }}
-              onSave={() => saveWithoutApi('Post booking policy saved for this browser session.')}
-              saving={false}
+              value={nameChange}
+              dirty={nameDirty}
+              saving={busy}
+              onChange={(next) => { setNameChange(next); setStatus(null); }}
+              onDiscard={() => setNameChange(data.postBooking.allowGuestNameChange ? 'yes' : 'no')}
+              onSave={() => run(() => savePostBooking(propertyId, { allowGuestNameChange: nameChange === 'yes' }), 'Post booking policy saved.')}
             />
           ) : null}
         </main>
 
         <RulesFaqPanel
-          faqs={faqs}
+          faqs={FAQ_CONTENT[activeTab] ?? []}
           hidden={faqHidden}
           onToggle={() => setFaqHidden((current) => !current)}
           previewChannel={previewChannel === 'GO' ? 'Goibibo' : 'MakeMyTrip'}
@@ -270,7 +218,7 @@ export default function RulesPoliciesWorkspace({ property }) {
         />
       </div>
 
-      <footer className="rpw-foot"><CheckCircle2 size={14} aria-hidden="true" /><span>Property rules sync with the property API. Other sections are saved in this browser session until dedicated endpoints are available.</span></footer>
+      <footer className="rpw-foot"><CheckCircle2 size={14} aria-hidden="true" /><span>Every section is saved to your property. Unsaved tabs are marked with a dot.</span></footer>
     </div>
   );
 }

@@ -123,6 +123,10 @@ export let PHOTO_TAG_OPTIONS = [];
 export let CANCELLATION_OPTIONS = [];
 export let IDENTITY_PROOF_OPTIONS = [];
 export let EXTRA_BED_TYPE_OPTIONS = [];
+/** Every master list from the server, by group: { cuisine: [[code, label]], … }. */
+export let MASTER_LISTS = {};
+/** Label of a master code, e.g. masterLabel('mealOption', 'breakfast'). */
+export const masterLabel = (group, code) => (MASTER_LISTS[group] ?? []).find(([value]) => value === code)?.[1] ?? code ?? '';
 let PHOTO_TAG_VALUES = new Set();
 let POLICY_CANCELLATION_VALUES = new Set();
 let POLICY_IDENTITY_PROOF_VALUES = new Set();
@@ -133,6 +137,7 @@ export function applyMasters({ amenityCategories, roomAmenities, options }) {
   const select = (group, placeholder) => [['', placeholder], ...list(group)];
   const values = (group) => new Set(list(group).map(([value]) => value));
   const item = ({ code, label }) => ({ id: code, label });
+  MASTER_LISTS = Object.fromEntries(Object.keys(options).map((group) => [group, list(group)]));
   AMENITY_CATEGORIES = amenityCategories.map((c) => ({ ...item(c), items: c.items.map(item) }));
   ROOM_AMENITY_ITEMS = roomAmenities.map(item);
   ROOM_TYPE_OPTIONS = select('roomType', 'Select room type');
