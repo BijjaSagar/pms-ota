@@ -4,7 +4,6 @@ import {
   BedDouble,
   Check,
   ChevronRight,
-  Eye,
   Pencil,
   Plus,
   Tag,
@@ -124,7 +123,6 @@ export default function RoomsRateplansWorkspace({ property }) {
   const [roomErrors, setRoomErrors] = useState({});
   const [amenitiesForm, setAmenitiesForm] = useState({});
   const [rateplanForm, setRateplanForm] = useState({ preset: 'cp', label: '', price: '' });
-  const [previewPlatform, setPreviewPlatform] = useState('');
   const [notice, setNotice] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -326,11 +324,6 @@ export default function RoomsRateplansWorkspace({ property }) {
           <p>Manage room categories, availability, amenities and the plans guests can book.</p>
         </div>
         <div className="rrw-header-actions">
-          <div className="rrw-preview-switch" aria-label="Preview room information on booking platforms">
-            <span>Preview on</span>
-            <button type="button" onClick={() => setPreviewPlatform('MakeMyTrip')}>MakeMyTrip <small>MMT</small></button>
-            <button type="button" onClick={() => setPreviewPlatform('Goibibo')}>Goibibo <small>GO</small></button>
-          </div>
           <button type="button" className="rrw-create-btn" onClick={() => openRoomModal(null)} disabled={!mastersReady}>
             <Plus size={16} aria-hidden="true" /> Create New Room
           </button>
@@ -581,30 +574,6 @@ export default function RoomsRateplansWorkspace({ property }) {
         </DrawerShell>
       )}
 
-      {previewPlatform && (
-        <ModalShell
-          title={`${previewPlatform} preview`}
-          subtitle="Preview only — platform listings use the data configured for this property."
-          onClose={() => setPreviewPlatform('')}
-          wide
-        >
-          <div className="rrw-preview-list">
-            {cards.filter((room) => room.active).map((room) => (
-              <article className="rrw-preview-card" key={room.key}>
-                <div className="rrw-preview-media"><BedDouble size={24} aria-hidden="true" /></div>
-                <div>
-                  <span className="rrw-preview-tag">{previewPlatform}</span>
-                  <h4>{room.displayName}</h4>
-                  <p>{room.description}</p>
-                  <div className="rrw-plan-chips">{room.rateplans.slice(0, 4).map((plan) => <span key={plan.id}>{plan.label}</span>)}</div>
-                </div>
-                <Eye size={17} aria-hidden="true" />
-              </article>
-            ))}
-            {!cards.some((room) => room.active) && <p className="rrw-drawer-empty">Activate a room to preview it on a booking platform.</p>}
-          </div>
-        </ModalShell>
-      )}
     </div>
   );
 }

@@ -66,32 +66,6 @@
   gap: 8px;
 }
 
-.ipw-preview-switch {
-  display: inline-flex;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid #d7e5dc;
-  border-radius: 10px;
-  background: #fff;
-}
-
-.ipw-preview-switch button {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #607269;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.ipw-preview-switch button:hover {
-  background: var(--sage);
-  color: var(--accent-dark);
-}
-
 .ipw-btn {
   display: inline-flex;
   align-items: center;
@@ -993,12 +967,10 @@
     padding: 14px;
   }
 
-  .ipw-actions,
-  .ipw-preview-switch {
+  .ipw-actions {
     width: 100%;
   }
 
-  .ipw-preview-switch button,
   .ipw-actions .ipw-btn {
     flex: 1;
   }

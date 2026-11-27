@@ -166,11 +166,6 @@ export default function InclusionsPackagesWorkspace({ property }) {
     ));
   };
 
-  const openPreview = (platform) => {
-    setMenuOpen(false);
-    setModal({ kind: 'preview', platform });
-  };
-
   const openPackageModal = (mode, sourcePlanId, roomId) => {
     const sourcePlan = state.mealPlans.find((plan) => plan.id === sourcePlanId);
     const planRoomId = roomId ?? selectedRoomId;
@@ -345,10 +340,6 @@ export default function InclusionsPackagesWorkspace({ property }) {
           </div>
         </div>
         <div className="ipw-actions">
-          <div className="ipw-preview-switch" aria-label="Preview platform">
-            <button type="button" onClick={() => openPreview('MakeMyTrip')}>MakeMyTrip</button>
-            <button type="button" onClick={() => openPreview('Goibibo')}>Goibibo</button>
-          </div>
           <div className="ipw-create-wrap" ref={menuRef}>
             <button type="button" className="ipw-btn is-primary" onClick={() => setMenuOpen((open) => !open)}>
               <Plus size={15} aria-hidden="true" /> Create A Package <ChevronDown size={14} aria-hidden="true" />
@@ -486,35 +477,6 @@ export default function InclusionsPackagesWorkspace({ property }) {
           {!visibleInclusions.length ? <div className="ipw-empty-panel"><Gift size={24} aria-hidden="true" /><h3>Nothing here</h3><p>No inclusions match this status.</p></div> : null}
         </div>
       )}
-
-      {modal?.kind === 'preview' ? (
-        <ModalShell title={`${modal.platform} preview`} subtitle="Preview only — active inclusions by room and meal plan." onClose={() => setModal(null)} wide>
-          <div className="ipw-preview-list">
-            {state.rooms.map((room) => {
-              const roomPlans = plansForRoom(state, room);
-              return (
-                <section className="ipw-preview-room" key={room.id}>
-                  <h4>{room.label}</h4>
-                  {roomPlans.length ? roomPlans.map((plan) => {
-                    const ids = state.assignments[room.id]?.[plan.id] ?? [];
-                    return (
-                      <div className="ipw-preview-plan" key={plan.id}>
-                        <span>{plan.label}</span>
-                        <p>{ids.length ? ids.map((id) => inclusionById[id]?.name).filter(Boolean).join(' · ') : 'No inclusions assigned'}</p>
-                      </div>
-                    );
-                  }) : (
-                    <div className="ipw-preview-plan">
-                      <span>No plans</span>
-                      <p>No meal plans configured for this room.</p>
-                    </div>
-                  )}
-                </section>
-              );
-            })}
-          </div>
-        </ModalShell>
-      ) : null}
 
       {modal?.kind === 'view' ? (
         <ModalShell title="Inclusion details" subtitle="Read-only summary" onClose={() => setModal(null)}>
