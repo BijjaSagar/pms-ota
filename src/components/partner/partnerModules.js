@@ -40,7 +40,11 @@ export const PARTNER_MODULES = [
     view: 'rates-inventory',
   },
   { id: 'payments', label: 'Payments', Icon: CreditCard, to: PARTNER_PATHS.payments },
-  { id: 'property-information', label: 'Property Information', Icon: ClipboardList },
+  {
+    id: 'property-information', label: 'Property Information', Icon: ClipboardList, to: PARTNER_PATHS.properties,
+    hrefFor: ({ propertyId }) => propertyDetailsPath(currentPropertyId(propertyId), 'property-information'),
+    view: 'property-information',
+  },
   {
     id: 'ratings-reviews', label: 'Ratings & Reviews', Icon: Star, to: PARTNER_PATHS.properties,
     hrefFor: ({ propertyId }) => propertyDetailsPath(currentPropertyId(propertyId), 'reviews'),
