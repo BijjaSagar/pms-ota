@@ -1,18 +1,28 @@
-// Module row under the Partner Hub top bar: icon on top, name below, active module highlighted.
-// Scrolls sideways when the modules don't fit (tablets / phones); the active module is kept in view.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { MORE_MODULES, PARTNER_MODULES, PROPERTY_LIST_MODULES } from './partnerModules.js';
-import { PARTNER_PATHS, currentPropertyId, moduleSoonPath, propertyRatesSectionPath } from './paths.js';
+import {
+  PARTNER_PATHS, currentPropertyId, moduleSoonPath,
+  propertyInformationSectionPath, propertyRatesSectionPath,
+} from './paths.js';
 import { RATES_INVENTORY_SECTIONS } from '../../lib/data/ratesInventorySections.js';
+import { PROPERTY_INFO_NAV_SECTIONS } from '../../lib/data/propertyInformationSections.js';
 import '../../styles/partner.css';
+
+const FLYOUT_MODULE_IDS = ['rates-inventory', 'property-information', 'more'];
 
 export function PartnerModuleNav() {
   const trackRef = useRef(null);
   const ratesRef = useRef(null);
+  const propertyInfoRef = useRef(null);
   const moreRef = useRef(null);
   const flyoutRef = useRef(null);
+  const triggerRefs = {
+    'rates-inventory': ratesRef,
+    'property-information': propertyInfoRef,
+    more: moreRef,
+  };
   const [openFlyout, setOpenFlyout] = useState(null);
   const [flyoutStyle, setFlyoutStyle] = useState({ top: 0, left: 0, width: 0 });
   const { pathname } = useLocation();
@@ -27,7 +37,45 @@ export function PartnerModuleNav() {
   const modules = onPropertyListFlow ? PROPERTY_LIST_MODULES : PARTNER_MODULES;
   const belongsTo = (path) => pathname === path || pathname.startsWith(`${path}/`);
   const activeRates = onPropertyPage && activeView === 'rates-inventory';
+  const activePropertyInfo = onPropertyPage && activeView === 'property-information';
   const moreActive = belongsTo(moduleSoonPath('more')) || MORE_MODULES.some((m) => belongsTo(m.href));
+  const property = currentPropertyId(propertyId);
+
+  const flyoutConfigs = {
+    'rates-inventory': {
+      id: 'pmn-rates-flyout',
+      label: 'Rates & Inventory sections',
+      width: 286,
+      ref: ratesRef,
+      active: activeRates,
+      sections: RATES_INVENTORY_SECTIONS,
+      showDescription: false,
+      to: (item) => propertyRatesSectionPath(property, item.id),
+      itemActive: (item) => activeRates && activeSection === item.id,
+    },
+    'property-information': {
+      id: 'pmn-property-information-flyout',
+      label: 'Property Information sections',
+      width: 280,
+      ref: propertyInfoRef,
+      active: activePropertyInfo,
+      sections: PROPERTY_INFO_NAV_SECTIONS,
+      showDescription: false,
+      to: (item) => propertyInformationSectionPath(property, item.id),
+      itemActive: (item) => activePropertyInfo && activeSection === item.id,
+    },
+    more: {
+      id: 'pmn-more-flyout',
+      label: 'More sections',
+      width: 220,
+      ref: moreRef,
+      active: moreActive,
+      sections: MORE_MODULES,
+      showDescription: false,
+      to: (item) => item.href,
+      itemActive: (item) => belongsTo(item.href),
+    },
+  };
 
   useEffect(() => {
     const track = trackRef.current;
@@ -37,7 +85,7 @@ export function PartnerModuleNav() {
     const a = active.getBoundingClientRect();
     const left = track.scrollLeft + (a.left - t.left) - (t.width - a.width) / 2;
     track.scrollTo({ left, behavior: 'instant' });
-  }, [pathname, activeView]);
+  }, [pathname, activeView, activeSection]);
 
   useEffect(() => {
     setOpenFlyout(null);
@@ -45,10 +93,11 @@ export function PartnerModuleNav() {
 
   useLayoutEffect(() => {
     if (!openFlyout) return undefined;
+    const config = flyoutConfigs[openFlyout];
     const place = () => {
-      const rect = (openFlyout === 'more' ? moreRef.current : ratesRef.current)?.getBoundingClientRect();
+      const rect = config?.ref.current?.getBoundingClientRect();
       if (!rect) return;
-      const width = Math.max(rect.width, openFlyout === 'more' ? 220 : 286);
+      const width = Math.max(rect.width, config.width);
       const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
       setFlyoutStyle({ top: Math.round(rect.bottom + 4), left: Math.round(left), width: Math.round(width) });
     };
@@ -61,7 +110,7 @@ export function PartnerModuleNav() {
     if (!openFlyout) return undefined;
     const close = () => setOpenFlyout(null);
     const onPointerDown = (event) => {
-      const trigger = openFlyout === 'more' ? moreRef.current : ratesRef.current;
+      const trigger = triggerRefs[openFlyout]?.current;
       if (trigger?.contains(event.target) || flyoutRef.current?.contains(event.target)) return;
       close();
     };
@@ -89,16 +138,15 @@ export function PartnerModuleNav() {
       <div className="pmn-track" ref={trackRef}>
         {modules.map((module) => {
           const { id, label, Icon, href, hrefFor, view, also } = module;
-          if (id === 'rates-inventory' || id === 'more') {
-            const isActive = id === 'rates-inventory' ? activeRates : moreActive;
-            const flyoutId = id === 'rates-inventory' ? 'pmn-rates-flyout' : 'pmn-more-flyout';
+          if (FLYOUT_MODULE_IDS.includes(id)) {
+            const config = flyoutConfigs[id];
             return (
-              <div className="pmn-flyout-wrap" key={id} ref={id === 'rates-inventory' ? ratesRef : moreRef}>
+              <div className="pmn-flyout-wrap" key={id} ref={triggerRefs[id]}>
                 <button type="button"
-                  className={`pmn-item pmn-flyout-trigger ${isActive ? 'is-active' : ''}`}
+                  className={`pmn-item pmn-flyout-trigger ${config.active ? 'is-active' : ''}`}
                   aria-haspopup="menu"
                   aria-expanded={openFlyout === id}
-                  aria-controls={flyoutId}
+                  aria-controls={config.id}
                   onClick={() => setOpenFlyout((current) => (current === id ? null : id))}>
                   <span className="pmn-icon"><Icon size={22} strokeWidth={1.8} aria-hidden="true" /></span>
                   <span className="pmn-label">{label}</span>
@@ -115,27 +163,19 @@ export function PartnerModuleNav() {
           );
         })}
       </div>
-      {openFlyout && typeof document !== 'undefined' && createPortal(
-        <div className="pmn-flyout"
-          id={openFlyout === 'rates-inventory' ? 'pmn-rates-flyout' : 'pmn-more-flyout'}
-          role="menu"
-          aria-label={openFlyout === 'rates-inventory' ? 'Rates & Inventory sections' : 'More sections'}
-          ref={flyoutRef} style={flyoutStyle}>
-          {(openFlyout === 'rates-inventory' ? RATES_INVENTORY_SECTIONS : MORE_MODULES).map((item) => {
-            const to = openFlyout === 'rates-inventory'
-              ? propertyRatesSectionPath(currentPropertyId(propertyId), item.id)
-              : item.href;
-            const itemActive = openFlyout === 'rates-inventory'
-              ? activeRates && activeSection === item.id
-              : belongsTo(item.href);
-            return (
-              <NavLink key={item.id} role="menuitem" to={to}
-                className={`pmn-flyout-item ${itemActive ? 'is-active' : ''}`}
-                onClick={() => setOpenFlyout(null)}>
-                <span className="pmn-flyout-label">{item.label}</span>
-              </NavLink>
-            );
-          })}
+      {openFlyout && flyoutConfigs[openFlyout] && typeof document !== 'undefined' && createPortal(
+        <div className="pmn-flyout" id={flyoutConfigs[openFlyout].id} role="menu"
+          aria-label={flyoutConfigs[openFlyout].label} ref={flyoutRef} style={flyoutStyle}>
+          {flyoutConfigs[openFlyout].sections.map((item) => (
+            <NavLink key={item.id} role="menuitem" to={flyoutConfigs[openFlyout].to(item)}
+              className={`pmn-flyout-item ${flyoutConfigs[openFlyout].itemActive(item) ? 'is-active' : ''}`}
+              onClick={() => setOpenFlyout(null)}>
+              <span className="pmn-flyout-label">{item.label}</span>
+              {flyoutConfigs[openFlyout].showDescription && item.description
+                ? <span className="pmn-flyout-desc">{item.description}</span>
+                : null}
+            </NavLink>
+          ))}
         </div>,
         document.body,
       )}

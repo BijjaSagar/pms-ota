@@ -8,6 +8,7 @@ import { PropertyBookings } from '../components/partner/PropertyBookings.jsx';
 import { PropertyRatesInventory } from '../components/partner/PropertyRatesInventory.jsx';
 import { PropertyRatingsReviews } from '../components/partner/PropertyRatingsReviews.jsx';
 import { PropertyAnalytics } from '../components/partner/PropertyAnalytics.jsx';
+import { PropertyInformation } from '../components/partner/PropertyInformation.jsx';
 import { CURRENT_PROPERTY, PARTNER_PATHS, currentPropertyId, rememberProperty } from '../components/partner/paths.js';
 import { AuthLoading } from '../components/auth/RequireAuth.jsx';
 import { cachedProperties, listProperties } from '../lib/api/properties.js';
@@ -19,6 +20,7 @@ const VIEWS = [
   { key: 'overview', label: 'Overview' },
   { key: 'bookings', label: 'Bookings' },
   { key: 'rates-inventory', label: 'Rates & Inventory' },
+  { key: 'property-information', label: 'Property Information' },
   { key: 'check-ins', label: 'Check-ins' },
   { key: 'staying', label: 'Staying' },
   { key: 'check-outs', label: 'Check-outs' },
@@ -71,6 +73,8 @@ function PropertyDetails() {
         <PropertyBookings property={property} />
       ) : view.key === 'rates-inventory' ? (
         <PropertyRatesInventory property={property} />
+      ) : view.key === 'property-information' ? (
+        <PropertyInformation property={property} />
       ) : view.key === 'reviews' ? (
         <PropertyRatingsReviews property={property} />
       ) : view.key === 'analytics' ? (

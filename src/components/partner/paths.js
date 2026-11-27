@@ -38,6 +38,8 @@ export function currentPropertyId(id) {
 
 export const propertyRatesSectionPath = (id, section) => `${propertyDetailsPath(id, 'rates-inventory')}&section=${encodeURIComponent(section)}`;
 
+export const propertyInformationSectionPath = (id, section) => `${propertyDetailsPath(id, 'property-information')}&section=${encodeURIComponent(section)}`;
+
 export const propertyAnalyticsSectionPath = (id, section) => `${propertyDetailsPath(id, 'analytics')}&section=${encodeURIComponent(section)}`;
 
 /** Payments dashboard; tab = earnings | payouts, view = old | new. */

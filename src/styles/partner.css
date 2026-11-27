@@ -94,6 +94,7 @@
 .pmn-flyout-item.is-active { background: var(--sage); }
 .pmn-flyout-item:focus-visible { outline: 3px solid rgba(63, 107, 92, .35); outline-offset: 2px; }
 .pmn-flyout-label { font-size: 13px; font-weight: 800; color: var(--ink); overflow-wrap: anywhere; }
+.pmn-flyout-desc { font-size: 11px; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere; }
 @media (max-width: 720px) {
   .pmn-flyout { max-height: min(60vh, 420px); }
 }
