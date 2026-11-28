@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  BedDouble, Building2, ClipboardList, Coffee, Gift, Image as ImageIcon,
-  Info, Landmark, RefreshCw, Settings, Star,
-} from 'lucide-react';
+import { Info, RefreshCw } from 'lucide-react';
 import { getInformation, getProperty } from '../../lib/api/properties.js';
 import { AuthLoading } from '../auth/RequireAuth.jsx';
 import { showFromTop } from '../../lib/utils/showFromTop.js';
@@ -28,18 +25,6 @@ import '../../styles/partner-rules-policies.css';
 import '../../styles/partner-content-score.css';
 import '../../styles/partner-financial-bank-details.css';
 import '../../styles/partner-property-settings.css';
-
-const SECTION_ICONS = {
-  'basic-information': Building2,
-  'rooms-rateplans': BedDouble,
-  'amenities-restaurants': Coffee,
-  'inclusions-packages': Gift,
-  'photos-videos': ImageIcon,
-  'rules-policies': ClipboardList,
-  'content-score': Star,
-  'financial-bank-details': Landmark,
-  settings: Settings,
-};
 
 const show = (value) => {
   if (value === undefined || value === null) return '—';
@@ -76,7 +61,6 @@ export function PropertyInformation({ property: summary }) {
   const [params] = useSearchParams();
   const section = propertyInfoSectionById(params.get('section'));
   const tab = params.get('tab');
-  const Icon = SECTION_ICONS[section.id] ?? Building2;
   // A new section or tab opens at its top, not where the last one was scrolled to.
   const bodyRef = useRef(null);
   const firstRender = useRef(true);
@@ -99,14 +83,6 @@ export function PropertyInformation({ property: summary }) {
       </header>
 
       <section className="pii-content">
-        <header className="pii-section-head">
-          <span className="pii-section-icon"><Icon size={21} aria-hidden="true" /></span>
-          <div>
-            <h2>{section.label}</h2>
-            <p>{section.description}</p>
-          </div>
-        </header>
-
         <div className="pii-section-body" ref={bodyRef}>
           {!detail || !information ? (
             error ? (
