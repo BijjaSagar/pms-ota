@@ -93,7 +93,12 @@ export default function RulesPoliciesWorkspace({ property }) {
     }
   };
 
-  const changeTab = (tab) => { setActiveTab(tab); setStatus(null); };
+  const changeTab = (tab) => {
+    if (tab === activeTab) return;
+    setActiveTab(tab);
+    setStatus(null);
+    showFromTop(document.querySelector('.pii-section-body'));
+  };
 
   if (!data) {
     return loadError ? (
