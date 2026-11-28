@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, GripVertical,
-  Image as ImageIcon, Pencil, Plus, Trash2, Upload, Video, X,
+  AlertTriangle, ArrowDown, ArrowUp, BedDouble, Check, ChevronLeft, ChevronRight, GripVertical,
+  Image as ImageIcon, Images, Link2, Pencil, Star, Tag, Trash2, Unlink, Upload, UtensilsCrossed, Video, X,
 } from 'lucide-react';
 import { MASTER_LISTS, masterLabel } from '../../lib/data/partner.js';
 import {
@@ -117,8 +118,11 @@ export default function PhotosVideosWorkspace({ property, onPropertyChange }) {
   const rooms = useMemo(() => (property.rooms ?? []).map((room) => ({ id: room.id, name: room.roomName || 'Room' })), [property.rooms]);
   const [restaurants, setRestaurants] = useState([]);
   const [ready, setReady] = useState(false);
-  const [activeArea, setActiveArea] = useState(null);
-  const [activeTag, setActiveTag] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = ['rooms', 'tags'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'gallery';
+  const [kindFilter, setKindFilter] = useState('all'); // gallery: all | image | video
+  const [areaPick, setAreaPick] = useState(null); // rooms tab: picked room / restaurant ('' = not linked)
+  const [tagPick, setTagPick] = useState(null); // tags tab: picked tag ('' = needs a tag)
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(null);
   const [errors, setErrors] = useState({});
@@ -149,11 +153,27 @@ export default function PhotosVideosWorkspace({ property, onPropertyChange }) {
   ], [rooms, restaurants]);
   const areaLabel = (value) => areas.find((area) => area.value === value)?.label ?? '';
 
-  const visible = gallery.filter((item) => (activeArea === null || areaValue(item) === activeArea)
-    && (activeTag === null || (activeTag === NONE ? item.kind === 'image' && !item.tag : item.tag === activeTag)));
-  const collectionLabel = activeArea !== null ? (activeArea === NONE ? 'Not linked to a room or restaurant' : areaLabel(activeArea))
-    : activeTag !== null ? (activeTag === NONE ? 'Photos without a tag' : masterLabel('photoTag', activeTag)) : '';
-  const lightboxItems = modal ? gallery : (collectionLabel ? visible : gallery);
+  const unlinked = gallery.filter((item) => !areaValue(item));
+  const usedTags = tags.filter(([code]) => photos.images.some((item) => item.tag === code));
+  // Keep the pick only while it still exists (a room deleted, the last photo of a tag retagged…).
+  const selectedArea = areaPick !== null && (areas.some((area) => area.value === areaPick) || (areaPick === NONE && unlinked.length))
+    ? areaPick : (areas[0]?.value ?? NONE);
+  const selectedTag = tagPick !== null && (usedTags.some(([code]) => code === tagPick) || (tagPick === NONE && untagged.length))
+    ? tagPick : (untagged.length ? NONE : usedTags[0]?.[0] ?? null);
+
+  const visible = tab === 'rooms' ? gallery.filter((item) => areaValue(item) === selectedArea)
+    : tab === 'tags' ? photos.images.filter((item) => (selectedTag === NONE ? !item.tag : item.tag === selectedTag))
+      : gallery.filter((item) => kindFilter === 'all' || item.kind === kindFilter);
+  const lightboxItems = modal ? gallery : visible;
+
+  const changeTab = (next) => {
+    if (next === tab) return;
+    const params = new URLSearchParams(searchParams);
+    if (next === 'gallery') params.delete('tab');
+    else params.set('tab', next);
+    setSearchParams(params, { replace: true });
+    setNotice(null);
+  };
   const lightboxItem = lightboxId ? lightboxItems.find((item) => item.id === lightboxId) : null;
 
   const closeModal = useCallback(() => { setModal(null); setForm(null); setErrors({}); setDragId(null); }, []);
@@ -250,7 +270,8 @@ export default function PhotosVideosWorkspace({ property, onPropertyChange }) {
 
   // ----------------------------------------------------------------- upload
   const openUpload = () => {
-    setForm({ area: activeArea && activeArea !== NONE ? activeArea : NONE, tag: activeTag && activeTag !== NONE ? activeTag : '' });
+    // Opened from a room or a tag: new files land there straight away.
+    setForm({ area: tab === 'rooms' ? selectedArea : NONE, tag: tab === 'tags' && selectedTag ? selectedTag : '' });
     setErrors({});
     setModal({ type: 'upload' });
   };
@@ -311,27 +332,66 @@ export default function PhotosVideosWorkspace({ property, onPropertyChange }) {
   };
 
   // ------------------------------------------------------------------- view
-  const card = (item) => (
-    <article key={item.id} className="pvm-media-card">
-      <button type="button" className="pvm-media-preview" onClick={() => setLightboxId(item.id)} aria-label={`Preview ${item.name}`}>
-        <MediaThumb item={item} />
-        {cover?.id === item.id ? <span className="pvm-cover-badge"><Check size={12} aria-hidden="true" />Cover</span> : null}
-        {item.kind === 'image' && !item.tag ? <span className="pvm-untagged-badge"><AlertTriangle size={12} aria-hidden="true" />No tag</span> : null}
-      </button>
-      <div className="pvm-media-meta">
-        <strong title={item.caption || item.name}>{item.caption || item.name}</strong>
-        <small>{tagLabel(item)}{areaValue(item) ? ` · ${areaLabel(areaValue(item))}` : ''}</small>
-      </div>
-      <div className="pvm-media-actions">
-        {landscape(item) && cover?.id !== item.id ? <button type="button" disabled={busy} onClick={() => chooseCover(item.id)} aria-label={`Use ${item.name} as cover`} title="Use as cover"><ImageIcon size={14} aria-hidden="true" /></button> : null}
-        <button type="button" onClick={() => openEdit(item)} aria-label={`Edit ${item.name}`} title="Edit"><Pencil size={14} aria-hidden="true" /></button>
-      </div>
-    </article>
-  );
+  // One file: picture first, quick actions on the picture, what it is underneath.
+  const tile = (item) => {
+    const isCover = cover?.id === item.id;
+    const area = areaValue(item);
+    return (
+      <article key={item.id} className={`pvm-tile ${isCover ? 'is-cover' : ''}`}>
+        <button type="button" className="pvm-tile-media" onClick={() => setLightboxId(item.id)} aria-label={`Preview ${item.caption || item.name}`}>
+          <MediaThumb item={item} />
+          <span className="pvm-tile-badges">
+            {isCover ? <span className="pvm-badge is-cover"><Star size={11} aria-hidden="true" />Cover</span> : null}
+            {item.kind === 'image' && !item.tag ? <span className="pvm-badge is-warn"><AlertTriangle size={11} aria-hidden="true" />No tag</span> : null}
+          </span>
+        </button>
+        <span className="pvm-tile-tools">
+          {landscape(item) && !isCover ? (
+            <button type="button" disabled={busy} onClick={() => chooseCover(item.id)} aria-label={`Use ${item.name} as cover`} title="Use as cover"><Star size={14} aria-hidden="true" /></button>
+          ) : null}
+          <button type="button" onClick={() => openEdit(item)} aria-label={`Edit ${item.name}`} title="Edit details"><Pencil size={14} aria-hidden="true" /></button>
+        </span>
+        <div className="pvm-tile-body">
+          <strong title={item.caption || item.name}>{item.caption || item.name}</strong>
+          <span className="pvm-tile-meta">
+            <span className={`pvm-chip ${item.kind === 'image' && !item.tag ? 'is-warn' : ''}`}>{tagLabel(item)}</span>
+            {area ? <span className="pvm-tile-area" title={areaLabel(area)}>{areaLabel(area)}</span> : null}
+          </span>
+        </div>
+      </article>
+    );
+  };
+
+  const tileGrid = (items) => <div className="pvm-tile-grid">{items.map(tile)}</div>;
 
   const uploadBtn = (
     <button type="button" className="pvm-btn is-primary" onClick={openUpload} disabled={busy}><Upload size={15} aria-hidden="true" />Upload</button>
   );
+
+  const TABS = [
+    { id: 'gallery', label: 'Gallery', Icon: Images, count: gallery.length },
+    { id: 'rooms', label: 'Rooms & restaurants', Icon: BedDouble, count: areas.length },
+    { id: 'tags', label: 'By tag', Icon: Tag, count: usedTags.length + (untagged.length ? 1 : 0) },
+  ];
+  const rooms_ = areas.filter((area) => area.kind === 'Room');
+  const restaurants_ = areas.filter((area) => area.kind === 'Restaurant');
+  const areaRow = ({ value, label, kind }) => {
+    const items = gallery.filter((item) => areaValue(item) === value);
+    const Icon = kind === 'Restaurant' ? UtensilsCrossed : kind === 'Room' ? BedDouble : Unlink;
+    return (
+      <button type="button" key={value || 'none'} className={`pvm-area-row ${selectedArea === value ? 'is-on' : ''}`}
+        aria-pressed={selectedArea === value} onClick={() => setAreaPick(value)}>
+        <span className="pvm-area-thumb">{items[0] ? <MediaThumb item={items[0]} /> : <Icon size={17} aria-hidden="true" />}</span>
+        <span className="pvm-area-copy">
+          <strong>{label}</strong>
+          <small className={items.length ? '' : 'is-empty'}>{items.length ? `${items.length} file${items.length === 1 ? '' : 's'}` : 'No photos yet'}</small>
+        </span>
+      </button>
+    );
+  };
+  const selectedAreaInfo = selectedArea === NONE
+    ? { label: 'Not linked', kind: 'Files not linked to a room or restaurant' }
+    : areas.find((area) => area.value === selectedArea);
 
   return (
     <div className="pvm-workspace">
@@ -342,130 +402,155 @@ export default function PhotosVideosWorkspace({ property, onPropertyChange }) {
         </div>
       ) : null}
 
-      <header className="pvm-header">
-        <div className="pvm-heading">
-          <span className="pvm-heading-icon"><ImageIcon size={20} aria-hidden="true" /></span>
-          <div>
-            <h3>Photos &amp; Videos ({photos.images.length + photos.videos.length})</h3>
-            <p>{photos.images.length}/{MAX_IMAGES} photos · {photos.videos.length}/{MAX_VIDEOS} videos. Tag, link and order what guests see.</p>
-          </div>
-        </div>
-        <div className="pvm-header-actions">
-          <button type="button" className="pvm-btn" onClick={openReorder} disabled={gallery.length < 2}><GripVertical size={15} aria-hidden="true" />Reorder</button>
-          <button type="button" className="pvm-btn" onClick={() => setModal({ type: 'all' })} disabled={!gallery.length}>View All</button>
-          {uploadBtn}
-        </div>
-      </header>
-
       {untagged.length ? (
-        <button type="button" className="pvm-warning" onClick={() => { setActiveTag(NONE); setActiveArea(null); }}>
+        <button type="button" className="pvm-warning" onClick={() => { setTagPick(NONE); changeTab('tags'); }}>
           <AlertTriangle size={16} aria-hidden="true" />
-          <span>{untagged.length} photo{untagged.length === 1 ? ' needs' : 's need'} a tag before this section is complete. <u>Show them</u></span>
+          <span>{untagged.length} photo{untagged.length === 1 ? ' needs' : 's need'} a tag before this section is complete. <u>Tag them now</u></span>
         </button>
       ) : null}
 
-      {cover ? (
-        <section className="pvm-cover-card">
-          <MediaThumb item={cover} className="pvm-cover-media" />
-          <div className="pvm-cover-overlay">
-            <span className="pvm-pill">Cover photo</span>
-            <h3>{cover.caption || cover.name}</h3>
-            <p>{cover.tag ? masterLabel('photoTag', cover.tag) : 'The first photo guests see'}</p>
-          </div>
-          <button type="button" className="pvm-cover-change" onClick={() => setModal({ type: 'cover' })} disabled={busy}><Pencil size={14} aria-hidden="true" />Change cover</button>
-        </section>
-      ) : (
-        <section className="pvm-empty pvm-cover-missing">
-          <ImageIcon size={26} aria-hidden="true" />
-          <strong>No cover photo yet</strong>
-          <span>Guests see the cover first. Choose a landscape (wide) photo.</span>
-          {photos.images.some(landscape)
-            ? <button type="button" className="pvm-btn is-primary" onClick={() => setModal({ type: 'cover' })}>Choose cover</button>
-            : uploadBtn}
-        </section>
-      )}
-
-      {!gallery.length ? (
-        <section className="pvm-empty">
-          <Upload size={24} aria-hidden="true" />
-          <strong>No photos or videos yet</strong>
-          <span>Upload photos of rooms, bathrooms, the entrance and common areas.</span>
-        </section>
-      ) : null}
-
-      <section className="pvm-block">
-        <div className="pvm-block-head">
-          <div>
-            <h3>Rooms &amp; restaurants</h3>
-            <p>Link each file to the room or restaurant it shows.</p>
-          </div>
+      {/* The section title is already above: one bar with the views on the left and Upload on the right. */}
+      <div className="pvm-bar">
+        <nav className="pvm-tabs" aria-label="Photos and videos views">
+          {TABS.map(({ id, label, Icon, count }) => (
+            <button type="button" key={id} className={tab === id ? 'is-on' : ''} aria-pressed={tab === id} onClick={() => changeTab(id)}>
+              <Icon size={15} aria-hidden="true" />
+              <span>{label}</span>
+              <em>{count}</em>
+            </button>
+          ))}
+        </nav>
+        <div className="pvm-header-actions">
+          <span className="pvm-quota" title={`Up to ${MAX_IMAGES} photos and ${MAX_VIDEOS} videos`}>
+            <span><ImageIcon size={13} aria-hidden="true" />{photos.images.length}/{MAX_IMAGES}</span>
+            <span><Video size={13} aria-hidden="true" />{photos.videos.length}/{MAX_VIDEOS}</span>
+          </span>
+          {/* Rooms tab: Upload sits next to the picked room instead. */}
+          {tab !== 'rooms' || !areas.length ? uploadBtn : null}
         </div>
-        {!ready ? <p className="pvm-help">Loading…</p> : !areas.length ? <p className="pvm-help">Add rooms (Rooms &amp; Rateplans) or restaurants (Amenities &amp; Restaurant) to link photos to them.</p> : (
-          <div className="pvm-group-grid">
-            {areas.map((area) => {
-              const items = gallery.filter((item) => areaValue(item) === area.value);
-              return (
-                <article className={`pvm-group-card ${activeArea === area.value ? 'is-active' : ''}`} key={area.value}>
-                  <div className="pvm-group-thumbs">
-                    {items.slice(0, 3).map((item) => <MediaThumb key={item.id} item={item} />)}
-                    {!items.length ? <span className="pvm-group-empty"><ImageIcon size={20} aria-hidden="true" /></span> : null}
-                  </div>
-                  <div className="pvm-group-copy">
-                    <strong>{area.label}</strong>
-                    <span>{area.kind} · {items.length} file{items.length === 1 ? '' : 's'}</span>
-                  </div>
-                  <div className="pvm-group-actions">
-                    <button type="button" onClick={() => { setActiveArea(area.value); setActiveTag(null); }} disabled={!items.length}>View</button>
-                    <button type="button" onClick={() => openAssign(area.value)} disabled={!gallery.length || busy}><Plus size={14} aria-hidden="true" />Link</button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      </div>
 
-      {photos.images.length ? (
-        <section className="pvm-block">
-          <div className="pvm-block-head">
-            <div>
-              <h3>Photos by tag</h3>
-              <p>Tap a tag to see its photos.</p>
+      {tab === 'gallery' ? (
+        <section className="pvm-panel" aria-label="Gallery">
+          {cover ? (
+            <section className="pvm-cover-card">
+              <MediaThumb item={cover} className="pvm-cover-media" />
+              <div className="pvm-cover-overlay">
+                <span className="pvm-pill">Cover photo</span>
+                <h3>{cover.caption || cover.name}</h3>
+                <p>{cover.tag ? masterLabel('photoTag', cover.tag) : 'The first photo guests see'}</p>
+              </div>
+              <button type="button" className="pvm-cover-change" onClick={() => setModal({ type: 'cover' })} disabled={busy}><Pencil size={14} aria-hidden="true" />Change cover</button>
+            </section>
+          ) : (
+            <section className="pvm-empty pvm-cover-missing">
+              <ImageIcon size={26} aria-hidden="true" />
+              <strong>No cover photo yet</strong>
+              <span>Guests see the cover first. Choose a landscape (wide) photo.</span>
+              {photos.images.some(landscape)
+                ? <button type="button" className="pvm-btn is-primary" onClick={() => setModal({ type: 'cover' })}>Choose cover</button>
+                : uploadBtn}
+            </section>
+          )}
+
+          {gallery.length ? (
+            <>
+              <div className="pvm-toolbar">
+                <div className="pvm-segment" role="group" aria-label="Show">
+                  {[['all', 'All', gallery.length], ['image', 'Photos', photos.images.length], ['video', 'Videos', photos.videos.length]].map(([id, label, count]) => (
+                    <button type="button" key={id} className={kindFilter === id ? 'is-on' : ''} aria-pressed={kindFilter === id} onClick={() => setKindFilter(id)} disabled={!count && id !== 'all'}>
+                      {label} <em>{count}</em>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="pvm-btn" onClick={openReorder} disabled={gallery.length < 2 || busy}><GripVertical size={15} aria-hidden="true" />Reorder</button>
+              </div>
+              {tileGrid(visible)}
+            </>
+          ) : (
+            <section className="pvm-empty is-roomy">
+              <span className="pvm-empty-icon"><Upload size={22} aria-hidden="true" /></span>
+              <strong>No photos or videos yet</strong>
+              <span>Upload photos of rooms, bathrooms, the entrance and common areas.</span>
+              {uploadBtn}
+            </section>
+          )}
+        </section>
+      ) : null}
+
+      {tab === 'rooms' ? (
+        !ready ? <p className="pvm-help">Loading…</p> : !areas.length ? (
+          <section className="pvm-empty is-roomy">
+            <span className="pvm-empty-icon"><BedDouble size={22} aria-hidden="true" /></span>
+            <strong>No rooms or restaurants yet</strong>
+            <span>Add rooms in Rooms &amp; Rateplans, or restaurants in Amenities &amp; Restaurant, then link photos to them here.</span>
+          </section>
+        ) : (
+          <section className="pvm-split" aria-label="Rooms and restaurants">
+            <aside className="pvm-area-list" aria-label="Choose a room or restaurant">
+              {rooms_.length ? <p className="pvm-area-group">Rooms</p> : null}
+              {rooms_.map(areaRow)}
+              {restaurants_.length ? <p className="pvm-area-group">Restaurants</p> : null}
+              {restaurants_.map(areaRow)}
+              {unlinked.length ? (
+                <>
+                  <p className="pvm-area-group">Other</p>
+                  {areaRow({ value: NONE, label: 'Not linked', kind: 'None' })}
+                </>
+              ) : null}
+            </aside>
+
+            <div className="pvm-area-detail">
+              <header className="pvm-area-head">
+                <div>
+                  <h3>{selectedAreaInfo?.label}</h3>
+                  <p>{selectedArea === NONE ? selectedAreaInfo.kind : `${selectedAreaInfo?.kind} · ${visible.length} file${visible.length === 1 ? '' : 's'}`}</p>
+                </div>
+                {selectedArea !== NONE ? (
+                  <div className="pvm-area-actions">
+                    <button type="button" className="pvm-btn" onClick={() => openAssign(selectedArea)} disabled={!gallery.length || busy}><Link2 size={15} aria-hidden="true" />Link existing</button>
+                    {uploadBtn}
+                  </div>
+                ) : null}
+              </header>
+              {visible.length ? tileGrid(visible) : (
+                <div className="pvm-empty">
+                  <span className="pvm-empty-icon"><ImageIcon size={22} aria-hidden="true" /></span>
+                  <strong>No photos of {selectedAreaInfo?.label} yet</strong>
+                  <span>{gallery.length ? 'Pick files you already uploaded, or upload new ones for it.' : 'Upload photos and they are linked here straight away.'}</span>
+                </div>
+              )}
             </div>
-          </div>
-          <div className="pvm-tag-grid">
-            {tags.filter(([code]) => photos.images.some((item) => item.tag === code)).map(([code, label]) => {
-              const items = photos.images.filter((item) => item.tag === code);
-              return (
-                <button type="button" className={`pvm-tag-card ${activeTag === code ? 'is-active' : ''}`} key={code} onClick={() => { setActiveTag(activeTag === code ? null : code); setActiveArea(null); }}>
-                  <span className="pvm-tag-thumbs">{items.slice(0, 3).map((item) => <MediaThumb key={item.id} item={item} />)}</span>
-                  <strong>{label}</strong>
-                  <small>{items.length} photo{items.length === 1 ? '' : 's'}</small>
+          </section>
+        )
+      ) : null}
+
+      {tab === 'tags' ? (
+        !photos.images.length ? (
+          <section className="pvm-empty is-roomy">
+            <span className="pvm-empty-icon"><Tag size={22} aria-hidden="true" /></span>
+            <strong>No photos to tag yet</strong>
+            <span>Every photo gets a tag (bedroom, bathroom, lobby…) so guests can browse by what it shows.</span>
+            {uploadBtn}
+          </section>
+        ) : (
+          <section className="pvm-panel" aria-label="Photos by tag">
+            <div className="pvm-tag-chips" role="group" aria-label="Choose a tag">
+              {untagged.length ? (
+                <button type="button" className={`pvm-tag-chip is-warn ${selectedTag === NONE ? 'is-on' : ''}`} aria-pressed={selectedTag === NONE} onClick={() => setTagPick(NONE)}>
+                  <AlertTriangle size={13} aria-hidden="true" />Needs a tag <em>{untagged.length}</em>
                 </button>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
-      {collectionLabel ? (
-        <section className="pvm-block pvm-collection-block">
-          <div className="pvm-block-head">
-            <div>
-              <h3>{collectionLabel}</h3>
-              <p>{visible.length} file{visible.length === 1 ? '' : 's'}</p>
+              ) : null}
+              {usedTags.map(([code, label]) => (
+                <button type="button" key={code} className={`pvm-tag-chip ${selectedTag === code ? 'is-on' : ''}`} aria-pressed={selectedTag === code} onClick={() => setTagPick(code)}>
+                  {label} <em>{photos.images.filter((item) => item.tag === code).length}</em>
+                </button>
+              ))}
             </div>
-            <button type="button" className="pvm-clear-filter" onClick={() => { setActiveArea(null); setActiveTag(null); }}>Close <X size={13} aria-hidden="true" /></button>
-          </div>
-          {visible.length ? <div className="pvm-collection-grid">{visible.map(card)}</div>
-            : <div className="pvm-empty"><ImageIcon size={24} aria-hidden="true" /><strong>Nothing here.</strong></div>}
-        </section>
-      ) : null}
-
-      {modal?.type === 'all' ? (
-        <ModalShell title="All photos and videos" subtitle="Open a file to preview it, or edit its details." wide onClose={closeModal}>
-          <div className="pvm-modal-mosaic">{gallery.map(card)}</div>
-        </ModalShell>
+            {selectedTag === NONE ? <p className="pvm-help">Open a photo with the pencil and choose what it shows.</p> : null}
+            {tileGrid(visible)}
+          </section>
+        )
       ) : null}
 
       {modal?.type === 'cover' ? (
@@ -639,11 +724,6 @@ export default function PhotosVideosWorkspace({ property, onPropertyChange }) {
         <Lightbox item={lightboxItem} items={lightboxItems} busy={busy} onClose={() => setLightboxId(null)} onNavigate={navigateLightbox} onSetCover={chooseCover} />
       ) : null}
 
-      <div className="pvm-mobile-actions">
-        <button type="button" className="pvm-btn" onClick={() => setModal({ type: 'all' })} disabled={!gallery.length}>View All</button>
-        <button type="button" className="pvm-btn" onClick={openReorder} disabled={gallery.length < 2}><GripVertical size={14} aria-hidden="true" />Reorder</button>
-        {uploadBtn}
-      </div>
     </div>
   );
 }
