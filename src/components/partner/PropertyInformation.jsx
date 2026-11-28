@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  BedDouble, Building2, ClipboardList, Coffee, Gift, Image as ImageIcon,
-  Info, Landmark, RefreshCw, Settings, Star,
-} from 'lucide-react';
-import { getInformation, getProperty } from '../../lib/api/properties.js';
-import { AuthLoading } from '../auth/RequireAuth.jsx';
-import {
+
+
   propertyInfoSectionById,
 } from '../../lib/data/propertyInformationSections.js';
 import { BasicInformationEditor } from './BasicInformationEditor.jsx';
@@ -27,18 +23,6 @@ import '../../styles/partner-rules-policies.css';
 import '../../styles/partner-content-score.css';
 import '../../styles/partner-financial-bank-details.css';
 import '../../styles/partner-property-settings.css';
-
-const SECTION_ICONS = {
-  'basic-information': Building2,
-  'rooms-rateplans': BedDouble,
-  'amenities-restaurants': Coffee,
-  'inclusions-packages': Gift,
-  'photos-videos': ImageIcon,
-  'rules-policies': ClipboardList,
-  'content-score': Star,
-  'financial-bank-details': Landmark,
-  settings: Settings,
-};
 
 const show = (value) => {
   if (value === undefined || value === null) return '—';
@@ -74,11 +58,14 @@ function usePropertyInformation(propertyId) {
 export function PropertyInformation({ property: summary }) {
   const [params] = useSearchParams();
   const section = propertyInfoSectionById(params.get('section'));
+<<<<<<< Updated upstream
   const Icon = SECTION_ICONS[section.id] ?? Building2;
   const { detail, information, error, loading, reload, setDetail, setInformation } = usePropertyInformation(summary.id);
   // Summary first (status, cover, stats), then everything the detail adds.
   const property = detail ? { ...summary, ...detail } : summary;
   const shared = { property, information, onPropertyChange: setDetail, onInformationChange: setInformation, onReload: reload };
+=======
+>>>>>>> Stashed changes
 
   return (
     <div className="pii-page">
@@ -90,14 +77,6 @@ export function PropertyInformation({ property: summary }) {
       </header>
 
       <section className="pii-content">
-        <header className="pii-section-head">
-          <span className="pii-section-icon"><Icon size={21} aria-hidden="true" /></span>
-          <div>
-            <h2>{section.label}</h2>
-            <p>{section.description}</p>
-          </div>
-        </header>
-
         <div className="pii-section-body">
           {!detail || !information ? (
             error ? (

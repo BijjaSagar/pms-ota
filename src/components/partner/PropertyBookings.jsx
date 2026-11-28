@@ -86,7 +86,7 @@ const INITIAL_FILTERS = {
 };
 
 const TABLE_COLUMNS = [
-  'Name', 'Check-in / out', 'Room & meal plan', 'Booking ID', 'Guest contact', 'Status', 'Amount',
+  'Booking ID', 'Name', 'Check-in / out', 'Room & meal plan', 'Guest contact', 'Amount',
 ];
 
 const toggleChannel = (channels, channel) => (
@@ -123,8 +123,10 @@ function Kpis({ stats }) {
 }
 
 function BookingRow({ booking, onPaymentDetails, onVoucher, onAction, busy }) {
+  const visibleActions = booking.actions.filter((action) => !['check-in', 'no-show', 'cancel'].includes(action));
   return (
     <tr className="bk-row">
+      <td data-label="Booking ID"><span className="ref-code">{booking.reference}</span></td>
       <td data-label="Name"><span className="bk-cell-main"><strong>{booking.guest.name}</strong></span></td>
       <td data-label="Check-in / out">
         <span className="bk-cell-main">
@@ -137,16 +139,16 @@ function BookingRow({ booking, onPaymentDetails, onVoucher, onAction, busy }) {
         <span className="bk-cell-main">{booking.room}</span>
         <span className="bk-cell-sub">{booking.plan}</span>
       </td>
-      <td data-label="Booking ID"><span className="ref-code">{booking.reference}</span></td>
       <td data-label="Guest contact">
         <span className="bk-cell-main">{booking.guest.email}</span>
         <span className="bk-cell-sub">{booking.guest.phone}</span>
       </td>
-      <td data-label="Status">
-        <Status status={booking.status} />
-        {booking.actions.length > 0 && (
+      <td data-label="Amount">
+        <span className="bk-cell-main"><strong>{inr(booking.amount)}</strong></span>
+        <span className="bk-cell-sub">{booking.payment.state}</span>
+        {visibleActions.length > 0 && (
           <div className="bk-row-actions bk-stay-actions">
-            {booking.actions.map((action) => {
+            {visibleActions.map((action) => {
               const { label, Icon } = ACTIONS[action];
               return (
                 <button key={action} type="button" className={`bk-pay-btn bk-act-btn ${action === 'cancel' || action === 'no-show' ? 'is-danger' : ''}`}
@@ -157,10 +159,6 @@ function BookingRow({ booking, onPaymentDetails, onVoucher, onAction, busy }) {
             })}
           </div>
         )}
-      </td>
-      <td data-label="Amount">
-        <span className="bk-cell-main"><strong>{inr(booking.amount)}</strong></span>
-        <span className="bk-cell-sub">{booking.payment.state}</span>
         <div className="bk-row-actions">
           <button type="button" className="bk-pay-btn" onClick={() => onPaymentDetails(booking)}>Payment details</button>
           <button type="button" className="bk-pay-btn bk-voucher-btn" onClick={() => onVoucher(booking)}>Voucher</button>

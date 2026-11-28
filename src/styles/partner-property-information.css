@@ -10,10 +10,6 @@
 .pii-tab:focus-visible { outline: 3px solid rgba(63, 107, 92, .3); outline-offset: 2px; }
 
 .pii-content { overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: #fff; }
-.pii-section-head { display: flex; align-items: center; gap: 13px; padding: 17px 18px; border-bottom: 1px solid var(--line); background: var(--sage); }
-.pii-section-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 12px; background: #fff; color: var(--accent-dark); }
-.pii-section-head h2 { margin: 0; font-size: 15px; font-weight: 800; color: var(--ink); }
-.pii-section-head p { margin: 3px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
 .pii-section-body { padding: 18px; }
 .pii-load-error { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 16px; border-radius: 12px; background: #fdecea; color: #8a1f17; font-size: 14px; }
 .pii-load-error button { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 999px; padding: 6px 12px; font: inherit; cursor: pointer; }
