@@ -684,6 +684,157 @@
   border: 0;
 }
 
+/* Bank account check (Rs 1 deposit) */
+.fbd-verify {
+  display: grid;
+  gap: 10px;
+  margin: 0 20px 20px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfdfb;
+}
+
+.fbd-verify-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--accent-dark);
+}
+
+.fbd-verify-head > div {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.fbd-verify-head strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.fbd-verify-head small,
+.fbd-verify-line {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.fbd-verify-line.is-error {
+  color: #8b3a2d;
+}
+
+.fbd-verify-chip {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.fbd-verify.is-verified .fbd-verify-chip {
+  border-color: #b6d4c3;
+  background: #f0f8f3;
+  color: #2f6048;
+}
+
+.fbd-verify.is-failed {
+  border-color: #e8bbb2;
+}
+
+.fbd-verify.is-failed .fbd-verify-chip {
+  border-color: #e8bbb2;
+  background: #fff5f3;
+  color: #8b3a2d;
+}
+
+.fbd-verify.is-pending .fbd-verify-chip {
+  border-color: #e6d3a3;
+  background: #fdf8ec;
+  color: #7a5a14;
+}
+
+.fbd-verify-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fbd-verify-consent {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  gap: 8px;
+  min-width: 220px;
+  color: var(--ink-2);
+  font-size: 11px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.fbd-verify-consent input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.fbd-link-btn {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-dark);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.fbd-inline-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8b3a2d;
+}
+
+.fbd-btn.is-danger {
+  border-color: #d99b90;
+  background: #fff5f3;
+  color: #9a4032;
+}
+
+.fbd-btn.is-danger:not(:disabled):hover {
+  background: #9a4032;
+  color: #fff;
+}
+
+.fbd-field input:disabled {
+  background: #f4f5f3;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+@media (max-width: 760px) {
+  .fbd-grid-gap {
+    display: none;
+  }
+
+  .fbd-verify-actions .fbd-btn {
+    width: 100%;
+  }
+}
+
 @media (max-width: 1180px) {
   .fbd-layout {
     grid-template-columns: minmax(0, 1fr) 260px;
@@ -806,5 +957,156 @@
 
   .fbd-ledger-values dd {
     text-align: left;
+  }
+}
+
+@media (max-width: 620px) {
+  .fbd-verify {
+    margin: 0 16px 16px;
+  }
+}
+
+.fbd-status-retry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fbd-card-loading {
+  padding: 28px 20px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Bank change: code sent to the sign-in e-mail */
+.fbd-code {
+  display: grid;
+  gap: 10px;
+  margin: 0 20px 16px;
+  padding: 14px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--sage);
+}
+
+.fbd-code-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fbd-code-row .fbd-field {
+  flex: 1;
+  min-width: 160px;
+  max-width: 260px;
+}
+
+.fbd-code-row input {
+  letter-spacing: 0.3em;
+  font-variant-numeric: tabular-nums;
+}
+
+.fbd-code-links {
+  display: flex;
+  gap: 16px;
+}
+
+.fbd-link-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.fbd-code-hint {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 20px 14px;
+  color: var(--accent-dark);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Recent activity (audit trail) */
+.fbd-ledger-section > span svg {
+  vertical-align: -2px;
+}
+
+.fbd-activity {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fbd-activity li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--line);
+  border-radius: 6px;
+  background: #fbfdfb;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.fbd-activity li.is-warn {
+  border-left-color: #d99b90;
+  background: #fff8f6;
+}
+
+.fbd-activity strong {
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.fbd-activity small {
+  color: var(--muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.fbd-activity span {
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.fbd-activity em {
+  justify-self: start;
+  color: #2f6048;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.fbd-activity li.is-warn em {
+  color: #8b3a2d;
+}
+
+.fbd-activity-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 620px) {
+  .fbd-code {
+    margin: 0 16px 16px;
+  }
+
+  .fbd-code-hint {
+    margin: 0 16px 12px;
+  }
+
+  .fbd-code-row .fbd-field {
+    max-width: none;
+  }
+
+  .fbd-code-row .fbd-btn {
+    width: 100%;
   }
 }

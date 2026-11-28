@@ -84,7 +84,11 @@ export default function HotelDetailsPage() {
     document.getElementById('rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  // The owner switched online bookings off (Partner Hub > Settings): the listing stays, booking does not.
+  const closedForBookings = hotel.acceptingBookings === false;
+
   const handleReserve = () => {
+    if (closedForBookings) return;
     if (!isCurrentHotel || !selectedRoom) selectRoom(hotel, activeRoom);
     if (!isAuthenticated) {
       // Sign-in is asked for only here, on the Reserve click.
@@ -245,7 +249,7 @@ export default function HotelDetailsPage() {
             <p className="book-bar-price">{formatCurrency(price.total)}</p>
             <p className="muted-xs">{activeRoom.name} · {nightsText}, all-in</p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={handleReserve}>Reserve</button>
+          <button type="button" className="btn btn-primary" onClick={handleReserve} disabled={closedForBookings}>{closedForBookings ? 'Not bookable' : 'Reserve'}</button>
         </div>
 
         <aside aria-label="Your booking" className="booking-col">
@@ -271,8 +275,11 @@ export default function HotelDetailsPage() {
               <div><span>Service fee ({pct(SERVICE_FEE_RATE)})</span><strong>{formatCurrency(price.serviceFee)}</strong></div>
               <div className="breakdown-total"><span>You pay</span><span>{formatCurrency(price.total)}</span></div>
             </div>
-            <button type="button" className="btn btn-primary btn-block btn-lg" onClick={handleReserve}>Reserve now</button>
-            <p className="muted-sm center-text mt-12 mb-18">You won't be charged until the next step</p>
+            {closedForBookings ? (
+              <p className="hd-warn" role="status">This property is not taking online bookings right now. Please check back later.</p>
+            ) : null}
+            <button type="button" className="btn btn-primary btn-block btn-lg" onClick={handleReserve} disabled={closedForBookings}>{closedForBookings ? 'Not taking bookings' : 'Reserve now'}</button>
+            {closedForBookings ? null : <p className="muted-sm center-text mt-12 mb-18">You won't be charged until the next step</p>}
             <div className="cancel-timeline">
               <p className="ct-title">{activeRoom.refundable ? 'Free cancellation available' : 'Non-refundable rate'}</p>
               <p className="muted-sm">{policies.cancellation}</p>

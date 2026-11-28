@@ -1,78 +1,57 @@
-export const PROPERTY_SETTINGS_STORAGE_KEY = 'triponx.partner.propertySettings';
+// Property Information > Settings: labels and helpers for the settings view from the API.
+// Nothing is kept in browser storage; a new access token is shown once and then only its last 4.
 
-export const DEFAULT_PROPERTY_SETTINGS = {
+export const PREFERENCE_ITEMS = [
+  ['onlineBookings', 'Accept online bookings', 'Allow guests to book this property on TriponX. Off keeps the listing but stops new bookings.'],
+  ['emailAlerts', 'Email notifications', 'Receive booking and payment alerts by email.'],
+  ['smsAlerts', 'SMS alerts', 'Receive urgent booking alerts by SMS.'],
+  ['priceAlerts', 'Rate change alerts', 'Get notified when market rates shift significantly.'],
+];
+
+export const DEFAULT_PREFERENCES = {
   onlineBookings: true,
   emailAlerts: true,
   smsAlerts: false,
   priceAlerts: true,
-  deactivated: false,
-  vccPasswordSet: false,
-  vccUpdatedAt: '',
 };
 
-const storageKey = (propertyId) => `${PROPERTY_SETTINGS_STORAGE_KEY}.${propertyId}.v1`;
+export const FIELD_LABELS = {
+  label: 'Token name',
+  otp: 'Code',
+  currentPassword: 'Current VCC password',
+  newPassword: 'New password',
+  confirmPassword: 'Confirm password',
+  reason: 'Reason',
+};
 
-export function createDemoAccessToken(property) {
-  const seed = String(property?.reference ?? property?.id ?? 'property')
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '') || 'property';
-  return `tx_demo_${seed}_${seed.split('').reverse().join('')}`;
+// Same rule as the API: letters, digits, spaces and . _ -
+const TOKEN_LABEL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} ._-]*$/u;
+
+export function tokenLabelError(label) {
+  const text = String(label ?? '').trim();
+  if (text.length < 2) return 'Give the token a name (at least 2 characters).';
+  if (text.length > 40) return 'Use at most 40 characters.';
+  if (!TOKEN_LABEL_PATTERN.test(text)) return 'Use letters, digits, spaces and . _ - only.';
+  return '';
 }
 
-export function maskAccessToken(token) {
-  const text = String(token ?? '');
-  if (!text) return '—';
-  if (text.length <= 8) return text;
-  return `${text.slice(0, 3)}${'•'.repeat(Math.min(10, text.length - 7))}${text.slice(-4)}`;
+export function reasonError(reason) {
+  const text = String(reason ?? '').trim();
+  if (text.length > 300) return 'Use at most 300 characters.';
+  if (/[<>{}`]/.test(text)) return 'Remove < > { } and ` from the reason.';
+  return '';
 }
 
-export function loadPropertySettings(propertyId) {
-  try {
-    const stored = window.sessionStorage.getItem(storageKey(propertyId));
-    return stored ? { ...DEFAULT_PROPERTY_SETTINGS, ...JSON.parse(stored) } : DEFAULT_PROPERTY_SETTINGS;
-  } catch {
-    return DEFAULT_PROPERTY_SETTINGS;
-  }
-}
-
-export function savePropertySettings(propertyId, settings) {
-  try {
-    window.sessionStorage.setItem(storageKey(propertyId), JSON.stringify(settings));
-  } catch {
-    return;
-  }
-}
-
-export function effectiveStatus(property, settings) {
-  if (settings.deactivated) return 'SUSPENDED';
-  return property?.status || 'DRAFT';
-}
-
-export function hotelCode(property) {
-  return property?.reference || property?.hotelCode || property?.id || '—';
-}
-
-export function channelManagerSummary(property) {
-  const basic = property?.basic && typeof property.basic === 'object' ? property.basic : {};
-  const enabled = basic.channelManager ?? property?.channelManager;
-  const provider = basic.providerName ?? property?.providerName;
-  if (enabled === true || enabled === 'yes') return provider ? `Yes · ${provider}` : 'Yes';
-  if (enabled === false || enabled === 'no') return 'No';
+export function channelManagerSummary(view) {
+  const cm = view?.channelManager ?? {};
+  if (cm.uses === true) return cm.name ? `Yes · ${cm.name}` : 'Yes';
+  if (cm.uses === false) return 'No';
   return 'Not configured';
 }
 
-export function createdByUser(property, user) {
-  const createdBy = property?.createdBy;
-  const name = typeof createdBy === 'object' && createdBy !== null
-    ? createdBy.name || createdBy.fullName || createdBy.email
-    : createdBy;
-  if (name) return name;
-  return user?.name || user?.fullName || user?.email || '—';
-}
-
 export function formatTimestamp(value) {
-  if (!value) return 'Not set';
+  if (!value) return 'Never';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString();
+  return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 }

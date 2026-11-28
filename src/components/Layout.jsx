@@ -196,14 +196,18 @@ function LocaleModal({ value, onClose, onApply }) {
 // ---------- Shared UI primitives ----------
 export function Modal({ title, onClose, children, wide = false }) {
   const boxRef = useRef(null);
+  // The latest onClose, so the effect below runs once per opening: callers often pass an inline
+  // function, and re-running it on every render would pull focus out of the field being typed in.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current(); };
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     boxRef.current?.focus();
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [onClose]);
+  }, []);
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className={`modal glass-pop ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}
