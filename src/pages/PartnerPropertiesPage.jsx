@@ -23,7 +23,7 @@ const ACTIVE = 'active';
 
 // Statuses of each view, in display order.
 const GROUPS = {
-  [ACTIVE]: ['LIVE', 'SUSPENDED'],
+  [ACTIVE]: ['LIVE', 'SUSPENDED', 'DEACTIVATED'],
   [IN_PROGRESS_TAB]: ['CHANGES_REQUESTED', 'DRAFT', 'REJECTED'],
 };
 const VIEWS = [

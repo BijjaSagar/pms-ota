@@ -7,4 +7,5 @@ export const STATUS_INFO = {
   LIVE: { label: 'Live', hint: 'This property has been approved.', tone: 'good' },
   REJECTED: { label: 'Not approved', hint: 'This listing was not approved.', tone: 'bad' },
   SUSPENDED: { label: 'Suspended', hint: 'This listing is offline.', tone: 'bad' },
+  DEACTIVATED: { label: 'Deactivated', hint: 'You took this property offline. Reactivate it in Settings.', tone: 'bad' },
 };

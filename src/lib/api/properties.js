@@ -242,6 +242,28 @@ export const saveLegal = (id, form) => partnerApi.put(`${base(id)}/legal`, {
   ifsc: form.ifsc,
   declaration: form.declaration,
 });
+// Property Information > Financial & Bank Details (each call answers with the whole finance view).
+export const getFinance = (id) => partnerApi.get(`${info(id)}/finance`);
+export const saveFinancePayout = (id, body) => partnerApi.put(`${info(id)}/finance/payout`, body);
+// A 6-digit code to the sign-in e-mail, needed to change the bank account of a listed property.
+export const requestBankChangeCode = (id) => partnerApi.post(`${info(id)}/finance/payout/code`, {});
+export const getFinanceActivity = (id) => partnerApi.get(`${info(id)}/finance/activity`);
+export const verifyFinanceBank = (id) => partnerApi.post(`${info(id)}/finance/bank-verification`, { consent: true });
+export const saveFinanceTax = (id, body) => partnerApi.put(`${info(id)}/finance/tax`, body);
+export const saveFinanceCompliance = (id, body) => partnerApi.put(`${info(id)}/finance/compliance`, body);
+export const confirmFinance = (id) => partnerApi.post(`${info(id)}/finance/confirm`, { declaration: true });
+// Property Information > Settings (each call answers with the whole settings view).
+const settingsPath = (id) => `${info(id)}/settings`;
+export const getPropertySettings = (id) => partnerApi.get(settingsPath(id));
+export const savePropertyPreferences = (id, body) => partnerApi.put(`${settingsPath(id)}/preferences`, body);
+// purpose: 'api-token' | 'vcc-reset' — a 6-digit code to the sign-in e-mail.
+export const requestSettingsCode = (id, purpose) => partnerApi.post(`${settingsPath(id)}/code`, { purpose });
+// Answers { token, settings }: the token is shown only this once.
+export const createApiToken = (id, body) => partnerApi.post(`${settingsPath(id)}/api-tokens`, body);
+export const revokeApiToken = (id, tokenId) => partnerApi.del(`${settingsPath(id)}/api-tokens/${tokenId}`);
+export const setVccPassword = (id, body) => partnerApi.put(`${settingsPath(id)}/vcc-password`, body);
+export const deactivateProperty = (id, reason) => partnerApi.post(`${settingsPath(id)}/deactivate`, reason ? { reason } : {});
+export const reactivateProperty = (id) => partnerApi.post(`${settingsPath(id)}/reactivate`, {});
 export const uploadDocument = (id, type, file) => partnerApi.upload(`${base(id)}/documents/${type}`, formWith(file));
 export const deleteDocument = (id, type) => partnerApi.del(`${base(id)}/documents/${type}`);
 
