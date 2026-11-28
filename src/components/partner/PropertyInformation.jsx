@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   BedDouble, Building2, ClipboardList, Coffee, Gift, Image as ImageIcon,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { getInformation, getProperty } from '../../lib/api/properties.js';
 import { AuthLoading } from '../auth/RequireAuth.jsx';
+import { showFromTop } from '../../lib/utils/showFromTop.js';
 import {
   propertyInfoSectionById,
 } from '../../lib/data/propertyInformationSections.js';
@@ -74,7 +75,15 @@ function usePropertyInformation(propertyId) {
 export function PropertyInformation({ property: summary }) {
   const [params] = useSearchParams();
   const section = propertyInfoSectionById(params.get('section'));
+  const tab = params.get('tab');
   const Icon = SECTION_ICONS[section.id] ?? Building2;
+  // A new section or tab opens at its top, not where the last one was scrolled to.
+  const bodyRef = useRef(null);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    showFromTop(bodyRef.current);
+  }, [section.id, tab]);
   const { detail, information, error, loading, reload, setDetail, setInformation } = usePropertyInformation(summary.id);
   // Summary first (status, cover, stats), then everything the detail adds.
   const property = detail ? { ...summary, ...detail } : summary;
@@ -98,7 +107,7 @@ export function PropertyInformation({ property: summary }) {
           </div>
         </header>
 
-        <div className="pii-section-body">
+        <div className="pii-section-body" ref={bodyRef}>
           {!detail || !information ? (
             error ? (
               <div className="pii-load-error" role="alert">
